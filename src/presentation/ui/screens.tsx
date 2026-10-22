@@ -11,8 +11,8 @@ export function LoadingScreen() {
   return (
     <div className="pointer-events-auto absolute inset-0 z-50 flex flex-col items-center justify-center gap-[1.2em] bg-[#3b2416] text-cream">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={asset("logo")} alt="Boba Story" className="floaty w-[55%]" />
-      <div className="w-[60%]">
+      <img src={asset("logo")} alt="Boba Story" className="floaty w-[min(55cqw,42cqh)]" />
+      <div className="w-[min(60%,24em)]">
         <div className="h-[0.8em] overflow-hidden rounded-full border-2 border-cream">
           <div className="h-full bg-caramel transition-[width]" style={{ width: `${Math.round(game.loadProgress * 100)}%` }} />
         </div>
@@ -35,22 +35,22 @@ export function MainMenu() {
   return (
     <div className="pointer-events-auto absolute inset-0 z-30 flex flex-col items-center justify-end gap-[0.7em] bg-gradient-to-b from-[rgba(59,36,22,0.15)] via-[rgba(59,36,22,0.35)] to-[rgba(59,36,22,0.85)] pb-[12%]">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={asset("logo")} alt="Boba Story" className="floaty absolute top-[6%] w-[62%] drop-shadow-xl" />
+      <img src={asset("logo")} alt="Boba Story" className="floaty absolute top-[6%] w-[min(62cqw,40cqh)] drop-shadow-xl" />
       <p className="mb-[0.5em] px-[8%] text-center text-[1.05em] font-bold text-cream drop-shadow">Quán trà sữa nhỏ của những vị khách mèo</p>
       {game.hasSave && (
-        <button className="btn btn-green w-[62%] text-[1.25em]" onClick={start(() => game.continueGame())}>
+        <button className="btn btn-green w-[min(62%,20em)] text-[1.25em]" onClick={start(() => game.continueGame())}>
           Tiếp tục · Ngày {game.save.day}
         </button>
       )}
       <button
-        className={`btn w-[62%] text-[1.25em] ${game.hasSave ? "btn-secondary" : ""}`}
+        className={`btn w-[min(62%,20em)] text-[1.25em] ${game.hasSave ? "btn-secondary" : ""}`}
         onClick={start(() => {
           if (!game.hasSave || window.confirm("Bắt đầu lại từ đầu? Tiến trình hiện tại sẽ bị ghi đè.")) game.newGame();
         })}
       >
         Chơi mới
       </button>
-      <div className="flex w-[62%] gap-2">
+      <div className="flex w-[min(62%,20em)] gap-2">
         <button className="btn btn-secondary flex-1" onClick={() => game.openModal("settings")}>
           Cài đặt
         </button>
@@ -60,7 +60,7 @@ export function MainMenu() {
       </div>
       {restoring && (
         <form
-          className="panel pop-in flex w-[80%] flex-col gap-2 p-[0.8em]"
+          className="panel pop-in flex w-[min(80%,24em)] flex-col gap-2 p-[0.8em]"
           onSubmit={async (e) => {
             e.preventDefault();
             if (await game.cloudRestore(code)) setRestoring(false);
@@ -94,7 +94,7 @@ export function PrepScreen() {
   const claimable = QUESTS.filter((q) => s.quests[q.id]?.done && !s.quests[q.id]?.claimed).length;
   return (
     <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-20 flex flex-col items-center gap-[0.6em] bg-gradient-to-t from-[rgba(42,24,16,0.92)] to-transparent px-[5%] pb-[6%] pt-[18%]">
-      <div className="panel pop-in w-full p-[0.9em] text-center">
+      <div className="panel pop-in w-full max-w-[30em] p-[0.9em] text-center">
         <h2 className="text-[1.5em] font-extrabold leading-tight">Ngày {s.day} · Chuẩn bị mở cửa</h2>
         <p className="text-cocoa">
           Quỹ: <Coin value={s.money} /> · Danh tiếng {Math.floor(s.reputation)}
@@ -113,7 +113,7 @@ export function PrepScreen() {
           </button>
         </div>
       </div>
-      <div className="flex w-full gap-2">
+      <div className="flex w-full max-w-[30em] gap-2">
         <button className="btn btn-secondary" onClick={() => game.toMenu()} aria-label="Về menu chính">
           ⌂
         </button>
@@ -150,7 +150,7 @@ export function SummaryScreen() {
   ];
   return (
     <div className="pointer-events-auto absolute inset-0 z-30 flex items-center justify-center bg-[rgba(42,24,16,0.6)] p-[5%]">
-      <section className="panel pop-in w-full p-[1em]">
+      <section className="panel pop-in max-h-full w-full max-w-[28em] overflow-y-auto p-[1em]">
         <h2 className="text-center text-[1.6em] font-extrabold">Tổng kết ngày {sum.day}</h2>
         <p className="mb-2 text-center text-cocoa">{st.served === 0 ? "Hôm nay hơi vắng... ngày mai sẽ tốt hơn!" : avg >= 80 ? "Một ngày tuyệt vời, mèo khách rất vui!" : "Một ngày bận rộn đã qua!"}</p>
         <dl className="divide-y-2 divide-[#efe1cf]">

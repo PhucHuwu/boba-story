@@ -136,7 +136,7 @@ export class ShopSession {
     if (!this.active) return;
     this.clock = DAY.lengthSec;
     this.setClosing();
-    for (const c of [...this.customers]) if (c.data.state === "ordering" || c.data.state === "waiting") this.leave(c, 0);
+    for (const c of [...this.customers]) if (c.data.state === "approaching" || c.data.state === "ordering" || c.data.state === "waiting") this.leave(c, 0);
   }
 
   get hour() {

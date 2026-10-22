@@ -8,10 +8,16 @@ import type { IngredientId, Mood, Size, TeaId, ToppingId } from "@/domain/types"
 import manifest from "./assetManifest.json";
 import { audio } from "./audio";
 import { drawCup } from "./cupRenderer";
-import { BUBBLE_Y, CARD_Y, CAT_HEIGHT, COLORS, COUNTER_Y, CUP_POS, DOOR, GAME_W, SHORT_RECIPE_NAME, slotX } from "./layout";
+import { COLORS, type Layout, SHORT_RECIPE_NAME, type StationId, slotX } from "./layout";
 import { presentTicket } from "./ticketPresenter";
 
-export const FONT = "var(--font-baloo), system-ui, sans-serif";
+/** Canvas text cannot resolve CSS variables, so read the real family next/font generated. */
+function resolveFont(): string {
+  const family = typeof document === "undefined" ? "" : getComputedStyle(document.documentElement).getPropertyValue("--font-baloo").trim();
+  return `${family ? `${family}, ` : ""}system-ui, sans-serif`;
+}
+
+const FONT = resolveFont();
 
 interface CatView {
   id: number;
@@ -33,8 +39,6 @@ interface Station {
   name: string;
   stock?: IngredientId;
 }
-
-type StationId = TeaId | "milk" | "sugar" | "ice" | "cup_M" | "cup_L" | "sealer" | "trash" | ToppingId;
 
 /**
  * Humble view of the shop: renders `ShopSession` state and forwards input as commands.
@@ -61,7 +65,10 @@ export class ShopScene extends Phaser.Scene {
   private dirty = true;
   private unsubscribe: (() => void)[] = [];
 
-  constructor(private readonly ctl: GameController) {
+  constructor(
+    private readonly ctl: GameController,
+    private readonly L: Layout,
+  ) {
     super("shop");
   }
 
@@ -96,38 +103,75 @@ export class ShopScene extends Phaser.Scene {
         this.syncPause();
       }),
     );
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.unsubscribe.forEach((u) => u()));
+    this.restoreCustomers();
+    const detach = () => {
+      this.unsubscribe.forEach((u) => u());
+      this.unsubscribe = [];
+    };
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, detach);
+    this.events.once(Phaser.Scenes.Events.DESTROY, detach);
     this.ctl.setLoadProgress(1);
+  }
+
+  /** Rebuilds cat views for a session already in progress (e.g. after rotating the device remounts the scene). */
+  private restoreCustomers() {
+    for (const cust of this.session.customers) {
+      const { state } = cust.data;
+      if (state === "leaving" || state === "gone") continue;
+      this.spawnCat(cust, state === "approaching" ? Math.max(0.05, cust.timer) : 0.05);
+      const c = this.cats.get(cust.data.id);
+      if (!c || state === "approaching") continue;
+      c.card.setAlpha(1).setY(this.L.cardY);
+      this.setMood(cust.data.id, cust.mood);
+    }
   }
 
   // ---------------------------------------------------------------- static layout
   private buildRoom() {
-    const bg = this.add.image(0, -250, "bg_room").setOrigin(0, 0);
-    bg.setDisplaySize(GAME_W, (GAME_W / bg.width) * bg.height);
+    const { room, counterY } = this.L;
+    const bg = this.add.image(0, room.bgY, "bg_room").setOrigin(0, 0);
+    bg.setDisplaySize(room.w, (room.w / bg.width) * bg.height);
     const shade = this.add.graphics();
     shade.fillGradientStyle(0x3b2416, 0x3b2416, 0x3b2416, 0x3b2416, 0.35, 0.35, 0, 0);
-    shade.fillRect(0, 0, GAME_W, 200);
+    shade.fillRect(0, 0, room.w, 200);
 
     const g = this.add.graphics().setDepth(10);
-    g.fillStyle(0x9c6440, 1).fillRect(0, COUNTER_Y - 6, GAME_W, 40);
-    g.fillStyle(0xc68a5b, 1).fillRoundedRect(-10, COUNTER_Y - 26, GAME_W + 20, 34, 12);
-    g.fillStyle(0xe2ab78, 1).fillRoundedRect(-10, COUNTER_Y - 26, GAME_W + 20, 10, { tl: 12, tr: 12, bl: 0, br: 0 });
-    g.lineStyle(3, 0x5b3523, 1).strokeRoundedRect(-10, COUNTER_Y - 26, GAME_W + 20, 34, 12);
+    g.fillStyle(0x9c6440, 1).fillRect(0, counterY - 6, room.w, 40);
+    g.fillStyle(0xc68a5b, 1).fillRoundedRect(-10, counterY - 26, room.w + 20, 34, 12);
+    g.fillStyle(0xe2ab78, 1).fillRoundedRect(-10, counterY - 26, room.w + 20, 10, { tl: 12, tr: 12, bl: 0, br: 0 });
+    g.lineStyle(3, 0x5b3523, 1).strokeRoundedRect(-10, counterY - 26, room.w + 20, 34, 12);
   }
 
   private buildWorktop() {
-    this.add
-      .tileSprite(0, COUNTER_Y + 8, GAME_W, 1280 - COUNTER_Y, "worktop")
-      .setOrigin(0, 0)
-      .setDepth(11)
-      .setTileScale(0.6, 0.6);
-    this.add.graphics().setDepth(12).fillStyle(0x5b3523, 0.25).fillRect(0, COUNTER_Y + 8, GAME_W, 8);
+    const { worktop: w, counterFront: f, ticket: t } = this.L;
+    this.add.tileSprite(w.x, w.y, w.w, w.h, "worktop").setOrigin(0, 0).setDepth(11).setTileScale(0.6, 0.6);
+    const edge = this.add.graphics().setDepth(12).fillStyle(0x5b3523, 0.25);
+    if (w.x > 0) edge.fillRect(w.x, w.y, 10, w.h);
+    else edge.fillRect(w.x, w.y, w.w, 8);
+    for (const r of this.L.benchRows ?? []) {
+      edge.fillStyle(0x5b3523, 0.1).fillRoundedRect(r.x, r.y, r.w, r.h, 22);
+      edge.lineStyle(3, 0x5b3523, 0.18).strokeRoundedRect(r.x, r.y, r.w, r.h, 22);
+      edge.fillStyle(0x5b3523, 0.25);
+    }
+    if (f) {
+      this.add.tileSprite(f.x, f.y, f.w, f.h, "worktop").setOrigin(0, 0).setDepth(11).setTileScale(0.6, 0.6).setTint(0xd9b48f);
+      edge.fillRect(f.x, f.y, f.w, 8);
+    }
     this.ticketBg = this.add.graphics().setDepth(13);
-    this.ticketBg.fillStyle(COLORS.paper, 0.95).fillRoundedRect(12, COUNTER_Y + 16, GAME_W - 24, 112, 14);
-    this.ticketBg.lineStyle(3, COLORS.cocoa, 1).strokeRoundedRect(12, COUNTER_Y + 16, GAME_W - 24, 112, 14);
-    this.ticketTitle = this.add.text(24, COUNTER_Y + 24, "", { fontFamily: FONT, fontSize: "26px", color: "#4a2c1d", fontStyle: "800" }).setDepth(14);
+    this.ticketBg.fillStyle(COLORS.paper, 0.95).fillRoundedRect(t.x, t.y, t.w, t.h, 14);
+    this.ticketBg.lineStyle(3, COLORS.cocoa, 1).strokeRoundedRect(t.x, t.y, t.w, t.h, 14);
+    const pad = 12;
+    this.ticketTitle = this.add
+      .text(t.x + pad, t.y + 8, "", { fontFamily: FONT, fontSize: `${t.titleSize}px`, color: "#4a2c1d", fontStyle: "800" })
+      .setDepth(14);
     this.ticketLines = this.add
-      .text(24, COUNTER_Y + 60, "", { fontFamily: FONT, fontSize: "20px", color: "#6b4430", lineSpacing: 4, wordWrap: { width: GAME_W - 48 } })
+      .text(t.x + pad, t.y + 14 + t.titleSize * 1.25, "", {
+        fontFamily: FONT,
+        fontSize: `${t.textSize}px`,
+        color: "#6b4430",
+        lineSpacing: Math.round(t.textSize * 0.25),
+        wordWrap: { width: t.w - pad * 2 },
+      })
       .setDepth(14);
   }
 
@@ -137,12 +181,13 @@ export class ShopScene extends Phaser.Scene {
     return img;
   }
 
-  private addStation(id: StationId, key: string, x: number, y: number, maxW: number, maxH: number, name: string, stock?: IngredientId) {
-    const obj = this.fit(this.add.image(x, y, key), maxW, maxH).setDepth(15).setInteractive({ useHandCursor: true });
+  private addStation(id: StationId, key: string, name: string, stock?: IngredientId) {
+    const spot = this.L.stations[id];
+    const obj = this.fit(this.add.image(spot.x, spot.y, key), spot.w, spot.h).setDepth(15).setInteractive({ useHandCursor: true });
     const label = this.add
-      .text(x, y + maxH / 2 + 4, name, {
+      .text(spot.x, spot.labelY ?? spot.y + spot.h / 2 + 4, name, {
         fontFamily: FONT,
-        fontSize: "17px",
+        fontSize: this.L.kind === "phone" ? "17px" : "19px",
         color: "#4a2c1d",
         fontStyle: "700",
         align: "center",
@@ -159,35 +204,31 @@ export class ShopScene extends Phaser.Scene {
   }
 
   private buildStations() {
-    const rowB = 880;
     const teaName: Record<TeaId, string> = { tea_black: "Trà đen", tea_green: "Trà xanh", tea_oolong: "Ô long" };
-    TEA_IDS.forEach((t, i) => this.addStation(t, t, 68 + i * 118, rowB, 112, 150, teaName[t], t).obj.on("pointerdown", () => this.pour(t)));
-    this.addStation("milk", "milk", 422, rowB + 6, 104, 130, "Sữa", "milk").obj.on("pointerdown", () => this.pour("milk"));
-    this.addStation("sugar", "sugar", 540, rowB, 80, 140, "Đường", "sugar").obj.on("pointerdown", () => this.command(() => this.session.pumpSugar()));
-    this.addStation("ice", "ice", 650, rowB + 10, 120, 110, "Đá", "ice").obj.on("pointerdown", () => this.command(() => this.session.scoopIce()));
+    TEA_IDS.forEach((t) => this.addStation(t, t, teaName[t], t).obj.on("pointerdown", () => this.pour(t)));
+    this.addStation("milk", "milk", "Sữa", "milk").obj.on("pointerdown", () => this.pour("milk"));
+    this.addStation("sugar", "sugar", "Đường", "sugar").obj.on("pointerdown", () => this.command(() => this.session.pumpSugar()));
+    this.addStation("ice", "ice", "Đá", "ice").obj.on("pointerdown", () => this.command(() => this.session.scoopIce()));
 
-    const rowC = 1070;
     const take = (size: Size) => () => this.command(() => this.session.takeCup(size));
-    this.addStation("cup_M", "cup_stack", 58, rowC + 10, 70, 130, "Ly M", "cup").obj.on("pointerdown", take("M"));
-    this.addStation("cup_L", "cup_stack", 150, rowC, 84, 160, "Ly L", "cup").obj.on("pointerdown", take("L"));
-    this.addStation("sealer", "sealer", 545, rowC - 4, 150, 160, "Dán nắp", "lid").obj.on("pointerdown", () => this.command(() => this.session.sealCup()));
-    this.addStation("trash", "trash", 670, rowC + 30, 70, 100, "Bỏ ly").obj.on("pointerdown", () => this.command(() => this.session.discardCup()));
+    this.addStation("cup_M", "cup_stack", "Ly M", "cup").obj.on("pointerdown", take("M"));
+    this.addStation("cup_L", "cup_stack", "Ly L", "cup").obj.on("pointerdown", take("L"));
+    this.addStation("sealer", "sealer", "Dán nắp", "lid").obj.on("pointerdown", () => this.command(() => this.session.sealCup()));
+    this.addStation("trash", "trash", "Bỏ ly").obj.on("pointerdown", () => this.command(() => this.session.discardCup()));
 
-    const rowD = 1205;
     const tops: [ToppingId, string][] = [
       ["top_boba", "Trân châu"],
       ["top_jelly", "Thạch dừa"],
       ["top_pudding", "Pudding"],
     ];
-    tops.forEach(([t, name], i) => {
-      const st = this.addStation(t, t, 130 + i * 190, rowD - 8, 130, 80, name, t);
-      st.label.setY(rowD + 34);
-      st.obj.on("pointerdown", (p: Phaser.Input.Pointer) => this.startToppingDrag(t, p));
-    });
+    for (const [t, name] of tops) {
+      this.addStation(t, t, name, t).obj.on("pointerdown", (p: Phaser.Input.Pointer) => this.startToppingDrag(t, p));
+    }
   }
 
   private buildCupHitArea() {
-    const hit = this.add.zone(CUP_POS.x, CUP_POS.y, 170, 230).setDepth(21).setInteractive({ useHandCursor: true });
+    const { cup } = this.L;
+    const hit = this.add.zone(cup.x, cup.y, 170, 230).setDepth(21).setInteractive({ useHandCursor: true });
     hit.on("pointerdown", (p: Phaser.Input.Pointer) => {
       if (this.session.cup?.sealed && this.ctl.isInteractive()) {
         this.draggingCup = true;
@@ -211,10 +252,16 @@ export class ShopScene extends Phaser.Scene {
     this.input.on("pointermove", (p: Phaser.Input.Pointer) => {
       this.dragGhost?.setPosition(p.x, p.y);
       if (this.draggingCup) {
-        this.cupGfx.setPosition(p.x - CUP_POS.x, p.y - CUP_POS.y);
+        this.cupGfx.setPosition(p.x - this.L.cup.x, p.y - this.L.cup.y);
         const target = this.catAt(p);
         for (const c of this.cats.values()) c.sprite.setAlpha(target && c !== target ? 0.75 : 1);
       }
+    });
+    // Cats are hit-tested by slot, not by sprite: their bodies are tweened containers and sprite hit areas proved unreliable.
+    this.input.on("pointerdown", (p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
+      if (over.length > 0) return;
+      const cat = this.catAt(p);
+      if (cat) this.command(() => this.session.tapCustomer(cat.id));
     });
     this.input.on("pointerup", (p: Phaser.Input.Pointer) => this.onPointerUp(p));
     this.input.on("pointerupoutside", (p: Phaser.Input.Pointer) => this.onPointerUp(p));
@@ -245,7 +292,7 @@ export class ShopScene extends Phaser.Scene {
     this.session.stopPour();
     const moved = Phaser.Math.Distance.Between(p.x, p.y, this.dragStart.x, this.dragStart.y);
     if (this.dragTopping) {
-      const overCup = Phaser.Math.Distance.Between(p.x, p.y, CUP_POS.x, CUP_POS.y) < 140;
+      const overCup = Phaser.Math.Distance.Between(p.x, p.y, this.L.cup.x, this.L.cup.y) < 140;
       if (moved < 12 || overCup) this.session.addTopping(this.dragTopping);
       else this.ctl.notify("Thả topping vào ly để thêm", "info");
       this.endToppingDrag();
@@ -261,11 +308,11 @@ export class ShopScene extends Phaser.Scene {
   }
 
   private catAt(p: Phaser.Input.Pointer): CatView | undefined {
-    if (p.y > COUNTER_Y + 20) return undefined;
+    if (p.y > this.L.counterY + 20 || p.x > this.L.room.w || p.y < this.L.cardY - 70) return undefined;
     const slots = maxCustomers(this.ctl.save);
-    const half = (slotX(1, slots) - slotX(0, slots)) / 2;
+    const half = (slotX(this.L, 1, slots) - slotX(this.L, 0, slots)) / 2;
     const waiting = new Set(this.session.customers.filter((c) => c.data.state === "waiting" || c.data.state === "ordering").map((c) => c.data.id));
-    return [...this.cats.values()].find((c) => waiting.has(c.id) && Math.abs(slotX(c.slot, slots) - p.x) < half);
+    return [...this.cats.values()].find((c) => waiting.has(c.id) && Math.abs(slotX(this.L, c.slot, slots) - p.x) < half);
   }
 
   // ---------------------------------------------------------------- session events → animation
@@ -285,7 +332,7 @@ export class ShopScene extends Phaser.Scene {
       case "ordering": {
         const c = this.cats.get(e.id);
         if (!c) break;
-        this.tweens.add({ targets: c.card, alpha: 1, y: CARD_Y, duration: 250 });
+        this.tweens.add({ targets: c.card, alpha: 1, y: this.L.cardY, duration: 250 });
         this.setIdle(c, true);
         audio.play("bell");
         break;
@@ -311,13 +358,13 @@ export class ShopScene extends Phaser.Scene {
       case "served": {
         const c = this.cats.get(e.id);
         if (!c) break;
-        const flying = this.fit(this.add.image(CUP_POS.x, CUP_POS.y, "cup_stack").setDepth(40), 60, 90);
-        this.tweens.add({ targets: flying, x: c.root.x, y: 470, scale: flying.scale * 0.8, duration: 350, ease: "Quad.easeOut", onComplete: () => flying.destroy() });
+        const flying = this.fit(this.add.image(this.L.cup.x, this.L.cup.y, "cup_stack").setDepth(40), 60, 90);
+        this.tweens.add({ targets: flying, x: c.root.x, y: this.L.counterY - this.L.catHeight / 2, scale: flying.scale * 0.8, duration: 350, ease: "Quad.easeOut", onComplete: () => flying.destroy() });
         const { info } = e;
         audio.play(info.happy ? "happy" : "sad");
         if (info.price + info.tip > 0) this.time.delayedCall(250, () => audio.play("coin"));
         const stars = `${"★".repeat(info.stars)}${"☆".repeat(3 - info.stars)}`;
-        this.floatText(c.root.x, 300, `${stars} ${info.label}\n+${info.price} xu${info.tip ? `  +${info.tip} tip` : ""}`, info.happy ? "#2f6b2f" : "#9a3b3b");
+        this.floatText(c.root.x, this.L.cardY + 85, `${stars} ${info.label}\n+${info.price} xu${info.tip ? `  +${info.tip} tip` : ""}`, info.happy ? "#2f6b2f" : "#9a3b3b");
         break;
       }
       case "cup": {
@@ -349,14 +396,13 @@ export class ShopScene extends Phaser.Scene {
   private spawnCat(customer: ShopCustomer, duration: number) {
     const d = customer.data;
     const slots = maxCustomers(this.ctl.save);
-    const x = slotX(d.slot, slots);
+    const x = slotX(this.L, d.slot, slots);
     const sprite = this.add.image(0, 0, `cat_${d.archetype}_idle`).setOrigin(0.5, 1);
-    const baseScale = CAT_HEIGHT / sprite.height;
-    sprite.setScale(baseScale).setInteractive({ useHandCursor: true });
-    sprite.on("pointerdown", () => this.command(() => this.session.tapCustomer(d.id)));
-    const root = this.add.container(DOOR.x, DOOR.y, [sprite]).setDepth(5).setScale(0.45).setAlpha(0);
+    const baseScale = this.L.catHeight / sprite.height;
+    sprite.setScale(baseScale);
+    const root = this.add.container(this.L.door.x, this.L.door.y, [sprite]).setDepth(5).setScale(0.45).setAlpha(0);
 
-    const card = this.add.container(x, CARD_Y - 10).setDepth(30).setAlpha(0);
+    const card = this.add.container(x, this.L.cardY - 10).setDepth(30).setAlpha(0);
     const cardBg = this.add.graphics();
     const text = (y: number, s: string, size: number, color: string, weight: string) =>
       this.add.text(0, y, s, { fontFamily: FONT, fontSize: `${size}px`, color, fontStyle: weight, align: "center" }).setOrigin(0.5);
@@ -378,7 +424,7 @@ export class ShopScene extends Phaser.Scene {
     const view: CatView = { id: d.id, slot: d.slot, root, sprite, card, cardBg, bar, status, baseScale };
     this.cats.set(d.id, view);
     this.tweens.add({ targets: root, alpha: 1, duration: 300 });
-    this.tweens.add({ targets: root, x, y: COUNTER_Y + 30, scale: 1, duration: duration * 1000, ease: "Sine.easeInOut" });
+    this.tweens.add({ targets: root, x, y: this.L.counterY + 30, scale: 1, duration: duration * 1000, ease: "Sine.easeInOut" });
     if (!this.reduced) this.waddle(view, duration * 1000);
   }
 
@@ -411,10 +457,14 @@ export class ShopScene extends Phaser.Scene {
     if (!c) return;
     this.tweens.add({ targets: c.card, alpha: 0, duration: 200 });
     this.time.delayedCall(delaySec * 1000, () => {
+      this.tweens.killTweensOf(c.root);
+      this.tweens.killTweensOf(c.sprite);
+      c.sprite.setAngle(0).setY(0);
+      c.root.setAlpha(1);
       this.setIdle(c, false);
-      c.sprite.setFlipX(c.root.x < DOOR.x);
+      c.sprite.setFlipX(c.root.x < this.L.door.x);
       const ms = durationSec * 1000;
-      this.tweens.add({ targets: c.root, x: DOOR.x, y: DOOR.y, scale: 0.45, duration: ms, ease: "Sine.easeInOut" });
+      this.tweens.add({ targets: c.root, x: this.L.door.x, y: this.L.door.y, scale: 0.45, duration: ms, ease: "Sine.easeInOut" });
       this.tweens.add({ targets: c.root, alpha: 0, delay: ms * 0.7, duration: ms * 0.3 });
       if (!this.reduced) this.waddle(c, ms);
     });
@@ -431,7 +481,7 @@ export class ShopScene extends Phaser.Scene {
     const c = this.cats.get(id);
     if (!c) return;
     c.sprite.setTexture(`cat_${this.session.customers.find((x) => x.data.id === id)?.data.archetype}_${mood}`);
-    c.baseScale = CAT_HEIGHT / c.sprite.height;
+    c.baseScale = this.L.catHeight / c.sprite.height;
     const state = this.session.customers.find((x) => x.data.id === id)?.data.state;
     this.setIdle(c, state === "ordering" || state === "waiting" || state === "receiving");
   }
@@ -448,10 +498,10 @@ export class ShopScene extends Phaser.Scene {
     const g = this.add.graphics();
     g.fillStyle(0xffffff, 0.96).fillRoundedRect(-w / 2, -h / 2, w, h, 14);
     g.lineStyle(2, COLORS.cocoa, 1).strokeRoundedRect(-w / 2, -h / 2, w, h, 14);
-    const x = Phaser.Math.Clamp(slotX(c.slot, maxCustomers(this.ctl.save)), w / 2 + 6, GAME_W - w / 2 - 6);
-    const bubble = this.add.container(x, BUBBLE_Y + 10, [g, t]).setDepth(35).setAlpha(0);
+    const x = Phaser.Math.Clamp(slotX(this.L, c.slot, maxCustomers(this.ctl.save)), w / 2 + 6, this.L.room.w - w / 2 - 6);
+    const bubble = this.add.container(x, this.L.bubbleY + 10, [g, t]).setDepth(35).setAlpha(0);
     c.bubble = bubble;
-    this.tweens.add({ targets: bubble, alpha: 1, y: BUBBLE_Y, duration: 200 });
+    this.tweens.add({ targets: bubble, alpha: 1, y: this.L.bubbleY, duration: 200 });
     this.tweens.add({
       targets: bubble,
       alpha: 0,
@@ -466,7 +516,7 @@ export class ShopScene extends Phaser.Scene {
 
   private floatText(x: number, y: number, text: string, color: string) {
     const t = this.add
-      .text(Phaser.Math.Clamp(x, 110, GAME_W - 110), y, text, {
+      .text(Phaser.Math.Clamp(x, 110, this.L.room.w - 110), y, text, {
         fontFamily: FONT,
         fontSize: "24px",
         color,
@@ -511,7 +561,7 @@ export class ShopScene extends Phaser.Scene {
   private renderState() {
     const s = this.session;
     const order = s.selectedOrder;
-    drawCup(this.cupGfx, this.gauge, s.cup, order, this.ctl.save.settings.hints);
+    drawCup(this.cupGfx, this.gauge, this.L.cup, s.cup, order, this.ctl.save.settings.hints);
     const ticket = presentTicket(this.ctl.phase, order, s.cup);
     this.ticketTitle.setText(ticket.title);
     this.ticketLines.setText(ticket.lines);
@@ -568,8 +618,8 @@ export class ShopScene extends Phaser.Scene {
     const sy = st.obj.y + 40;
     const curve = new Phaser.Curves.QuadraticBezier(
       new Phaser.Math.Vector2(sx, sy),
-      new Phaser.Math.Vector2((sx + CUP_POS.x) / 2, sy - 10),
-      new Phaser.Math.Vector2(CUP_POS.x, CUP_POS.y - 40),
+      new Phaser.Math.Vector2((sx + this.L.cup.x) / 2, sy - 10),
+      new Phaser.Math.Vector2(this.L.cup.x, this.L.cup.y - 40),
     );
     const pts = curve.getPoints(12);
     this.stream.lineStyle(10, color, 0.9).strokePoints(pts);
@@ -595,7 +645,7 @@ export class ShopScene extends Phaser.Scene {
     }
     const c = this.cats.get(target.customerId);
     if (!c) return null;
-    const x = slotX(c.slot, maxCustomers(this.ctl.save));
-    return target.kind === "card" ? { x, y: CARD_Y, w: 190, h: 130 } : { x, y: 480, w: 200, h: 260 };
+    const x = slotX(this.L, c.slot, maxCustomers(this.ctl.save));
+    return target.kind === "card" ? { x, y: this.L.cardY, w: 190, h: 130 } : { x, y: this.L.counterY + 30 - this.L.catHeight / 2, w: this.L.catHeight * 0.62, h: this.L.catHeight * 0.8 };
   }
 }

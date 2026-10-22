@@ -51,6 +51,17 @@ describe("GameController flow", () => {
     expect(game.phase).toBe("prep");
   });
 
+  it("closing early ends the day even while a customer is still walking in", () => {
+    const { game } = makeGame();
+    game.newGame();
+    game.openShop();
+    run(game, () => game.session.customers[0]?.data.state === "approaching");
+    expect(game.session.customers[0]?.data.state).toBe("approaching");
+    game.requestEndDay();
+    run(game, () => game.phase === "summary", 30);
+    expect(game.phase).toBe("summary");
+  });
+
   it("does not advance while paused or a modal is open", () => {
     const { game } = makeGame();
     game.newGame();

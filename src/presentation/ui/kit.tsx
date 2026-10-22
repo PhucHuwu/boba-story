@@ -36,7 +36,7 @@ export function Modal({ title, children, onClose, footer }: { title: string; chi
 
   return (
     <div className="pointer-events-auto absolute inset-0 z-40 flex items-center justify-center bg-[rgba(42,24,16,0.55)] p-[4%]" onPointerDown={(e) => e.target === e.currentTarget && onClose?.()}>
-      <section role="dialog" aria-modal="true" aria-label={title} className="panel pop-in flex max-h-[88%] w-full flex-col overflow-hidden">
+      <section role="dialog" aria-modal="true" aria-label={title} className="panel pop-in flex max-h-[88%] w-full max-w-[30em] flex-col overflow-hidden">
         <header className="flex items-center justify-between gap-2 border-b-4 border-bean bg-caramel px-[1em] py-[0.5em] text-white">
           <h2 className="text-[1.35em] font-extrabold leading-tight">{title}</h2>
           {onClose && (

@@ -2,7 +2,7 @@ import type * as Phaser from "phaser";
 import { INGREDIENTS, RECIPE_BY_ID, TEA_IDS } from "@/domain/catalog";
 import { liquidTotal } from "@/domain/cup";
 import type { CupState, Order } from "@/domain/types";
-import { COLORS, CUP_POS } from "./layout";
+import { COLORS, type Point } from "./layout";
 
 const MILK_COLOR = 0xfff4e2;
 const MAX_LEVEL = 1.12;
@@ -22,11 +22,18 @@ function mixColor(cup: CupState, total: number): number {
 }
 
 /** Draws the cup being brewed plus the fill gauge with target markers. */
-export function drawCup(g: Phaser.GameObjects.Graphics, gauge: Phaser.GameObjects.Graphics, cup: CupState | null, order: Order | undefined, hints: boolean) {
+export function drawCup(
+  g: Phaser.GameObjects.Graphics,
+  gauge: Phaser.GameObjects.Graphics,
+  pos: Point,
+  cup: CupState | null,
+  order: Order | undefined,
+  hints: boolean,
+) {
   g.clear();
   gauge.clear();
-  const x = CUP_POS.x;
-  const yBottom = CUP_POS.y + 95;
+  const x = pos.x;
+  const yBottom = pos.y + 95;
 
   g.fillStyle(0x6b4430, 0.18).fillEllipse(x, yBottom + 6, 170, 34);
   if (!cup) {

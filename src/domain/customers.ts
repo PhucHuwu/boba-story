@@ -4,7 +4,7 @@ import type { ArchetypeId, Level, Order, SaveData, Size } from "./types";
 export type CustomerState = "approaching" | "ordering" | "waiting" | "receiving" | "leaving" | "gone";
 
 const TRANSITIONS: Record<CustomerState, CustomerState[]> = {
-  approaching: ["ordering"],
+  approaching: ["ordering", "leaving"],
   ordering: ["waiting", "leaving"],
   waiting: ["receiving", "leaving"],
   receiving: ["leaving"],
