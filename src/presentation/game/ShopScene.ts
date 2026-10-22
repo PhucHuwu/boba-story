@@ -367,8 +367,8 @@ export class ShopScene extends Phaser.Scene {
         const { info } = e;
         audio.play(info.happy ? "happy" : "sad");
         if (info.price + info.tip > 0) this.time.delayedCall(250, () => audio.play("coin"));
-        const stars = `${"★".repeat(info.stars)}${"☆".repeat(3 - info.stars)}`;
-        this.floatText(c.root.x, this.L.cardY + 85, `${stars} ${info.label}\n+${info.price} xu${info.tip ? `  +${info.tip} tip` : ""}`, info.happy ? "#2f6b2f" : "#9a3b3b");
+        this.floatStars(c.root.x, this.L.cardY + 40, info.stars, 3);
+        this.floatText(c.root.x, this.L.cardY + 85, `${info.label}\n+${info.price} xu${info.tip ? `  +${info.tip} tip` : ""}`, info.happy ? "#2f6b2f" : "#9a3b3b");
         break;
       }
       case "cup": {
@@ -564,12 +564,12 @@ export class ShopScene extends Phaser.Scene {
   }
 
   /** Review popup: a row of five star sprites, unearned ones dimmed. */
-  private floatStars(x: number, y: number, stars: number) {
+  private floatStars(x: number, y: number, stars: number, total = 5) {
     const size = 30;
     const cx = Phaser.Math.Clamp(x, 110, this.L.room.w - 110);
     const row = this.add.container(cx, y).setDepth(60);
-    for (let i = 0; i < 5; i++) {
-      const s = this.add.image((i - 2) * (size + 2), 0, "star").setDisplaySize(size, size);
+    for (let i = 0; i < total; i++) {
+      const s = this.add.image((i - (total - 1) / 2) * (size + 2), 0, "star").setDisplaySize(size, size);
       if (i >= stars) s.setTint(0xc9b39a).setAlpha(0.55);
       row.add(s);
     }

@@ -111,7 +111,7 @@ export const RIVAL_EVENTS: Record<RivalEventId, RivalEventDef> = {
   fakeReviews: {
     id: "fakeReviews",
     title: "Bão đánh giá 1 sao!",
-    story: `Tự nhiên có 4 tài khoản lạ vào chấm quán 1★, tài khoản nào cũng có avatar là... chó. Chắc chắn là ${RIVAL_NAME}!`,
+    story: `Tự nhiên có 4 tài khoản lạ vào chấm quán 1 sao, tài khoản nào cũng có avatar là... chó. Chắc chắn là ${RIVAL_NAME}!`,
     immediate: [{ kind: "fakeReviews", count: 4 }],
     options: [
       {

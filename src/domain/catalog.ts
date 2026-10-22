@@ -206,7 +206,7 @@ export const QUESTS: QuestDef[] = [
   { id: "q_days5", title: "Kinh doanh trọn 5 ngày", target: 5, reward: 200, metric: "daysCompleted" },
   { id: "q_combo5", title: "Đạt chuỗi combo 5 ly ngon", target: 5, reward: 120, metric: "bestCombo" },
   { id: "q_goal3", title: "Hoàn thành 3 mục tiêu ngày", target: 3, reward: 150, metric: "goalsMet" },
-  { id: "q_five15", title: "Nhận 15 đánh giá 5★", target: 15, reward: 180, metric: "fiveStars" },
+  { id: "q_five15", title: "Nhận 15 đánh giá 5 sao", target: 15, reward: 180, metric: "fiveStars" },
   { id: "q_rival2", title: "Thắng đối thủ 2 lần", target: 2, reward: 200, metric: "rivalsBeaten" },
   { id: "q_days14", title: "Trụ vững 14 ngày", target: 14, reward: 400, metric: "daysCompleted" },
 ];

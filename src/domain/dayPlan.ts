@@ -53,7 +53,7 @@ export const GOAL_TEXT: Record<GoalKind, (t: number) => string> = {
   served: (t) => `Phục vụ ${t} mèo khách`,
   perfect: (t) => `Pha ${t} ly hoàn hảo`,
   noLost: () => "Không để mèo nào bỏ về (tối thiểu 4 khách)",
-  avgStars: (t) => `Đánh giá trung bình từ ${t}★ (tối thiểu 3 đánh giá)`,
+  avgStars: (t) => `Đánh giá trung bình từ ${t} sao (tối thiểu 3 đánh giá)`,
   combo: (t) => `Đạt chuỗi combo ${t} ly ngon liên tiếp`,
 };
 
