@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { addIce, addSugar, addTopping, newCup, pour, seal } from "./cup";
 import { createCustomer, tickPatience, transition } from "./customers";
-import { RECIPES, defaultSave } from "./data";
+import { RECIPES, defaultSave } from "./catalog";
 import { buyIngredient, buyUpgrade, canMake, claimQuest, needsRecovery, payment, refreshQuests } from "./economy";
 import { evaluate } from "./quality";
 import { migrate } from "./save";

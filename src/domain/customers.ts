@@ -1,4 +1,4 @@
-import { ARCHETYPES, DAY, RECIPE_BY_ID, REGULAR_FAVORITE } from "./data";
+import { ARCHETYPES, DAY, RECIPE_BY_ID, REGULAR_FAVORITE } from "./catalog";
 import type { ArchetypeId, Level, Order, SaveData, Size } from "./types";
 
 export type CustomerState = "approaching" | "ordering" | "waiting" | "receiving" | "leaving" | "gone";

@@ -1,4 +1,4 @@
-import { LEVEL_UNITS, RECIPE_BY_ID, TEA_IDS } from "./data";
+import { LEVEL_UNITS, RECIPE_BY_ID, TEA_IDS } from "./catalog";
 import { liquidTotal, mainTea } from "./cup";
 import type { CupState, Order, QualityResult } from "./types";
 

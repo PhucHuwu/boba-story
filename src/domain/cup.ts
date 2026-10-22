@@ -1,4 +1,4 @@
-import { TEA_IDS } from "./data";
+import { TEA_IDS } from "./catalog";
 import type { CupState, IngredientId, Size, TeaId, ToppingId } from "./types";
 
 /** Volume at which the cup visibly overflows. */

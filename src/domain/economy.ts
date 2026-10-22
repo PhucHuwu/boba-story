@@ -1,4 +1,4 @@
-import { ARCHETYPES, INGREDIENTS, INVENTORY_CAP, QUESTS, RECIPE_BY_ID, SIZE_PRICE_BONUS, UPGRADES } from "./data";
+import { ARCHETYPES, INGREDIENTS, INVENTORY_CAP, QUESTS, RECIPE_BY_ID, SIZE_PRICE_BONUS, UPGRADES } from "./catalog";
 import type { ArchetypeId, IngredientId, Order, QualityResult, SaveData } from "./types";
 
 export function orderPrice(order: Order): number {
