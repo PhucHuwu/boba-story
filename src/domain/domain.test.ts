@@ -4,7 +4,7 @@ import { createCustomer, tickPatience, transition } from "./customers";
 import { RECIPES, defaultSave } from "./catalog";
 import { buyIngredient, buyUpgrade, canMake, claimQuest, needsRecovery, payment, refreshQuests } from "./economy";
 import { evaluate } from "./quality";
-import { migrate } from "./save";
+import { migrate } from "./saveSchema";
 import type { IngredientId, Order, SaveData } from "./types";
 
 function consumer(save: SaveData) {

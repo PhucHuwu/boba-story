@@ -1,0 +1,476 @@
+import { ARCHETYPES, DAY, FALLBACK_LINES, REGULAR_LINES } from "@/domain/catalog";
+import { addIce, addSugar, addTopping, liquidTotal, newCup, pour, seal, type ActionResult } from "@/domain/cup";
+import {
+  chooseArchetype,
+  createCustomer,
+  createOrder,
+  hourAt,
+  isImpatient,
+  maxCustomers,
+  spawnInterval,
+  tickPatience,
+  transition,
+  type Customer,
+} from "@/domain/customers";
+import { LEAVE_REPUTATION_PENALTY, canMake, payment } from "@/domain/economy";
+import type { ServeRecord } from "@/domain/ledger";
+import { evaluate, grade } from "@/domain/quality";
+import type { CupState, IngredientId, Mood, Order, SaveData, Size, TeaId, ToppingId } from "@/domain/types";
+import { Emitter } from "../common/emitter";
+import type { NoticeKind } from "../common/notifier";
+import type { DialogueEvent, DialogueGateway, Rng } from "../ports";
+import { rejectionMessage } from "./messages";
+import { tutorialHint, type Hint } from "./tutorial";
+
+export type PourSource = TeaId | "milk";
+
+/** Durations (seconds) the simulation uses; views animate with the values sent in events. */
+export const TIMING = {
+  walkIn: 2,
+  walkOut: 1.8,
+  reducedWalk: 0.5,
+  receive: 1.7,
+  giveUp: 0.9,
+  seal: 0.45,
+  sealFast: 0.12,
+} as const;
+
+const POUR_RATE = 0.36;
+const FAST_TAP_MUL = 1.4;
+const TUTORIAL_ORDER: Omit<Order, "id"> = { recipeId: "boba", size: "M", sugar: 50, ice: 50 };
+
+export interface ShopCustomer {
+  readonly data: Customer;
+  mood: Mood;
+  /** Seconds left in a timed state (approaching, receiving, leaving). */
+  timer: number;
+}
+
+export interface ServedInfo {
+  quality: number;
+  stars: number;
+  label: string;
+  price: number;
+  tip: number;
+  happy: boolean;
+}
+
+export type ShopEvent =
+  | { type: "reset" }
+  | { type: "arrived"; customer: ShopCustomer; duration: number }
+  | { type: "ordering"; id: number }
+  | { type: "leaving"; id: number; delay: number; duration: number }
+  | { type: "gone"; id: number }
+  | { type: "mood"; id: number; mood: Mood }
+  | { type: "say"; id: number; text: string }
+  | { type: "selected"; id: number | null }
+  | { type: "served"; id: number; info: ServedInfo }
+  | { type: "cup"; action: "take" | "sugar" | "ice" | "topping" | "sealStart" | "sealed" | "discard"; duration?: number }
+  | { type: "rejected" }
+  | { type: "closing" };
+
+/** Narrow view of the game the shop simulation needs (Interface Segregation). */
+export interface ShopHost {
+  readonly save: SaveData;
+  isInteractive(): boolean;
+  consume(id: IngredientId): boolean;
+  served(record: ServeRecord): void;
+  lost(reputationPenalty: number): void;
+  tutorialCompleted(): void;
+  notify(text: string, kind: NoticeKind): void;
+  /** Coarse change that the HUD should re-render for (clock, hint, stock). */
+  changed(): void;
+  dayOver(): void;
+}
+
+/**
+ * Use case: running one business day at the counter.
+ * Owns customers, the cup being brewed, the clock and the tutorial. Framework-free:
+ * the view calls commands, calls `tick(dt)` every frame and animates `events`.
+ */
+export class ShopSession {
+  readonly events = new Emitter<ShopEvent>();
+  customers: ShopCustomer[] = [];
+  cup: CupState | null = null;
+  selectedId: number | null = null;
+  pouring: PourSource | null = null;
+  sealing = false;
+  clock = 0;
+  closing = false;
+  hint: Hint | null = null;
+
+  private active = false;
+  private nextId = 1;
+  private spawnTimer = 0;
+  private sealTimer = 0;
+  private regularServedToday = false;
+
+  constructor(
+    private readonly host: ShopHost,
+    private readonly deps: { rng: Rng; dialogue: DialogueGateway },
+  ) {}
+
+  // ------------------------------------------------------------ lifecycle
+  start() {
+    this.reset();
+    this.active = true;
+    this.spawnTimer = spawnInterval(DAY.openHour, this.save.reputation, this.save.day) - 2.5;
+  }
+
+  reset() {
+    this.active = false;
+    this.customers = [];
+    this.cup = null;
+    this.selectedId = null;
+    this.pouring = null;
+    this.sealing = false;
+    this.clock = 0;
+    this.closing = false;
+    this.hint = null;
+    this.regularServedToday = false;
+    this.events.emit({ type: "reset" });
+  }
+
+  /** Closes the shop now: waiting customers leave, the day ends once the counter is empty. */
+  endNow() {
+    if (!this.active) return;
+    this.clock = DAY.lengthSec;
+    this.setClosing();
+    for (const c of [...this.customers]) if (c.data.state === "ordering" || c.data.state === "waiting") this.leave(c, 0);
+  }
+
+  get hour() {
+    return hourAt(this.clock);
+  }
+
+  private get save() {
+    return this.host.save;
+  }
+
+  private get tutorial() {
+    return !this.save.tutorialDone;
+  }
+
+  private walk(full: number) {
+    return this.save.settings.reducedMotion ? TIMING.reducedWalk : full;
+  }
+
+  // ------------------------------------------------------------ simulation
+  tick(dtSec: number) {
+    if (!this.active) return;
+    const dt = Math.min(dtSec, 0.1);
+    this.tickClock(dt);
+    this.tickSpawning();
+    this.spawnTimer += dt;
+    for (const c of [...this.customers]) this.tickCustomer(c, dt);
+    this.tickPour(dt);
+    this.tickSeal(dt);
+    if (this.tutorial) this.updateHint();
+    if (this.closing && this.customers.length === 0) {
+      this.cup = null;
+      this.active = false;
+      this.host.dayOver();
+    }
+  }
+
+  private tickClock(dt: number) {
+    if (this.closing) return;
+    const before = Math.floor(this.clock / 2);
+    this.clock = Math.min(this.clock + dt, DAY.lengthSec);
+    if (this.clock >= DAY.lengthSec) {
+      this.setClosing();
+      this.host.notify("Đã đến giờ đóng cửa — phục vụ nốt các mèo khách còn lại nhé!", "info");
+    } else if (Math.floor(this.clock / 2) !== before) this.host.changed();
+  }
+
+  private setClosing() {
+    if (this.closing) return;
+    this.closing = true;
+    this.events.emit({ type: "closing" });
+    this.host.changed();
+  }
+
+  private tickSpawning() {
+    if (this.closing) return;
+    const interval = spawnInterval(this.hour, this.save.reputation, this.save.day);
+    const limit = this.tutorial ? 1 : maxCustomers(this.save);
+    const active = this.customers.filter((c) => c.data.state !== "leaving").length;
+    if (this.spawnTimer < interval || active >= limit) return;
+    if (this.tutorial && this.customers.length > 0) return;
+    this.spawnTimer = 0;
+    this.spawn();
+  }
+
+  private tickCustomer(c: ShopCustomer, dt: number) {
+    const d = c.data;
+    switch (d.state) {
+      case "approaching":
+        c.timer -= dt;
+        if (c.timer <= 0 && transition(d, "ordering")) {
+          this.events.emit({ type: "ordering", id: d.id });
+          this.say(c, d.line);
+          void this.enrichLine(c, "order");
+        }
+        break;
+      case "ordering":
+      case "waiting":
+        if (this.tutorial) break;
+        if (tickPatience(d, dt, this.save.settings.relaxed)) this.giveUp(c);
+        else this.setMood(c, isImpatient(d) || (d.state === "ordering" && d.patience < 35) ? "impatient" : "idle");
+        break;
+      case "receiving":
+        c.timer -= dt;
+        if (c.timer <= 0) this.leave(c, 0);
+        break;
+      case "leaving":
+        c.timer -= dt;
+        if (c.timer <= 0) {
+          transition(d, "gone");
+          this.customers = this.customers.filter((x) => x !== c);
+          this.events.emit({ type: "gone", id: d.id });
+        }
+        break;
+    }
+  }
+
+  private tickPour(dt: number) {
+    if (!this.pouring) return;
+    if (!this.cup) {
+      this.pouring = null;
+      return;
+    }
+    const rate = POUR_RATE * (this.save.upgrades.includes("fast_tap") ? FAST_TAP_MUL : 1);
+    const source = this.pouring;
+    const r = pour(this.cup, source, rate * dt, this.host.consume);
+    if (!r.ok) {
+      this.pouring = null;
+      this.reject(r, source);
+    }
+  }
+
+  private tickSeal(dt: number) {
+    if (!this.sealing) return;
+    this.sealTimer -= dt;
+    if (this.sealTimer > 0) return;
+    this.sealing = false;
+    if (!this.cup) return;
+    const r = seal(this.cup, this.host.consume);
+    if (!r.ok) return this.reject(r, "lid");
+    this.events.emit({ type: "cup", action: "sealed" });
+  }
+
+  // ------------------------------------------------------------ customers
+  private spawn() {
+    const slots = maxCustomers(this.save);
+    const used = new Set(this.customers.map((c) => c.data.slot));
+    const free = Array.from({ length: slots }, (_, i) => i).filter((i) => !used.has(i));
+    if (!free.length) return;
+    const { rng } = this.deps;
+    const slot = free[Math.floor(rng() * free.length)];
+    const id = this.nextId++;
+    const archetype = this.tutorial
+      ? "regular"
+      : chooseArchetype(rng, this.save, this.regularServedToday, this.customers.map((c) => c.data.archetype));
+    const makeable = this.save.unlockedRecipes.filter((r) => canMake(this.save, r));
+    const order = this.tutorial ? { id, ...TUTORIAL_ORDER } : createOrder({ rng, save: this.save, archetype, id, makeable });
+    const line =
+      archetype === "regular"
+        ? REGULAR_LINES[Math.min(this.save.regularStage, REGULAR_LINES.length - 1)]
+        : FALLBACK_LINES[archetype][Math.floor(rng() * FALLBACK_LINES[archetype].length)];
+    if (archetype === "regular") this.regularServedToday = true;
+    const duration = this.walk(TIMING.walkIn);
+    const customer: ShopCustomer = { data: createCustomer(id, archetype, order, slot, this.save.upgrades, line), mood: "idle", timer: duration };
+    this.customers.push(customer);
+    this.events.emit({ type: "arrived", customer, duration });
+  }
+
+  private leave(c: ShopCustomer, delay: number) {
+    if (!transition(c.data, "leaving")) return;
+    const duration = this.walk(TIMING.walkOut);
+    c.timer = delay + duration;
+    this.events.emit({ type: "leaving", id: c.data.id, delay, duration });
+    if (this.selectedId === c.data.id) this.selectNext();
+  }
+
+  private giveUp(c: ShopCustomer) {
+    c.data.cancelled = true;
+    this.setMood(c, "sad");
+    this.say(c, "Lâu quá... tớ đi đây.");
+    this.host.lost(this.save.settings.relaxed ? 0 : LEAVE_REPUTATION_PENALTY);
+    this.host.notify(`${ARCHETYPES[c.data.archetype].name} đã bỏ về vì chờ quá lâu`, "bad");
+    this.leave(c, TIMING.giveUp);
+  }
+
+  private setMood(c: ShopCustomer, mood: Mood) {
+    if (c.mood === mood) return;
+    c.mood = mood;
+    this.events.emit({ type: "mood", id: c.data.id, mood });
+  }
+
+  private say(c: ShopCustomer, text: string) {
+    this.events.emit({ type: "say", id: c.data.id, text });
+  }
+
+  /** Shows the fixed line immediately, then swaps in an AI line if one arrives while relevant. */
+  private async enrichLine(c: ShopCustomer, event: DialogueEvent) {
+    const text = await this.deps.dialogue
+      .line({ archetype: c.data.archetype, event, recipeId: c.data.order.recipeId, stage: this.save.regularStage })
+      .catch(() => null);
+    if (text && this.customers.includes(c) && c.data.state !== "leaving") this.say(c, text);
+  }
+
+  private find(id: number | null) {
+    return this.customers.find((c) => c.data.id === id);
+  }
+
+  get selectedOrder(): Order | undefined {
+    return this.find(this.selectedId)?.data.order;
+  }
+
+  private select(id: number | null) {
+    this.selectedId = id;
+    this.events.emit({ type: "selected", id });
+  }
+
+  private selectNext() {
+    const next = this.customers.find((c) => c.data.state === "waiting" && c.data.id !== this.selectedId);
+    this.select(next ? next.data.id : null);
+  }
+
+  // ------------------------------------------------------------ commands (player input)
+  private canAct() {
+    return this.active && this.host.isInteractive();
+  }
+
+  tapCustomer(id: number) {
+    const c = this.find(id);
+    if (!c || !this.canAct()) return;
+    const d = c.data;
+    if (d.state === "ordering") {
+      transition(d, "waiting");
+      d.patience = Math.min(100, d.patience + 10);
+      this.select(d.id);
+    } else if (d.state === "waiting") {
+      if (this.cup?.sealed) this.deliver(id);
+      else this.select(d.id);
+    }
+  }
+
+  takeCup(size: Size) {
+    if (!this.canAct()) return;
+    if (this.cup) return this.fail("Đã có ly trên bàn — hãy giao hoặc bỏ ly vào thùng rác");
+    if (!this.host.consume("cup")) return this.fail("Hết ly — hãy nhập thêm ở cửa hàng");
+    this.cup = newCup(size);
+    this.events.emit({ type: "cup", action: "take" });
+  }
+
+  startPour(source: PourSource) {
+    if (!this.canAct() || !this.requireCup()) return;
+    this.pouring = source;
+  }
+
+  stopPour() {
+    this.pouring = null;
+  }
+
+  pumpSugar() {
+    this.discrete("sugar", (cup) => addSugar(cup, this.host.consume));
+  }
+
+  scoopIce() {
+    this.discrete("ice", (cup) => addIce(cup, this.host.consume));
+  }
+
+  addTopping(t: ToppingId) {
+    this.discrete("topping", (cup) => addTopping(cup, t, this.host.consume), t);
+  }
+
+  private discrete(action: "sugar" | "ice" | "topping", run: (cup: CupState) => ActionResult, stock?: IngredientId) {
+    if (!this.canAct() || !this.requireCup() || !this.cup) return;
+    const r = run(this.cup);
+    if (!r.ok) return this.reject(r, stock ?? action);
+    this.events.emit({ type: "cup", action });
+  }
+
+  sealCup() {
+    if (!this.canAct() || !this.requireCup() || !this.cup || this.sealing) return;
+    if (this.cup.sealed) return this.reject({ ok: false, reason: "sealed" }, "lid");
+    if (liquidTotal(this.cup) < 0.2) return this.fail("Ly còn trống — hãy rót trà trước khi dán nắp");
+    if (this.cup.overflow) this.host.notify("Ly bị tràn — khách sẽ không hài lòng lắm", "info");
+    this.sealing = true;
+    this.sealTimer = this.save.upgrades.includes("auto_sealer") ? TIMING.sealFast : TIMING.seal;
+    this.events.emit({ type: "cup", action: "sealStart", duration: this.sealTimer });
+  }
+
+  discardCup() {
+    if (!this.canAct() || !this.cup) return;
+    this.cup = null;
+    this.pouring = null;
+    this.sealing = false;
+    this.host.notify("Đã bỏ ly. Lấy ly mới để làm lại.", "info");
+    this.events.emit({ type: "cup", action: "discard" });
+  }
+
+  deliverToSelected() {
+    if (this.selectedId === null) {
+      this.host.notify("Kéo ly đến mèo khách, hoặc chạm vào mèo để giao", "info");
+      return;
+    }
+    this.deliver(this.selectedId);
+  }
+
+  deliver(id: number) {
+    const c = this.find(id);
+    const cup = this.cup;
+    if (!c || !cup || !this.canAct()) return;
+    if (!cup.sealed) return this.fail("Hãy dán nắp trước khi giao");
+    const d = c.data;
+    if (d.state === "ordering") transition(d, "waiting");
+    if (!transition(d, "receiving")) return;
+
+    const result = evaluate({ cup, order: d.order, patience: d.patience, tolerance: ARCHETYPES[d.archetype].tolerance });
+    const pay = payment(d.order, result, d.archetype, this.save.upgrades);
+    this.host.served({ ...pay, quality: result.quality, recipeId: d.order.recipeId, archetype: d.archetype });
+    if (this.tutorial) {
+      this.host.tutorialCompleted();
+      this.hint = null;
+      this.host.notify("Tuyệt vời! Bạn đã hoàn thành ly đầu tiên. Quán chính thức mở cửa!", "good");
+    }
+    this.cup = null;
+    c.timer = TIMING.receive;
+
+    const g = grade(result.quality);
+    const happy = result.quality >= 60;
+    this.setMood(c, happy ? "happy" : "sad");
+    this.events.emit({ type: "served", id: d.id, info: { quality: result.quality, stars: g.stars, label: g.label, price: pay.price, tip: pay.tip, happy } });
+    this.say(c, happy ? "Ngon quá! Cảm ơn nha~ meo!" : result.notes[0] ? `Hmm... ${result.notes[0].toLowerCase()}.` : "Hmm... chưa đúng ý lắm.");
+    void this.enrichLine(c, happy ? "happy" : "sad");
+    if (!happy && result.notes.length) this.host.notify(`Góp ý: ${result.notes.slice(0, 3).join(", ")}`, "info");
+    if (this.selectedId === d.id) this.selectNext();
+  }
+
+  // ------------------------------------------------------------ helpers
+  private requireCup(): boolean {
+    if (this.cup) return true;
+    this.fail("Hãy lấy ly trước (chạm vào chồng ly M hoặc L)");
+    return false;
+  }
+
+  private fail(message: string) {
+    this.host.notify(message, "bad");
+    this.events.emit({ type: "rejected" });
+  }
+
+  private reject(r: ActionResult, stock: IngredientId | "sugar" | "ice" | "topping") {
+    if (r.ok) return;
+    this.fail(rejectionMessage(r.reason, stock));
+  }
+
+  private updateHint() {
+    const next = tutorialHint(this.customers[0], this.cup);
+    if (next.step !== this.hint?.step) {
+      this.hint = next;
+      this.host.changed();
+    }
+  }
+}
