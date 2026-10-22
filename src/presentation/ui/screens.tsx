@@ -4,7 +4,7 @@ import { useState } from "react";
 import { QUESTS } from "@/domain/catalog";
 import { audio } from "../game/audio";
 import { DayCard, ReviewItem, Stars } from "./features";
-import { Coin, asset } from "./kit";
+import { Coin, Glyph, Icon, asset } from "./kit";
 import { useGame } from "./useGame";
 
 export function LoadingScreen() {
@@ -130,7 +130,7 @@ export function PrepScreen() {
       </div>
       <div className="flex w-full max-w-[30em] gap-2">
         <button className="btn btn-secondary" onClick={() => game.toMenu()} aria-label="Về menu chính">
-          ⌂
+          <Glyph name="home" />
         </button>
         <button
           className="btn btn-green flex-1 text-[1.35em]"
@@ -163,7 +163,7 @@ export function SummaryScreen() {
     ["Thưởng nhiệm vụ", <Coin key="w" value={st.rewards} />],
     ["Chi phí nguyên liệu đã dùng", <Coin key="c" value={st.ingredientValueUsed} />],
   ];
-  if (st.bestCombo >= 2) rows.splice(4, 0, ["Combo cao nhất", `🔥 x${st.bestCombo}`]);
+  if (st.bestCombo >= 2) rows.splice(4, 0, ["Combo cao nhất", <span key="b" className="inline-flex items-center gap-1"><Icon name="icon_combo" />x{st.bestCombo}</span>]);
   if (st.reviews) rows.splice(4, 0, ["Đánh giá hôm nay", <Stars key="s" value={st.starsSum / st.reviews} />]);
   if (st.goalReward) rows.push(["Thưởng mục tiêu ngày", <Coin key="g" value={st.goalReward} />]);
   if (st.otherCosts) rows.push(["Chi phí khác (đối thủ...)", <Coin key="o" value={st.otherCosts} />]);
@@ -191,10 +191,13 @@ export function SummaryScreen() {
         </dl>
         {sum.goal && (
           <p className={`mt-2 rounded-2xl border-2 p-2 text-center font-bold ${sum.goal.met ? "border-matcha bg-[#e3f4dc]" : "border-[#e9d7c3] bg-white/60 text-cocoa"}`}>
-            🎯 {sum.goal.label}: {sum.goal.met ? `Hoàn thành! +${sum.goalReward} xu` : "Chưa đạt"}
+            <Icon name="icon_goal" className="mr-1 h-[1.4em] w-[1.4em]" />
+            {sum.goal.label}: {sum.goal.met ? `Hoàn thành! +${sum.goalReward} xu` : "Chưa đạt"}
           </p>
         )}
-        {st.rivalOutcome && <p className="mt-2 rounded-2xl border-2 border-[#e2b4ae] bg-[#fdf0ee] p-2 text-center text-[0.9em]">🐶 {st.rivalOutcome}</p>}
+        {st.rivalOutcome && <p className="mt-2 rounded-2xl border-2 border-[#e2b4ae] bg-[#fdf0ee] p-2 text-center text-[0.9em]">
+            <Icon name={["rival_dog"]} className="mr-1 h-[2em] w-[2em]" />
+            {st.rivalOutcome}</p>}
         {shown.length > 0 && (
           <>
             <h3 className="mt-3 font-extrabold">Mèo khách nói gì hôm nay</h3>
@@ -210,7 +213,9 @@ export function SummaryScreen() {
             Nhiệm vụ
           </button>
           <button className="btn btn-green flex-[2]" onClick={() => game.nextDay()}>
-            Đóng cửa 🌙
+            <span className="inline-flex items-center gap-2">
+              <Icon name="icon_moon" className="h-[1.4em] w-[1.4em]" /> Đóng cửa
+            </span>
           </button>
         </div>
       </section>

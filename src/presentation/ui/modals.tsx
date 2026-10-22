@@ -6,7 +6,7 @@ import { packCost } from "@/domain/economy";
 import type { IngredientId } from "@/domain/types";
 import { audio } from "../game/audio";
 import { BankModal, ReviewsModal, RivalModal } from "./features";
-import { Bar, Coin, Modal, Toggle, asset } from "./kit";
+import { Bar, Coin, Icon, Modal, Toggle, asset } from "./kit";
 import { useGame } from "./useGame";
 
 const STOCK_ORDER: IngredientId[] = ["cup", "lid", "tea_black", "tea_green", "tea_oolong", "milk", "sugar", "ice", "top_boba", "top_jelly", "top_pudding"];
@@ -116,7 +116,7 @@ function RecipesModal() {
           return (
             <li key={r.id} className={`rounded-2xl border-2 border-[#e9d7c3] bg-white/60 p-2 ${owned ? "" : "opacity-55"}`}>
               <p className="font-extrabold">
-                {r.name} {owned ? "" : "🔒"}
+                {r.name} {!owned && <Icon name="icon_lock" className="ml-1 h-[1.1em] w-[1.1em]" alt="Chưa mở khóa" />}
               </p>
               <p className="text-[0.9em]">
                 {INGREDIENTS[r.tea].name} {Math.round(r.teaRatio * 100)}%{r.milkRatio > 0 ? ` · Sữa ${Math.round(r.milkRatio * 100)}%` : ""}
@@ -151,7 +151,7 @@ function QuestsModal() {
                 </div>
               </div>
               {p.claimed ? (
-                <span className="font-bold text-[#2f6b2f]">✓</span>
+                <span className="font-bold text-[#2f6b2f]">Đã nhận</span>
               ) : (
                 <button className="btn btn-green !min-h-[40px] !px-3" disabled={!p.done} onClick={() => game.claimQuest(q.id)}>
                   <Coin value={q.reward} />

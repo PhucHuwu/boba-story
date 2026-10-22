@@ -32,5 +32,20 @@
   "cat_picky_idle",
   "cat_picky_happy",
   "cat_picky_sad",
-  "cat_picky_impatient"
+  "cat_picky_impatient",
+  "icon_sunny",
+  "icon_hot",
+  "icon_rainy",
+  "icon_cloudy",
+  "icon_festival",
+  "icon_goal",
+  "icon_combo",
+  "icon_lock",
+  "icon_camera",
+  "icon_safe",
+  "icon_bank",
+  "icon_moon",
+  "icon_sunrise",
+  "icon_critic",
+  "icon_mic"
 ]

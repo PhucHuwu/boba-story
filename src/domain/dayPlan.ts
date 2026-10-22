@@ -4,7 +4,6 @@ import type { DayGoal, DayPlan, DayStats, GoalKind, Level, RivalEventId, SaveDat
 export interface WeatherDef {
   id: WeatherId;
   name: string;
-  icon: string;
   description: string;
   /** Multiplier on time between arrivals (< 1 = busier). */
   spawnMul: number;
@@ -16,11 +15,11 @@ export interface WeatherDef {
 }
 
 export const WEATHER: Record<WeatherId, WeatherDef> = {
-  sunny: { id: "sunny", name: "Nắng đẹp", icon: "☀️", description: "Một ngày dễ chịu.", spawnMul: 1, tipMul: 1, decayMul: 1, ice: [50, 100, 100, 0] },
+  sunny: { id: "sunny", name: "Nắng đẹp", description: "Một ngày dễ chịu.", spawnMul: 1, tipMul: 1, decayMul: 1, ice: [50, 100, 100, 0] },
   hot: {
     id: "hot",
     name: "Nắng nóng",
-    icon: "🥵",
+   
     description: "Đông khách, ai cũng muốn nhiều đá và hơi cáu.",
     spawnMul: 0.82,
     tipMul: 1,
@@ -30,18 +29,18 @@ export const WEATHER: Record<WeatherId, WeatherDef> = {
   rainy: {
     id: "rainy",
     name: "Mưa rả rích",
-    icon: "🌧️",
+   
     description: "Vắng khách, ít đá, nhưng ai ghé cũng tip hậu.",
     spawnMul: 1.35,
     tipMul: 1.4,
     decayMul: 0.85,
     ice: [0, 0, 50, 50],
   },
-  cloudy: { id: "cloudy", name: "Âm u", icon: "☁️", description: "Khách thong thả, kiên nhẫn hơn.", spawnMul: 1.05, tipMul: 1, decayMul: 0.85, ice: [50, 50, 100, 0] },
+  cloudy: { id: "cloudy", name: "Âm u", description: "Khách thong thả, kiên nhẫn hơn.", spawnMul: 1.05, tipMul: 1, decayMul: 0.85, ice: [50, 50, 100, 0] },
   festival: {
     id: "festival",
     name: "Lễ hội phố mèo",
-    icon: "🏮",
+   
     description: "Cuối tuần! Rất đông khách, tip cao, ai cũng vội.",
     spawnMul: 0.68,
     tipMul: 1.25,

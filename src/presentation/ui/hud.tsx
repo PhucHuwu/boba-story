@@ -3,7 +3,7 @@
 import { DAY } from "@/domain/catalog";
 import { audio } from "../game/audio";
 import { DayStatus, RatingChip } from "./features";
-import { Coin } from "./kit";
+import { Coin, Glyph } from "./kit";
 import { useGame } from "./useGame";
 import { pctX, pctY, useLayout } from "./useLayout";
 
@@ -32,7 +32,7 @@ export function Hud() {
         </span>
         {open && (
           <button className="chip pointer-events-auto" onClick={() => game.openModal("pause")} aria-label="Tạm dừng">
-            ❚❚
+            <Glyph name="pause" />
           </button>
         )}
       </div>

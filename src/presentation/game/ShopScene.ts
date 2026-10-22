@@ -47,7 +47,7 @@ interface Station {
  */
 export class ShopScene extends Phaser.Scene {
   private cats = new Map<number, CatView>();
-  private trashViews = new Map<number, Phaser.GameObjects.Text>();
+  private trashViews = new Map<number, Phaser.GameObjects.Image>();
   private stations = new Map<StationId, Station>();
   private cupGfx!: Phaser.GameObjects.Graphics;
   private gauge!: Phaser.GameObjects.Graphics;
@@ -387,7 +387,7 @@ export class ShopScene extends Phaser.Scene {
       case "review": {
         const c = this.cats.get(e.id);
         const x = c ? c.root.x : this.L.room.w / 2;
-        this.floatText(x, this.L.bubbleY - 30, `${"★".repeat(e.stars)}${"☆".repeat(5 - e.stars)}`, e.stars >= 4 ? "#c98a0b" : e.stars <= 2 ? "#9a3b3b" : "#6b4430");
+        this.floatStars(x, this.L.bubbleY - 30, e.stars);
         this.time.delayedCall(450, () => audio.play(e.stars >= 4 ? "star" : e.stars <= 2 ? "bad" : "click"));
         break;
       }
@@ -396,7 +396,7 @@ export class ShopScene extends Phaser.Scene {
           this.floatText(this.L.cup.x, this.L.cup.y - 160, "Mất combo!", "#9a3b3b");
           break;
         }
-        this.floatText(this.L.cup.x, this.L.cup.y - 160, `🔥 Combo x${e.count}`, "#e08a3c");
+        this.floatText(this.L.cup.x, this.L.cup.y - 160, `Combo x${e.count}`, "#e08a3c", "icon_combo");
         if (e.count % 5 === 0) audio.play("fanfare");
         break;
       case "trash":
@@ -446,7 +446,7 @@ export class ShopScene extends Phaser.Scene {
       zone,
     ]);
 
-    if (d.critic) card.add(text(-72, "📸", 30, "#4a2c1d", "800").setX(78));
+    if (d.critic && this.textures.exists("icon_critic")) card.add(this.add.image(80, -66, "icon_critic").setDisplaySize(48, 48));
     const view: CatView = { id: d.id, slot: d.slot, root, sprite, card, cardBg, bar, status, baseScale };
     this.cats.set(d.id, view);
     this.tweens.add({ targets: root, alpha: 1, duration: 300 });
@@ -540,9 +540,10 @@ export class ShopScene extends Phaser.Scene {
     });
   }
 
-  private floatText(x: number, y: number, text: string, color: string) {
+  private floatText(x: number, y: number, text: string, color: string, icon?: string) {
+    const cx = Phaser.Math.Clamp(x, 110, this.L.room.w - 110);
     const t = this.add
-      .text(Phaser.Math.Clamp(x, 110, this.L.room.w - 110), y, text, {
+      .text(cx, y, text, {
         fontFamily: FONT,
         fontSize: "24px",
         color,
@@ -553,7 +554,26 @@ export class ShopScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setDepth(60);
-    this.tweens.add({ targets: t, y: y - 70, alpha: 0, delay: 1100, duration: 900, onComplete: () => t.destroy() });
+    const parts: Phaser.GameObjects.Components.Transform[] = [t];
+    if (icon && this.textures.exists(icon)) {
+      const img = this.add.image(cx - t.width / 2 - 18, y, icon).setDisplaySize(40, 40).setDepth(60);
+      t.setX(cx + 18);
+      parts.push(img);
+    }
+    this.tweens.add({ targets: parts, y: y - 70, alpha: 0, delay: 1100, duration: 900, onComplete: () => parts.forEach((p) => (p as unknown as Phaser.GameObjects.GameObject).destroy()) });
+  }
+
+  /** Review popup: a row of five star sprites, unearned ones dimmed. */
+  private floatStars(x: number, y: number, stars: number) {
+    const size = 30;
+    const cx = Phaser.Math.Clamp(x, 110, this.L.room.w - 110);
+    const row = this.add.container(cx, y).setDepth(60);
+    for (let i = 0; i < 5; i++) {
+      const s = this.add.image((i - 2) * (size + 2), 0, "star").setDisplaySize(size, size);
+      if (i >= stars) s.setTint(0xc9b39a).setAlpha(0.55);
+      row.add(s);
+    }
+    this.tweens.add({ targets: row, y: y - 70, alpha: 0, delay: 1100, duration: 900, onComplete: () => row.destroy() });
   }
 
   /** Rubbish dumped by the rival: tap each piece to sweep it (interactive objects win over cat taps). */
@@ -565,12 +585,17 @@ export class ShopScene extends Phaser.Scene {
       view.disableInteractive();
       this.tweens.add({ targets: view, alpha: 0, scale: 0.2, angle: 90, duration: 220, onComplete: () => view.destroy() });
     }
-    const icons = ["🥫", "🍌", "🗞️", "🧃", "🦴"];
+    const keys = ["trash_can", "trash_banana", "trash_paper", "trash_box", "trash_bone"];
     for (const t of items) {
       if (this.trashViews.has(t.id)) continue;
       const x = 50 + t.x * (this.L.room.w - 100);
       const y = this.L.counterY - 30 - t.y * 110;
-      const view = this.add.text(x, y, icons[t.kind % icons.length], { fontSize: "52px" }).setOrigin(0.5).setDepth(8).setAngle(t.kind * 23 - 40);
+      const key = keys[t.kind % keys.length];
+      const view = this.add
+        .image(x, y, this.textures.exists(key) ? key : this.trashFallback())
+        .setDisplaySize(64, 64)
+        .setDepth(8)
+        .setAngle(t.kind * 23 - 40);
       view.setInteractive({ useHandCursor: true });
       view.on("pointerdown", () =>
         this.command(() => {
@@ -586,6 +611,22 @@ export class ShopScene extends Phaser.Scene {
         this.time.delayedCall(200, () => audio.play("trash"));
       }
     }
+  }
+
+  /** Crumpled paper ball drawn once, used until the trash art exists. */
+  private trashFallback() {
+    const key = "trash_fallback";
+    if (this.textures.exists(key)) return key;
+    const g = this.add.graphics();
+    g.fillStyle(0xf3ead8).lineStyle(4, 0x4a2c1d);
+    const pts = [32, 4, 50, 12, 60, 30, 54, 50, 36, 60, 16, 54, 4, 36, 10, 14].map((v) => v + 2);
+    const poly = [];
+    for (let i = 0; i < pts.length; i += 2) poly.push(new Phaser.Math.Vector2(pts[i], pts[i + 1]));
+    g.fillPoints(poly, true).strokePoints(poly, true);
+    g.lineStyle(3, 0xb59a7a).lineBetween(18, 22, 34, 32).lineBetween(34, 32, 48, 24).lineBetween(26, 46, 40, 40);
+    g.generateTexture(key, 68, 68);
+    g.destroy();
+    return key;
   }
 
   // ---------------------------------------------------------------- frame

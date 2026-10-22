@@ -345,7 +345,7 @@ export class ShopSession {
     if (!this.tutorial && archetype !== "regular" && this.save.day >= CRITIC_FROM_DAY && rng() < CRITIC_CHANCE) {
       customer.data.critic = true;
       customer.data.line = "Tôi là food reviewer. Hãy cho tôi thấy quán có gì đặc biệt.";
-      this.host.notify("📸 Một mèo food reviewer vừa bước vào! Đánh giá của họ nặng gấp 3.", "info");
+      this.host.notify("Một mèo food reviewer vừa bước vào! Đánh giá của họ nặng gấp 3.", "info");
     }
     this.customers.push(customer);
     this.events.emit({ type: "arrived", customer, duration });

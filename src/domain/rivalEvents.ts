@@ -32,7 +32,6 @@ export interface RivalOption {
 export interface RivalEventDef {
   id: RivalEventId;
   title: string;
-  icon: string;
   story: string;
   /** Applied as soon as the event fires, whatever the player chooses. */
   immediate: Effect[];
@@ -50,7 +49,6 @@ export const RIVAL_EVENTS: Record<RivalEventId, RivalEventDef> = {
   discount: {
     id: "discount",
     title: "Đối thủ xả hàng giảm 50%!",
-    icon: "🐶💸",
     story: `${RIVAL_NAME} treo băng rôn "GIẢM 50% — TRÀ SỮA BÊN KIA ĐẮT LẮM!". Mèo khách bắt đầu ngó sang bên đó...`,
     immediate: [],
     options: [
@@ -80,7 +78,6 @@ export const RIVAL_EVENTS: Record<RivalEventId, RivalEventDef> = {
   trash: {
     id: "trash",
     title: "Có kẻ vứt rác trước quán!",
-    icon: "🐶🗑️",
     story: `Một con chó đeo kính râm (rất giống nhân viên ${RIVAL_NAME}) vừa đổ nguyên túi rác trước cửa rồi chạy mất. Khách bắt đầu nhăn mặt...`,
     immediate: [{ kind: "trash", count: 6 }],
     options: [
@@ -114,7 +111,6 @@ export const RIVAL_EVENTS: Record<RivalEventId, RivalEventDef> = {
   fakeReviews: {
     id: "fakeReviews",
     title: "Bão đánh giá 1 sao!",
-    icon: "🐶📱",
     story: `Tự nhiên có 4 tài khoản lạ vào chấm quán 1★, tài khoản nào cũng có avatar là... chó. Chắc chắn là ${RIVAL_NAME}!`,
     immediate: [{ kind: "fakeReviews", count: 4 }],
     options: [
@@ -147,7 +143,6 @@ export const RIVAL_EVENTS: Record<RivalEventId, RivalEventDef> = {
   powerCut: {
     id: "powerCut",
     title: "Vòi trà bị ai đó phá!",
-    icon: "🐶🔧",
     story: "Ống dẫn trà bị bóp méo một cách đáng ngờ, bên cạnh còn vương vài sợi lông chó. Vòi chỉ chảy nhỏ giọt!",
     immediate: [{ kind: "pourMul", value: 0.45, duration: 18 }],
     options: [
@@ -168,7 +163,6 @@ export const RIVAL_EVENTS: Record<RivalEventId, RivalEventDef> = {
   karaoke: {
     id: "karaoke",
     title: "Karaoke tra tấn bên kia đường",
-    icon: "🐶🎤",
     story: `${RIVAL_NAME} kéo loa kẹo kéo ra vỉa hè hát karaoke hết công suất, quay loa về phía quán bạn. Mèo khách cụp tai, mất kiên nhẫn...`,
     immediate: [
       { kind: "decayMul", value: 1.35, duration: 15 },

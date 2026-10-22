@@ -8,17 +8,32 @@ import { RATING_WINDOW, starDistribution } from "@/domain/reviews";
 import { RIVAL_EVENTS, RIVAL_NAME } from "@/domain/rivalEvents";
 import type { Review } from "@/domain/types";
 import { audio } from "../game/audio";
-import { Bar, Coin, Modal } from "./kit";
+import { Bar, Coin, Icon, Modal } from "./kit";
 import { useGame } from "./useGame";
 
-const CAT_ICON: Record<Review["archetype"], string> = { student: "🎒", office: "💼", regular: "🎨", picky: "👑" };
+const WEATHER_ICON = (id: string) => `icon_${id}`;
+
+function StarIcon({ on }: { on: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" className="inline-block h-[1em] w-[1em] align-[-0.12em]" aria-hidden>
+      <path
+        d="M12 2.8l2.75 5.6 6.15.9-4.45 4.33 1.05 6.12L12 16.87l-5.5 2.88 1.05-6.12L3.1 9.3l6.15-.9z"
+        fill={on ? "#f2b630" : "#e6d6c1"}
+        stroke={on ? "#8a5a1b" : "#c9b39a"}
+        strokeWidth={1.6}
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 export function Stars({ value, className = "" }: { value: number; className?: string }) {
   const full = Math.round(value);
   return (
-    <span className={`tracking-tight text-[#e0a21c] ${className}`} aria-label={`${value} sao`}>
-      {"★".repeat(full)}
-      <span className="text-[#d9c7b0]">{"★".repeat(5 - full)}</span>
+    <span className={`inline-flex gap-[0.05em] ${className}`} role="img" aria-label={`${value} sao`}>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <StarIcon key={i} on={i < full} />
+      ))}
     </span>
   );
 }
@@ -28,8 +43,12 @@ export function ReviewItem({ r }: { r: Review }) {
     <li className={`rounded-2xl border-2 p-2 ${r.fake ? "border-[#e2b4ae] bg-[#fdf0ee]" : r.critic ? "border-caramel bg-[#fff3e2]" : "border-[#e9d7c3] bg-white/60"}`}>
       <div className="flex items-center justify-between gap-2 text-[0.85em]">
         <span className="font-bold">
-          {r.fake ? "🐶 Tài khoản lạ" : `${CAT_ICON[r.archetype]} ${ARCHETYPES[r.archetype].name}`}
-          {r.critic ? " · 📸 Food reviewer" : ""}
+          {r.fake ? "Tài khoản lạ" : ARCHETYPES[r.archetype].name}
+          {r.critic && (
+            <span className="ml-1 inline-flex items-center gap-1 text-caramel">
+              <Icon name="icon_critic" className="h-[1.3em] w-[1.3em]" /> Food reviewer
+            </span>
+          )}
         </span>
         <span className="shrink-0 text-cocoa">Ngày {r.day}</span>
       </div>
@@ -45,7 +64,7 @@ export function RatingChip() {
   const rating = game.rating;
   return (
     <button className="chip pointer-events-auto" onClick={() => game.openModal("reviews")} aria-label="Xem đánh giá">
-      <span className="text-[#e0a21c]">★</span> {rating === null ? "–" : rating.toFixed(1)}
+      <StarIcon on /> {rating === null ? "–" : rating.toFixed(1)}
     </button>
   );
 }
@@ -104,12 +123,16 @@ export function DayCard() {
     <div className="mt-[0.5em] grid grid-cols-2 gap-2 text-left text-[0.9em]">
       <div className="rounded-2xl border-2 border-[#e9d7c3] bg-white/60 p-2">
         <p className="font-extrabold">
-          {w.icon} {w.name}
+          <Icon name={WEATHER_ICON(w.id)} className="mr-1 h-[1.5em] w-[1.5em]" />
+          {w.name}
         </p>
         <p className="leading-snug text-cocoa">{w.description}</p>
       </div>
       <div className="rounded-2xl border-2 border-[#e9d7c3] bg-white/60 p-2">
-        <p className="font-extrabold">🎯 Mục tiêu</p>
+        <p className="font-extrabold">
+          <Icon name="icon_goal" className="mr-1 h-[1.5em] w-[1.5em]" />
+          Mục tiêu
+        </p>
         <p className="leading-snug">{GOAL_TEXT[plan.goal.kind](plan.goal.target)}</p>
         <p className="text-cocoa">
           Thưởng <Coin value={plan.goal.reward} />
@@ -126,25 +149,33 @@ export function DayStatus() {
   const s = game.session;
   if (game.phase !== "open" || !game.save.tutorialDone) return null;
   const goal = plan && plan.day === game.save.day ? goalStatus(plan.goal, game.dayStats) : null;
-  const effects: string[] = [];
-  if (s.mod("priceMul") < 1) effects.push("💸 Đang giảm giá");
-  if (s.mod("pourMul") < 1) effects.push("🔧 Vòi chảy chậm");
-  if (s.mod("decayMul") > 1) effects.push("🎤 Ồn ào");
-  if (s.trash.length) effects.push(`🗑️ ${s.trash.length} rác`);
+  const effects: [string, string][] = [];
+  if (s.mod("priceMul") < 1) effects.push(["icon_discount", "Đang giảm giá"]);
+  if (s.mod("pourMul") < 1) effects.push(["icon_wrench", "Vòi chảy chậm"]);
+  if (s.mod("decayMul") > 1) effects.push(["icon_mic", "Ồn ào"]);
+  if (s.trash.length) effects.push(["trash_can", `${s.trash.length} rác`]);
   return (
     <div className="flex flex-wrap items-center gap-[0.3em] text-[0.8em]">
-      {plan && <span className="chip !min-h-0 !cursor-default !py-[0.1em]">{WEATHER[plan.weather].icon}</span>}
+      {plan && (
+        <span className="chip !min-h-0 !cursor-default !px-[0.3em] !py-[0.1em]" title={WEATHER[plan.weather].name}>
+          <Icon name={WEATHER_ICON(plan.weather)} alt={WEATHER[plan.weather].name} />
+        </span>
+      )}
       {goal && (
         <span className={`chip !min-h-0 !cursor-default !py-[0.1em] ${goal.met ? "!bg-[#e3f4dc]" : ""}`}>
-          🎯 {goal.met ? "✓ " : ""}
+          <Icon name="icon_goal" />
+          {goal.met ? "Xong: " : ""}
           {goal.label}
           {plan && plan.goal.kind !== "noLost" && !goal.met ? ` (${goal.value})` : ""}
         </span>
       )}
-      {s.combo >= 2 && <span className="chip pop-in !min-h-0 !cursor-default !bg-caramel !py-[0.1em] text-white">🔥 Combo x{s.combo}</span>}
-      {effects.map((e) => (
-        <span key={e} className="chip !min-h-0 !cursor-default !bg-[#fde2dc] !py-[0.1em]">
-          {e}
+      {s.combo >= 2 && <span className="chip pop-in !min-h-0 !cursor-default !bg-caramel !py-[0.1em] text-white">
+          <Icon name="icon_combo" /> Combo x{s.combo}
+        </span>}
+      {effects.map(([icon, label]) => (
+        <span key={label} className="chip !min-h-0 !cursor-default !bg-[#fde2dc] !py-[0.1em]">
+          <Icon name={icon} />
+          {label}
         </span>
       ))}
     </div>
@@ -164,7 +195,9 @@ export function RivalModal() {
   const ev = RIVAL_EVENTS[id];
   return (
     <Modal title={ev.title}>
-      <p className="mb-1 text-center text-[2.4em] leading-none">{ev.icon}</p>
+      <div className="mb-1 flex justify-center">
+        <Icon name={[`rival_${ev.id}`, "rival_dog"]} className="h-[7em] w-[7em]" alt={RIVAL_NAME} />
+      </div>
       <p className="mb-3 text-center leading-snug">{ev.story}</p>
       <div className="flex flex-col gap-2">
         {ev.options.map((o, i) => (
@@ -253,7 +286,10 @@ export function NightScreen() {
       <section className="panel pop-in max-h-full w-full max-w-[28em] overflow-y-auto p-[1em]">
         {!report ? (
           <>
-            <h2 className="text-center text-[1.5em] font-extrabold">🌙 Đêm ngày {s.day - 1}</h2>
+            <h2 className="text-center text-[1.5em] font-extrabold">
+              <Icon name="icon_moon" className="mr-1 h-[1.4em] w-[1.4em]" />
+              Đêm ngày {s.day - 1}
+            </h2>
             <p className="mb-2 text-center text-cocoa">Quán đã đóng cửa. Mang bao nhiêu tiền đi gửi ngân hàng trước khi về nhà?</p>
             <div className="mb-2 grid grid-cols-2 gap-2 text-center">
               <div className="rounded-2xl border-2 border-[#e9d7c3] bg-white/60 p-2">
@@ -266,13 +302,18 @@ export function NightScreen() {
               </div>
             </div>
             <input type="range" min={0} max={s.money} step={1} value={amount} className="w-full accent-[#e08a3c]" onChange={(e) => setAmount(Number(e.target.value))} aria-label="Số tiền gửi" />
-            <ul className="my-2 text-[0.85em] text-cocoa">
-              <li>• Phí gửi: {fee} xu. Tiền trong ngân hàng không bị trộm lấy.</li>
+            <ul className="my-2 flex list-disc flex-col gap-1 pl-[1.2em] text-[0.85em] text-cocoa">
+              <li>Phí gửi: {fee} xu. Tiền trong ngân hàng không bị trộm lấy.</li>
               <li>
-                • Sáng mai thu tiền mặt bằng: {rent} xu{s.loan ? ` + trả góp ${Math.min(s.loan.installment, s.loan.remaining)} xu` : ""} (thiếu sẽ trừ vào tiết kiệm).
+                Sáng mai thu tiền mặt bằng: {rent} xu{s.loan ? ` + trả góp ${Math.min(s.loan.installment, s.loan.remaining)} xu` : ""} (thiếu sẽ trừ vào tiết kiệm).
               </li>
-              <li>• {s.upgrades.includes("camera") ? "📹 Camera đang canh quán." : "Không có camera — quán dễ bị dòm ngó."} {s.upgrades.includes("safe") ? "🔒 Có két sắt." : ""}</li>
+              <li>{s.upgrades.includes("camera") ? "Camera đang canh quán." : "Không có camera, quán dễ bị dòm ngó."}</li>
+              {s.upgrades.includes("safe") && <li>Có két sắt giữ tiền.</li>}
             </ul>
+            <div className="mb-2 flex justify-center gap-3">
+              {s.upgrades.includes("camera") && <Icon name="icon_camera" className="h-[2.4em] w-[2.4em]" alt="Camera" />}
+              {s.upgrades.includes("safe") && <Icon name="icon_safe" className="h-[2.4em] w-[2.4em]" alt="Két sắt" />}
+            </div>
             <button
               className="btn btn-green w-full text-[1.2em]"
               disabled={anim}
@@ -300,7 +341,9 @@ function MorningReport() {
     <>
       {r.robbed ? (
         <>
-          <p className="shake text-center text-[3em] leading-none">🦹‍♂️💰</p>
+          <div className="flex justify-center">
+            <Icon name={["robber", "icon_safe"]} className="shake h-[6em] w-[6em]" alt="Kẻ trộm" />
+          </div>
           <h2 className="text-center text-[1.5em] font-extrabold text-berry">QUÁN BỊ TRỘM ĐỘT NHẬP!</h2>
           <p className="mb-2 text-center">
             Sáng ra cửa bị cạy, ngăn kéo trống trơn. Kẻ gian đã cuỗm mất <b className="text-berry">{r.stolen} xu</b>.
@@ -309,7 +352,9 @@ function MorningReport() {
         </>
       ) : (
         <>
-          <p className="text-center text-[3em] leading-none">🌅</p>
+          <div className="flex justify-center">
+            <Icon name="icon_sunrise" className="h-[5em] w-[5em]" />
+          </div>
           <h2 className="text-center text-[1.5em] font-extrabold">Chào buổi sáng!</h2>
           <p className="mb-2 text-center text-cocoa">Một đêm yên bình. Quán vẫn nguyên vẹn.</p>
         </>
@@ -342,7 +387,7 @@ function MorningReport() {
           </dd>
         </div>
       </dl>
-      {r.loanPaidOff && <p className="mt-2 text-center font-bold text-[#2f6b2f]">🎉 Đã trả hết nợ ngân hàng!</p>}
+      {r.loanPaidOff && <p className="mt-2 text-center font-bold text-[#2f6b2f]">Đã trả hết nợ ngân hàng!</p>}
       {r.overdue > 0 && <p className="mt-2 text-center font-bold text-berry">Không đủ tiền trả {r.overdue} xu hoá đơn...</p>}
       <button className={`btn mt-3 w-full text-[1.2em] ${r.overdue > 0 ? "btn-danger" : "btn-green"}`} onClick={() => game.startMorning()}>
         {r.overdue > 0 ? "Đối mặt sự thật..." : `Bắt đầu ngày ${s.day}`}
@@ -359,13 +404,17 @@ export function BankruptScreen() {
   return (
     <div className="pointer-events-auto absolute inset-0 z-30 flex items-center justify-center bg-[rgba(30,20,20,0.92)] p-[5%]">
       <section className="panel pop-in max-h-full w-full max-w-[28em] overflow-y-auto p-[1em] text-center">
-        <p className="text-[3em] leading-none">📉😿</p>
+        <div className="flex justify-center">
+          <Icon name={["icon_bankrupt", "icon_bank"]} className="h-[5em] w-[5em]" />
+        </div>
         <h2 className="text-[1.6em] font-extrabold text-berry">PHÁ SẢN!</h2>
         <p className="mb-2">
           Quán không còn đủ tiền {s.overdue > 0 ? `trả ${s.overdue} xu hoá đơn` : "để nhập hàng"}. Chủ nhà đã dán giấy niêm phong lên cửa. Cách duy nhất để mở lại là vay ngân hàng.
         </p>
         <div className="mb-3 rounded-2xl border-2 border-[#e9d7c3] bg-white/60 p-2 text-left text-[0.95em]">
-          <p className="font-extrabold">🏦 Khoản vay khẩn cấp</p>
+          <p className="flex items-center gap-1 font-extrabold">
+            <Icon name="icon_bank" /> Khoản vay khẩn cấp
+          </p>
           <p>
             Giải ngân: <Coin value={offer.amount} /> {s.overdue > 0 ? `(trả ${s.overdue} xu hoá đơn, còn lại làm vốn)` : ""}
           </p>

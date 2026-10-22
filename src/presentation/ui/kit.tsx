@@ -1,10 +1,35 @@
 "use client";
 
 import { useEffect, type ReactNode } from "react";
+import manifest from "../game/assetManifest.json";
 import { useGame } from "./useGame";
 
 /** Image paths for UI icons (same webp assets the scene uses). */
 export const asset = (key: string) => `/assets/${key}.webp`;
+
+const HAVE = new Set(manifest as string[]);
+
+/** Game-art icon. Renders the first available asset key, or nothing when none has been generated yet. */
+export function Icon({ name, className = "h-[1.3em] w-[1.3em]", alt = "" }: { name: string | string[]; className?: string; alt?: string }) {
+  const key = (Array.isArray(name) ? name : [name]).find((k) => HAVE.has(k));
+  if (!key) return null;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={asset(key)} alt={alt} draggable={false} className={`inline-block shrink-0 object-contain align-middle ${className}`} />;
+}
+
+/** Line icons for small controls (home, pause, close). */
+export function Glyph({ name }: { name: "home" | "pause" | "close" }) {
+  const path = {
+    home: "M4 11.5 12 4l8 7.5M6.5 9.5V20h11V9.5M10 20v-5.5h4V20",
+    pause: "M8.5 5v14M15.5 5v14",
+    close: "M6 6l12 12M18 6 6 18",
+  }[name];
+  return (
+    <svg viewBox="0 0 24 24" className="h-[1.1em] w-[1.1em]" fill="none" stroke="currentColor" strokeWidth={name === "pause" ? 3.4 : 2.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d={path} />
+    </svg>
+  );
+}
 
 export function Coin({ value }: { value: number }) {
   return (
@@ -41,7 +66,7 @@ export function Modal({ title, children, onClose, footer }: { title: string; chi
           <h2 className="text-[1.35em] font-extrabold leading-tight">{title}</h2>
           {onClose && (
             <button className="chip !min-h-[36px] !px-[0.6em] text-bean" onClick={onClose} aria-label="Đóng">
-              ✕
+              <Glyph name="close" />
             </button>
           )}
         </header>
