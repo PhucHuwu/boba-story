@@ -48,8 +48,9 @@ export function parseDialogueQuery(body: unknown): DialogueQuery | null {
 
 export function sanitizeLine(text: string): string {
   return text
+    .trim()
+    .replace(/^[^:"“]{1,30}:\s*/, "")
     .replace(/^["'“”\s]+|["'“”\s]+$/g, "")
-    .replace(/^[^:]{1,30}:\s*/, "")
     .replace(/\s+/g, " ")
     .slice(0, 140);
 }
