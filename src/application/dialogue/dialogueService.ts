@@ -9,13 +9,22 @@ const PERSONAS: Record<ArchetypeId, string> = {
   picky: "một quý cô mèo Ba Tư sang chảnh, khó tính, rất để ý công thức",
 };
 
-export const DIALOGUE_EVENTS: readonly DialogueEvent[] = ["order", "happy", "sad", "leave"];
+export const DIALOGUE_EVENTS: readonly DialogueEvent[] = ["order", "happy", "sad", "leave", "review"];
 
 const EVENT_TASK: Record<DialogueEvent, string> = {
   order: "đang gọi món",
   happy: "vừa nhận ly đồ uống rất ngon và cảm ơn chủ quán",
   sad: "vừa nhận ly đồ uống chưa đúng ý và hơi thất vọng (vẫn lịch sự)",
   leave: "chờ quá lâu nên bỏ về",
+  review: "đang viết một dòng nhận xét ngắn trên mạng về quán trà sữa",
+};
+
+const REVIEW_MOOD: Record<number, string> = {
+  1: "rất tệ, cay cú, hài hước kiểu than phiền vô lý (ví dụ nhân viên không cười, giọng chói)",
+  2: "khá thất vọng, hơi mỉa mai",
+  3: "bình thường, nửa khen nửa chê",
+  4: "khá hài lòng, có một điểm chê nhỏ",
+  5: "cực kỳ hài lòng, khen nhiệt tình",
 };
 
 const SYSTEM_PROMPT =
@@ -70,6 +79,7 @@ export class DialogueService {
     }
     if (q.event === "happy") return "Ngon quá trời! Cảm ơn chủ quán nha~ meo!";
     if (q.event === "sad") return "Hmm... lần sau làm đúng hơn nhé.";
+    if (q.event === "review") return q.stage >= 4 ? "Ngon, sẽ quay lại!" : "Chưa ưng lắm.";
     return "Lâu quá, tớ phải đi đây...";
   }
 
@@ -78,14 +88,16 @@ export class DialogueService {
     const base = { line: this.fallback(q), source: "fallback" as const };
     if (!generator || !(await limiter.allow(`dlg:${clientId}`, 40, 60))) return base;
 
-    const variant = q.archetype === "regular" ? q.stage : Math.floor(rng() * VARIANTS);
+    const variant = q.archetype === "regular" || q.event === "review" ? `${q.stage}-${Math.floor(rng() * VARIANTS)}` : Math.floor(rng() * VARIANTS);
     const key = `dlg:${q.archetype}:${q.event}:${q.recipeId ?? "-"}:${variant}`;
     const cached = await cache?.get(key).catch(() => null);
     if (cached) return { line: cached, source: "cache" };
 
     const recipe = q.recipeId ? RECIPE_BY_ID[q.recipeId] : undefined;
     const story =
-      q.archetype === "regular" ? ` Bối cảnh câu chuyện lần ghé thứ ${q.stage + 1}: "${REGULAR_LINES[Math.min(q.stage, REGULAR_LINES.length - 1)]}"` : "";
+      q.event === "review"
+        ? ` Đánh giá ${q.stage} sao: ${REVIEW_MOOD[Math.max(1, Math.min(5, q.stage))]}. Viết như một bình luận Google Maps.`
+        : q.archetype === "regular" ? ` Bối cảnh câu chuyện lần ghé thứ ${q.stage + 1}: "${REGULAR_LINES[Math.min(q.stage, REGULAR_LINES.length - 1)]}"` : "";
     const text = await generator.generate(
       [
         { role: "system", content: SYSTEM_PROMPT },

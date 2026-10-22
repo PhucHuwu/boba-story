@@ -1,6 +1,6 @@
 import { INGREDIENTS, QUESTS, defaultSave } from "@/domain/catalog";
+import { goalStatus, planDay, type GoalStatus } from "@/domain/dayPlan";
 import {
-  RECOVERY_GRANT,
   buyIngredient,
   buyUpgrade,
   claimQuest,
@@ -10,20 +10,26 @@ import {
   type ShopResult,
 } from "@/domain/economy";
 import { dayProfit, emptyDayStats, recordLost, recordServe, type ServeRecord } from "@/domain/ledger";
+import { isBankrupt, loanOffer, repayLoan, resolveNight, takeLoan, withdraw, type NightReport } from "@/domain/night";
+import { addReview, shopRating } from "@/domain/reviews";
+import { FAKE_REVIEW_TEXTS, RIVAL_EVENTS } from "@/domain/rivalEvents";
 import { migrate } from "@/domain/saveSchema";
-import type { DayStats, IngredientId, SaveData, Settings } from "@/domain/types";
+import type { DayStats, IngredientId, Review, RivalEventId, SaveData, Settings } from "@/domain/types";
 import { Observable } from "../common/emitter";
 import { Notifier, type NoticeKind } from "../common/notifier";
 import type { CloudSaveGateway, DialogueGateway, RecoveryCodeStore, Rng, SaveRepository } from "../ports";
-import { ShopSession, type ShopHost } from "./shopSession";
+import { ShopSession, type ReviewDraft, type ShopHost } from "./shopSession";
 
-export type Phase = "loading" | "menu" | "prep" | "open" | "summary";
-export type Modal = null | "shop" | "recipes" | "settings" | "quests" | "pause" | "cloud";
+export type Phase = "loading" | "menu" | "prep" | "open" | "summary" | "night" | "bankrupt";
+export type Modal = null | "shop" | "recipes" | "settings" | "quests" | "pause" | "cloud" | "reviews" | "bank" | "rival";
 
 export interface DaySummary {
   day: number;
   stats: DayStats;
   profit: number;
+  goal: GoalStatus | null;
+  goalReward: number;
+  reviews: Review[];
 }
 
 export interface GameDeps {
@@ -49,6 +55,10 @@ export class GameController extends Observable implements ShopHost {
   dayStats: DayStats = emptyDayStats();
   lastSummary: DaySummary | null = null;
   cloudBusy = false;
+  /** Rival event waiting for the player's choice. */
+  rivalEvent: RivalEventId | null = null;
+  /** Result of the last resolved night (shown on the morning screen). */
+  lastNight: NightReport | null = null;
 
   readonly notices = new Notifier(() => this.changed());
   readonly session: ShopSession;
@@ -86,7 +96,8 @@ export class GameController extends Observable implements ShopHost {
   }
 
   continueGame() {
-    this.toPrep();
+    if (this.save.nightPending) this.toNight();
+    else this.toPrep();
   }
 
   toMenu() {
@@ -111,7 +122,47 @@ export class GameController extends Observable implements ShopHost {
     this.changed();
   }
 
+  /** Summary → night: decide how much cash to bank before going home. */
   nextDay() {
+    this.toNight();
+  }
+
+  private toNight() {
+    this.session.reset();
+    this.modal = null;
+    this.paused = false;
+    this.lastNight = null;
+    this.setPhase("night");
+  }
+
+  /** Ends the night: deposit, robbery roll, morning bills. Persisted at once so a reload cannot reroll it. */
+  endNight(depositAmount: number) {
+    if (this.phase !== "night" || this.lastNight) return;
+    this.lastNight = resolveNight(this.save, this.save.day - 1, depositAmount, this.deps.rng);
+    this.save.nightPending = false;
+    this.persist();
+    this.changed();
+  }
+
+  /** Morning screen → prep (or the bankruptcy screen). */
+  startMorning() {
+    this.lastNight = null;
+    this.toPrep();
+  }
+
+  get bankrupt() {
+    return isBankrupt(this.save);
+  }
+
+  get loanOffer() {
+    return loanOffer(this.save);
+  }
+
+  takeLoan() {
+    if (this.phase !== "bankrupt") return;
+    const loan = takeLoan(this.save);
+    this.notify(`Ngân hàng giải ngân! Trả góp ${loan.installment} xu mỗi sáng, còn nợ ${loan.remaining} xu.`, "good");
+    this.persist();
     this.toPrep();
   }
 
@@ -120,12 +171,17 @@ export class GameController extends Observable implements ShopHost {
     this.modal = null;
     this.paused = false;
     this.dayStats = emptyDayStats();
-    if (needsRecovery(this.save)) {
-      this.save.money += RECOVERY_GRANT;
-      this.notify(`Mochi gửi tặng ${RECOVERY_GRANT} xu để quán vượt khó. Hãy nhập ly, nắp và trà nhé!`, "good");
+    if (this.bankrupt) return this.setPhase("bankrupt");
+    if (needsRecovery(this.save) && this.save.bank > 0) this.notify("Hết vốn trong quầy — hãy rút tiền tiết kiệm ở Ngân hàng để nhập hàng.", "info");
+    if (!this.save.plan || this.save.plan.day !== this.save.day) {
+      this.save.plan = planDay(this.save, this.deps.rng, this.rating);
       this.persist();
     }
     this.setPhase("prep");
+  }
+
+  get rating() {
+    return shopRating(this.save.reviews);
   }
 
   private setPhase(p: Phase) {
@@ -181,6 +237,65 @@ export class GameController extends Observable implements ShopHost {
     this.changed();
   }
 
+  reviewed(draft: ReviewDraft): number {
+    const id = this.save.nextReviewId++;
+    this.save.reviews = addReview(this.save.reviews, { id, day: this.save.day, ...draft, ...(draft.critic ? { critic: true } : {}) });
+    this.dayStats.starsSum += draft.stars;
+    this.dayStats.reviews++;
+    if (draft.stars === 5) this.save.stats.fiveStars++;
+    this.checkQuests();
+    this.changed();
+    return id;
+  }
+
+  reviseReview(id: number, text: string) {
+    const r = this.save.reviews.find((x) => x.id === id);
+    if (!r) return;
+    r.text = text.slice(0, 160);
+    this.changed();
+  }
+
+  rivalStrikes(id: RivalEventId) {
+    const def = RIVAL_EVENTS[id];
+    this.session.applyEffects(def.immediate);
+    for (const e of def.immediate) if (e.kind === "fakeReviews") this.addFakeReviews(e.count);
+    this.rivalEvent = id;
+    this.openModal("rival");
+  }
+
+  private addFakeReviews(count: number) {
+    for (let i = 0; i < count; i++) {
+      const id = this.save.nextReviewId++;
+      const text = FAKE_REVIEW_TEXTS[i % FAKE_REVIEW_TEXTS.length];
+      this.save.reviews = addReview(this.save.reviews, { id, day: this.save.day, stars: 1, text, archetype: "office", fake: true });
+    }
+  }
+
+  /** Player answers the rival event with option `index`. Returns false when it cannot be afforded. */
+  chooseRival(index: number): boolean {
+    const id = this.rivalEvent;
+    if (!id) return false;
+    const option = RIVAL_EVENTS[id].options[index];
+    if (!option) return false;
+    if (this.save.money < option.cost) {
+      this.notify("Không đủ xu cho lựa chọn này", "bad");
+      return false;
+    }
+    const out = option.resolve(this.deps.rng);
+    this.save.money -= out.cost;
+    this.dayStats.otherCosts += out.cost;
+    this.save.reputation = Math.max(0, Math.min(100, this.save.reputation + out.reputation));
+    for (const e of out.effects) if (e.kind === "fakeReviews" && e.count === 0) this.save.reviews = this.save.reviews.filter((r) => !(r.fake && r.day === this.save.day));
+    this.session.applyEffects(out.effects.filter((e) => e.kind !== "fakeReviews"));
+    if (out.win) this.save.stats.rivalsBeaten++;
+    this.dayStats.rivalOutcome = out.message;
+    this.notify(out.message, out.win ? "good" : out.reputation < 0 ? "bad" : "info");
+    this.rivalEvent = null;
+    this.checkQuests();
+    this.closeModal();
+    return true;
+  }
+
   tutorialCompleted() {
     this.save.tutorialDone = true;
     this.persist();
@@ -192,7 +307,24 @@ export class GameController extends Observable implements ShopHost {
 
   dayOver() {
     this.save.stats.daysCompleted++;
-    this.lastSummary = { day: this.save.day, stats: this.dayStats, profit: dayProfit(this.dayStats) };
+    const plan = this.save.plan?.day === this.save.day ? this.save.plan : null;
+    const goal = plan ? goalStatus(plan.goal, this.dayStats) : null;
+    if (plan && goal?.met) {
+      this.dayStats.goalMet = true;
+      this.dayStats.goalReward = plan.goal.reward;
+      this.save.money += plan.goal.reward;
+      this.save.stats.goalsMet++;
+    }
+    this.lastSummary = {
+      day: this.save.day,
+      stats: this.dayStats,
+      profit: dayProfit(this.dayStats),
+      goal,
+      goalReward: this.dayStats.goalReward,
+      reviews: this.save.reviews.filter((r) => r.day === this.save.day),
+    };
+    this.rivalEvent = null;
+    this.save.nightPending = true;
     this.save.day++;
     this.checkQuests();
     this.persist();
@@ -233,6 +365,19 @@ export class GameController extends Observable implements ShopHost {
   buyUpgrade(id: string) {
     const before = this.save.money;
     return this.afterPurchase(buyUpgrade(this.save, id), before - this.save.money, "Nâng cấp thành công!");
+  }
+
+  withdraw(amount: number) {
+    withdraw(this.save, amount);
+    this.persist();
+    this.changed();
+  }
+
+  repayLoan(amount: number) {
+    const paid = repayLoan(this.save, amount);
+    if (paid > 0) this.notify(this.save.loan ? `Đã trả ${paid} xu nợ` : "Đã trả hết nợ ngân hàng!", "good");
+    this.persist();
+    this.changed();
   }
 
   claimQuest(id: string) {

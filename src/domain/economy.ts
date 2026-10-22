@@ -12,12 +12,20 @@ export interface Payment {
 }
 
 /** Wrong drinks are not paid for; good drinks earn a tip scaled by quality. */
-export function payment(order: Order, result: QualityResult, archetype: ArchetypeId, upgrades: string[]): Payment {
+export interface PaymentModifiers {
+  /** Today's price multiplier (e.g. matching a rival discount). */
+  priceMul?: number;
+  /** Weather and combo tip multiplier. */
+  tipMul?: number;
+}
+
+export function payment(order: Order, result: QualityResult, archetype: ArchetypeId, upgrades: string[], mods: PaymentModifiers = {}): Payment {
   const def = ARCHETYPES[archetype];
-  const price = result.wrongDrink ? 0 : result.quality < 45 ? Math.round(orderPrice(order) * 0.5) : orderPrice(order);
+  const listPrice = Math.round(orderPrice(order) * (mods.priceMul ?? 1));
+  const price = result.wrongDrink ? 0 : result.quality < 45 ? Math.round(listPrice * 0.5) : listPrice;
   const bell = upgrades.includes("bell") ? 1.25 : 1;
   const tipBase = result.quality >= 60 ? ((result.quality - 60) / 40) * 0.3 * orderPrice(order) : 0;
-  const tip = result.wrongDrink ? 0 : Math.round(tipBase * def.tipMul * bell);
+  const tip = result.wrongDrink ? 0 : Math.round(tipBase * def.tipMul * bell * (mods.tipMul ?? 1));
   let reputation = result.quality >= 90 ? 2 : result.quality >= 70 ? 1 : result.quality >= 45 ? 0 : -2;
   if (reputation > 0 && upgrades.includes("bell")) reputation += 0.5;
   if (archetype === "picky" && result.quality >= 85) reputation += 1;

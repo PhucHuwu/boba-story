@@ -12,10 +12,13 @@ import {
   transition,
   type Customer,
 } from "@/domain/customers";
+import { COMBO_QUALITY, CRITIC_CHANCE, CRITIC_FROM_DAY, WEATHER, comboTipBonus } from "@/domain/dayPlan";
 import { LEAVE_REPUTATION_PENALTY, canMake, payment } from "@/domain/economy";
 import type { ServeRecord } from "@/domain/ledger";
 import { evaluate, grade } from "@/domain/quality";
-import type { CupState, IngredientId, Mood, Order, SaveData, Size, TeaId, ToppingId } from "@/domain/types";
+import { ratingSpawnFactor, shopRating, writeReview } from "@/domain/reviews";
+import { TRASH_TEXTS, type Effect } from "@/domain/rivalEvents";
+import type { ArchetypeId, CupState, IngredientId, Mood, Order, RivalEventId, SaveData, Size, TeaId, ToppingId } from "@/domain/types";
 import { Emitter } from "../common/emitter";
 import type { NoticeKind } from "../common/notifier";
 import type { DialogueEvent, DialogueGateway, Rng } from "../ports";
@@ -67,7 +70,28 @@ export type ShopEvent =
   | { type: "served"; id: number; info: ServedInfo }
   | { type: "cup"; action: "take" | "sugar" | "ice" | "topping" | "sealStart" | "sealed" | "discard"; duration?: number }
   | { type: "rejected" }
-  | { type: "closing" };
+  | { type: "closing" }
+  | { type: "review"; id: number; stars: number; text: string }
+  | { type: "combo"; count: number }
+  | { type: "trash"; items: TrashItem[] }
+  | { type: "rival"; id: RivalEventId };
+
+export interface TrashItem {
+  id: number;
+  /** Position as fractions of the customer room (0..1), so every layout can place it. */
+  x: number;
+  y: number;
+  kind: number;
+}
+
+export interface ReviewDraft {
+  stars: number;
+  text: string;
+  archetype: ArchetypeId;
+  critic: boolean;
+}
+
+type TimedKind = "priceMul" | "spawnMul" | "decayMul" | "pourMul";
 
 /** Narrow view of the game the shop simulation needs (Interface Segregation). */
 export interface ShopHost {
@@ -76,6 +100,11 @@ export interface ShopHost {
   consume(id: IngredientId): boolean;
   served(record: ServeRecord): void;
   lost(reputationPenalty: number): void;
+  /** Stores a customer review; returns its id so an AI rewrite can replace the text later. */
+  reviewed(review: ReviewDraft): number;
+  reviseReview(id: number, text: string): void;
+  /** The rival strikes: the host shows the choice and later calls `applyEffects`. */
+  rivalStrikes(id: RivalEventId): void;
   tutorialCompleted(): void;
   notify(text: string, kind: NoticeKind): void;
   /** Coarse change that the HUD should re-render for (clock, hint, stock). */
@@ -98,8 +127,14 @@ export class ShopSession {
   clock = 0;
   closing = false;
   hint: Hint | null = null;
+  combo = 0;
+  trash: TrashItem[] = [];
+  rivalFired = false;
 
   private active = false;
+  private timed = new Map<TimedKind, { value: number; left: number }>();
+  private malus: { chance: number; texts: string[]; left: number } | null = null;
+  private nextTrashId = 1;
   private nextId = 1;
   private spawnTimer = 0;
   private sealTimer = 0;
@@ -114,7 +149,7 @@ export class ShopSession {
   start() {
     this.reset();
     this.active = true;
-    this.spawnTimer = spawnInterval(DAY.openHour, this.save.reputation, this.save.day) - 2.5;
+    this.spawnTimer = this.spawnEvery - 2.5;
   }
 
   reset() {
@@ -128,6 +163,11 @@ export class ShopSession {
     this.closing = false;
     this.hint = null;
     this.regularServedToday = false;
+    this.combo = 0;
+    this.trash = [];
+    this.rivalFired = false;
+    this.timed.clear();
+    this.malus = null;
     this.events.emit({ type: "reset" });
   }
 
@@ -147,6 +187,26 @@ export class ShopSession {
     return this.host.save;
   }
 
+  get weather() {
+    const plan = this.save.plan;
+    return WEATHER[plan && plan.day === this.save.day ? plan.weather : "sunny"];
+  }
+
+  /** Current value of a timed modifier (1 when none). */
+  mod(kind: TimedKind): number {
+    return this.timed.get(kind)?.value ?? 1;
+  }
+
+  /** Seconds between arrivals right now: time of day, reputation, weather, rating, rival and rubbish. */
+  get spawnEvery(): number {
+    const base = spawnInterval(this.hour, this.save.reputation, this.save.day);
+    return base * this.weather.spawnMul * ratingSpawnFactor(shopRating(this.save.reviews)) * this.mod("spawnMul") * (1 + this.trash.length * 0.05);
+  }
+
+  get decayMul(): number {
+    return this.weather.decayMul * this.mod("decayMul");
+  }
+
   private get tutorial() {
     return !this.save.tutorialDone;
   }
@@ -163,6 +223,8 @@ export class ShopSession {
     this.tickSpawning();
     this.spawnTimer += dt;
     for (const c of [...this.customers]) this.tickCustomer(c, dt);
+    this.tickEffects(dt);
+    this.tickRival();
     this.tickPour(dt);
     this.tickSeal(dt);
     if (this.tutorial) this.updateHint();
@@ -192,7 +254,7 @@ export class ShopSession {
 
   private tickSpawning() {
     if (this.closing) return;
-    const interval = spawnInterval(this.hour, this.save.reputation, this.save.day);
+    const interval = this.spawnEvery;
     const limit = this.tutorial ? 1 : maxCustomers(this.save);
     const active = this.customers.filter((c) => c.data.state !== "leaving").length;
     if (this.spawnTimer < interval || active >= limit) return;
@@ -215,7 +277,7 @@ export class ShopSession {
       case "ordering":
       case "waiting":
         if (this.tutorial) break;
-        if (tickPatience(d, dt, this.save.settings.relaxed)) this.giveUp(c);
+        if (tickPatience(d, dt * this.decayMul, this.save.settings.relaxed)) this.giveUp(c);
         else this.setMood(c, isImpatient(d) || (d.state === "ordering" && d.patience < 35) ? "impatient" : "idle");
         break;
       case "receiving":
@@ -239,7 +301,7 @@ export class ShopSession {
       this.pouring = null;
       return;
     }
-    const rate = POUR_RATE * (this.save.upgrades.includes("fast_tap") ? FAST_TAP_MUL : 1);
+    const rate = POUR_RATE * (this.save.upgrades.includes("fast_tap") ? FAST_TAP_MUL : 1) * this.mod("pourMul");
     const source = this.pouring;
     const r = pour(this.cup, source, rate * dt, this.host.consume);
     if (!r.ok) {
@@ -272,7 +334,7 @@ export class ShopSession {
       ? "regular"
       : chooseArchetype(rng, this.save, this.regularServedToday, this.customers.map((c) => c.data.archetype));
     const makeable = this.save.unlockedRecipes.filter((r) => canMake(this.save, r));
-    const order = this.tutorial ? { id, ...TUTORIAL_ORDER } : createOrder({ rng, save: this.save, archetype, id, makeable });
+    const order = this.tutorial ? { id, ...TUTORIAL_ORDER } : createOrder({ rng, save: this.save, archetype, id, makeable, iceLevels: this.weather.ice });
     const line =
       archetype === "regular"
         ? REGULAR_LINES[Math.min(this.save.regularStage, REGULAR_LINES.length - 1)]
@@ -280,6 +342,11 @@ export class ShopSession {
     if (archetype === "regular") this.regularServedToday = true;
     const duration = this.walk(TIMING.walkIn);
     const customer: ShopCustomer = { data: createCustomer(id, archetype, order, slot, this.save.upgrades, line), mood: "idle", timer: duration };
+    if (!this.tutorial && archetype !== "regular" && this.save.day >= CRITIC_FROM_DAY && rng() < CRITIC_CHANCE) {
+      customer.data.critic = true;
+      customer.data.line = "Tôi là food reviewer. Hãy cho tôi thấy quán có gì đặc biệt.";
+      this.host.notify("📸 Một mèo food reviewer vừa bước vào! Đánh giá của họ nặng gấp 3.", "info");
+    }
     this.customers.push(customer);
     this.events.emit({ type: "arrived", customer, duration });
   }
@@ -298,6 +365,8 @@ export class ShopSession {
     this.say(c, "Lâu quá... tớ đi đây.");
     this.host.lost(this.save.settings.relaxed ? 0 : LEAVE_REPUTATION_PENALTY);
     this.host.notify(`${ARCHETYPES[c.data.archetype].name} đã bỏ về vì chờ quá lâu`, "bad");
+    this.breakCombo();
+    this.review(c, null);
     this.leave(c, TIMING.giveUp);
   }
 
@@ -429,8 +498,17 @@ export class ShopSession {
     if (!transition(d, "receiving")) return;
 
     const result = evaluate({ cup, order: d.order, patience: d.patience, tolerance: ARCHETYPES[d.archetype].tolerance });
-    const pay = payment(d.order, result, d.archetype, this.save.upgrades);
-    this.host.served({ ...pay, quality: result.quality, recipeId: d.order.recipeId, archetype: d.archetype });
+    const good = !result.wrongDrink && result.quality >= COMBO_QUALITY;
+    const combo = good ? this.combo + 1 : 0;
+    const pay = payment(d.order, result, d.archetype, this.save.upgrades, {
+      priceMul: this.mod("priceMul"),
+      tipMul: this.weather.tipMul * (1 + comboTipBonus(combo)),
+    });
+    this.host.served({ ...pay, quality: result.quality, recipeId: d.order.recipeId, archetype: d.archetype, combo });
+    if (good) {
+      this.combo = combo;
+      if (combo >= 2) this.events.emit({ type: "combo", count: combo });
+    } else this.breakCombo();
     if (this.tutorial) {
       this.host.tutorialCompleted();
       this.hint = null;
@@ -446,7 +524,102 @@ export class ShopSession {
     this.say(c, happy ? "Ngon quá! Cảm ơn nha~ meo!" : result.notes[0] ? `Hmm... ${result.notes[0].toLowerCase()}.` : "Hmm... chưa đúng ý lắm.");
     void this.enrichLine(c, happy ? "happy" : "sad");
     if (!happy && result.notes.length) this.host.notify(`Góp ý: ${result.notes.slice(0, 3).join(", ")}`, "info");
+    if (!this.tutorial) this.review(c, result.quality);
     if (this.selectedId === d.id) this.selectNext();
+  }
+
+  // ------------------------------------------------------------ reviews, combo
+  private breakCombo() {
+    if (this.combo >= 2) this.events.emit({ type: "combo", count: 0 });
+    this.combo = 0;
+  }
+
+  /** Malus today: rival effects plus rubbish on the floor. */
+  private currentMalus() {
+    if (this.malus && this.malus.chance > 0) return this.malus;
+    if (this.trash.length) return { chance: Math.min(0.6, this.trash.length * 0.12), texts: TRASH_TEXTS };
+    return null;
+  }
+
+  private review(c: ShopCustomer, quality: number | null) {
+    const d = c.data;
+    const r = writeReview({ quality, patience: d.patience, archetype: d.archetype, critic: d.critic, rng: this.deps.rng, malus: this.currentMalus() });
+    const id = this.host.reviewed({ ...r, archetype: d.archetype, critic: d.critic });
+    this.events.emit({ type: "review", id: d.id, stars: r.stars, text: r.text });
+    // Now and then let the AI write a fresh comment for the same star rating.
+    if (!d.critic && this.deps.rng() < 0.2) {
+      void this.deps.dialogue
+        .line({ archetype: d.archetype, event: "review", recipeId: d.order.recipeId, stage: r.stars })
+        .then((text) => text && this.host.reviseReview(id, text))
+        .catch(() => undefined);
+    }
+  }
+
+  // ------------------------------------------------------------ rival & effects
+  private tickRival() {
+    const plan = this.save.plan;
+    if (this.rivalFired || this.closing || this.tutorial || !plan?.rival || plan.day !== this.save.day) return;
+    if (this.clock < plan.rivalAt * DAY.lengthSec) return;
+    this.rivalFired = true;
+    this.stopPour();
+    this.events.emit({ type: "rival", id: plan.rival });
+    this.host.rivalStrikes(plan.rival);
+  }
+
+  private tickEffects(dt: number) {
+    for (const [kind, e] of this.timed) {
+      e.left -= dt;
+      if (e.left <= 0) {
+        this.timed.delete(kind);
+        this.host.changed();
+      }
+    }
+    if (this.malus) {
+      this.malus.left -= dt;
+      if (this.malus.left <= 0) this.malus = null;
+    }
+  }
+
+  /** Applies rival-event effects (a duration of 0 clears that modifier). */
+  applyEffects(effects: Effect[]) {
+    for (const e of effects) {
+      switch (e.kind) {
+        case "priceMul":
+        case "spawnMul":
+        case "decayMul":
+        case "pourMul":
+          if (e.duration <= 0 || e.value === 1) this.timed.delete(e.kind);
+          else this.timed.set(e.kind, { value: e.value, left: e.duration });
+          break;
+        case "malus":
+          this.malus = e.duration > 0 && e.chance > 0 ? { chance: e.chance, texts: e.texts, left: e.duration } : null;
+          break;
+        case "trash":
+          if (e.count <= 0) this.trash = [];
+          else for (let i = 0; i < e.count; i++) this.trash.push(this.makeTrash());
+          this.events.emit({ type: "trash", items: [...this.trash] });
+          break;
+        case "fakeReviews":
+          break;
+      }
+    }
+    this.host.changed();
+  }
+
+  private makeTrash(): TrashItem {
+    const r = this.deps.rng;
+    return { id: this.nextTrashId++, x: 0.08 + r() * 0.84, y: 0.05 + r() * 0.9, kind: Math.floor(r() * 5) };
+  }
+
+  /** Player picks up one piece of rubbish. */
+  sweep(id: number) {
+    if (!this.canAct()) return;
+    const before = this.trash.length;
+    this.trash = this.trash.filter((t) => t.id !== id);
+    if (this.trash.length === before) return;
+    this.events.emit({ type: "trash", items: [...this.trash] });
+    if (!this.trash.length) this.host.notify("Sạch bong! Quán lại thơm tho.", "good");
+    this.host.changed();
   }
 
   // ------------------------------------------------------------ helpers

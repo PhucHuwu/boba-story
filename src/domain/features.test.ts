@@ -1,0 +1,175 @@
+import { describe, expect, it } from "vitest";
+import { defaultSave } from "./catalog";
+import { comboTipBonus, goalStatus, planDay } from "./dayPlan";
+import { emptyDayStats } from "./ledger";
+import { deposit, isBankrupt, loanOffer, rentFor, repayLoan, resolveNight, robberyChance, takeLoan } from "./night";
+import { PETTY_COMMENTS, addReview, ratingSpawnFactor, shopRating, starsForQuality, writeReview, REVIEW_KEEP } from "./reviews";
+import { RIVAL_EVENTS } from "./rivalEvents";
+import { migrate } from "./saveSchema";
+import type { Review } from "./types";
+
+const seq = (...values: number[]) => {
+  let i = 0;
+  return () => values[i++ % values.length];
+};
+
+describe("reviews", () => {
+  it("maps quality to stars and a lost customer to 1★", () => {
+    expect(starsForQuality(null)).toBe(1);
+    expect(starsForQuality(95)).toBe(5);
+    expect(starsForQuality(75)).toBe(4);
+    expect(starsForQuality(30)).toBe(1);
+  });
+
+  it("sometimes leaves a petty comment even for a great drink", () => {
+    const petty = writeReview({ quality: 95, patience: 80, archetype: "office", rng: seq(0, 0.01) });
+    expect(PETTY_COMMENTS).toContain(petty.text);
+    expect(petty.stars).toBe(4);
+    const fair = writeReview({ quality: 95, patience: 80, archetype: "office", rng: seq(0, 0.9) });
+    expect(fair.stars).toBe(5);
+  });
+
+  it("applies today's malus (e.g. rubbish) and long waits", () => {
+    const r = writeReview({ quality: 95, patience: 80, archetype: "student", rng: seq(0, 0.1), malus: { chance: 0.5, texts: ["Bẩn!"] } });
+    expect(r).toEqual({ stars: 4, text: "Bẩn!" });
+    expect(writeReview({ quality: 95, patience: 10, archetype: "student", rng: seq(0, 0.9) }).stars).toBe(4);
+  });
+
+  it("rates the shop on recent reviews, critics weigh triple, and the rating drives traffic", () => {
+    const mk = (stars: number, critic = false): Review => ({ id: 0, day: 1, stars, text: "", archetype: "office", ...(critic ? { critic } : {}) });
+    expect(shopRating([])).toBeNull();
+    expect(shopRating([mk(5), mk(1)])).toBe(3);
+    expect(shopRating([mk(5, true), mk(1)])).toBe(4);
+    expect(ratingSpawnFactor(5)).toBeLessThan(1);
+    expect(ratingSpawnFactor(1.5)).toBeGreaterThan(1);
+    let list: Review[] = [];
+    for (let i = 0; i < REVIEW_KEEP + 5; i++) list = addReview(list, { ...mk(5), id: i });
+    expect(list).toHaveLength(REVIEW_KEEP);
+    expect(list[0].id).toBe(5);
+  });
+});
+
+describe("day plan", () => {
+  it("never sends the rival before day 3 or during the tutorial, and festival every 7th day", () => {
+    const save = defaultSave();
+    expect(planDay(save, () => 0, 5).rival).toBeNull();
+    save.tutorialDone = true;
+    save.day = 2;
+    expect(planDay(save, () => 0, 5).rival).toBeNull();
+    save.day = 5;
+    expect(planDay(save, () => 0, 5).rival).not.toBeNull();
+    save.day = 7;
+    expect(planDay(save, () => 0.99, null).weather).toBe("festival");
+  });
+
+  it("checks goals against the day's stats", () => {
+    const st = emptyDayStats();
+    st.served = 5;
+    expect(goalStatus({ kind: "served", target: 5, reward: 10 }, st).met).toBe(true);
+    expect(goalStatus({ kind: "noLost", target: 0, reward: 10 }, st).met).toBe(true);
+    st.lost = 1;
+    expect(goalStatus({ kind: "noLost", target: 0, reward: 10 }, st).met).toBe(false);
+    st.reviews = 3;
+    st.starsSum = 13;
+    expect(goalStatus({ kind: "avgStars", target: 4, reward: 10 }, st).met).toBe(true);
+  });
+
+  it("combo raises tips progressively with a cap", () => {
+    expect(comboTipBonus(1)).toBe(0);
+    expect(comboTipBonus(3)).toBeCloseTo(0.2);
+    expect(comboTipBonus(50)).toBe(0.6);
+  });
+});
+
+describe("rival events", () => {
+  it("every option is resolvable and costs what it says", () => {
+    for (const ev of Object.values(RIVAL_EVENTS)) {
+      expect(ev.options.length).toBeGreaterThanOrEqual(2);
+      for (const o of ev.options) for (const r of [0.01, 0.99]) expect(o.resolve(() => r).cost).toBe(o.cost);
+    }
+  });
+
+  it("throwing the trash back is a gamble", () => {
+    const back = RIVAL_EVENTS.trash.options[2];
+    expect(back.resolve(() => 0.1).win).toBe(true);
+    expect(back.resolve(() => 0.9).reputation).toBeLessThan(0);
+  });
+});
+
+describe("night: bank, robbery, rent, loan", () => {
+  it("robbers never come early, rarely later, less with a camera", () => {
+    const save = defaultSave();
+    save.money = 1000;
+    expect(robberyChance(save, 2)).toBe(0);
+    const base = robberyChance(save, 6);
+    expect(base).toBeGreaterThan(0);
+    expect(base).toBeLessThan(0.1);
+    save.upgrades.push("camera");
+    expect(robberyChance(save, 6)).toBeLessThan(base);
+  });
+
+  it("a robbery takes all cash in the till but not the bank; the safe keeps most of it", () => {
+    const save = defaultSave();
+    save.day = 7;
+    save.money = 800;
+    const r = resolveNight(save, 6, 300, () => 0);
+    expect(r.deposited).toBe(300);
+    expect(save.bank).toBe(300 - Math.ceil(300 * 0.02) - r.rent + 0);
+    expect(r.robbed).toBe(true);
+    expect(r.stolen).toBe(500);
+    expect(save.money).toBe(0);
+
+    const safe = defaultSave();
+    safe.money = 1000;
+    safe.upgrades.push("safe");
+    const r2 = resolveNight(safe, 6, 0, () => 0);
+    expect(r2.stolen).toBe(350);
+  });
+
+  it("unpaid bills mean bankruptcy; the bank loan pays them and gives capital", () => {
+    const save = defaultSave();
+    save.money = 1000;
+    resolveNight(save, 6, 0, () => 0);
+    expect(save.money).toBe(0);
+    expect(save.overdue).toBe(rentFor(7));
+    expect(isBankrupt(save)).toBe(true);
+    const offer = loanOffer(save);
+    takeLoan(save);
+    expect(save.overdue).toBe(0);
+    expect(save.money).toBe(offer.amount - rentFor(7));
+    expect(save.loan?.remaining).toBe(offer.total);
+    expect(isBankrupt(save)).toBe(false);
+    // Installments are collected each morning; early repayment works too.
+    const before = save.loan!.remaining;
+    resolveNight(save, 7, 0, () => 0.99);
+    expect(save.loan!.remaining).toBe(before - offer.installment);
+    save.money = 10_000;
+    repayLoan(save, 10_000);
+    expect(save.loan).toBeNull();
+  });
+
+  it("deposit fee is small and never deposits more than the cash", () => {
+    const save = defaultSave();
+    save.money = 100;
+    expect(deposit(save, 500)).toBe(2);
+    expect(save.money).toBe(0);
+    expect(save.bank).toBe(98);
+  });
+});
+
+describe("save v2", () => {
+  it("migrates a v1 save without losing progress and sanitizes new fields", () => {
+    const v1 = { ...defaultSave(), version: 1, money: 777 } as Record<string, unknown>;
+    for (const k of ["bank", "loan", "reviews", "nextReviewId", "plan", "lastRobberyDay", "nightPending", "overdue"]) delete v1[k];
+    const s = migrate(v1)!;
+    expect(s.version).toBe(2);
+    expect(s.money).toBe(777);
+    expect(s.reviews).toEqual([]);
+    expect(s.loan).toBeNull();
+    const bad = migrate({ ...defaultSave(), reviews: [{ stars: 99, text: "x", archetype: "office" }, { text: 3 }], loan: { remaining: -5 }, plan: { weather: "lava" } })!;
+    expect(bad.reviews).toHaveLength(1);
+    expect(bad.reviews[0].stars).toBe(5);
+    expect(bad.loan).toBeNull();
+    expect(bad.plan).toBeNull();
+  });
+});

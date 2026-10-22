@@ -28,7 +28,7 @@ export interface CloudSaveGateway {
   download(code: string): Promise<GatewayResult<unknown>>;
 }
 
-export type DialogueEvent = "order" | "happy" | "sad" | "leave";
+export type DialogueEvent = "order" | "happy" | "sad" | "leave" | "review";
 
 export interface DialogueRequest {
   archetype: ArchetypeId;

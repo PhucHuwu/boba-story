@@ -1,8 +1,9 @@
 import * as Phaser from "phaser";
 import type { GameController } from "@/application/game/gameController";
-import type { PourSource, ShopCustomer, ShopEvent } from "@/application/game/shopSession";
+import type { PourSource, ShopCustomer, ShopEvent, TrashItem } from "@/application/game/shopSession";
 import type { HintTarget } from "@/application/game/tutorial";
 import { INGREDIENTS, RECIPE_BY_ID, TEA_IDS } from "@/domain/catalog";
+import { liquidTotal } from "@/domain/cup";
 import { maxCustomers } from "@/domain/customers";
 import type { IngredientId, Mood, Size, TeaId, ToppingId } from "@/domain/types";
 import manifest from "./assetManifest.json";
@@ -46,6 +47,7 @@ interface Station {
  */
 export class ShopScene extends Phaser.Scene {
   private cats = new Map<number, CatView>();
+  private trashViews = new Map<number, Phaser.GameObjects.Text>();
   private stations = new Map<StationId, Station>();
   private cupGfx!: Phaser.GameObjects.Graphics;
   private gauge!: Phaser.GameObjects.Graphics;
@@ -59,7 +61,7 @@ export class ShopScene extends Phaser.Scene {
   private dragTopping: ToppingId | null = null;
   private draggingCup = false;
   private dragStart = { x: 0, y: 0 };
-  private pourSoundIn = 0;
+  private pourSounding = false;
   private hintStep = -1;
   private wasPaused = false;
   private dirty = true;
@@ -104,9 +106,11 @@ export class ShopScene extends Phaser.Scene {
       }),
     );
     this.restoreCustomers();
+    this.syncTrash(this.session.trash);
     const detach = () => {
       this.unsubscribe.forEach((u) => u());
       this.unsubscribe = [];
+      audio.stopPour();
     };
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, detach);
     this.events.once(Phaser.Scenes.Events.DESTROY, detach);
@@ -245,7 +249,6 @@ export class ShopScene extends Phaser.Scene {
 
   private pour(source: PourSource) {
     this.command(() => this.session.startPour(source));
-    this.pourSoundIn = 0;
   }
 
   private bindInput() {
@@ -321,6 +324,7 @@ export class ShopScene extends Phaser.Scene {
       case "reset":
         for (const c of this.cats.values()) this.destroyCat(c);
         this.cats.clear();
+        this.syncTrash([]);
         this.endToppingDrag();
         this.hintStep = -1;
         this.drawHint(null);
@@ -380,6 +384,27 @@ export class ShopScene extends Phaser.Scene {
         break;
       case "closing":
         break;
+      case "review": {
+        const c = this.cats.get(e.id);
+        const x = c ? c.root.x : this.L.room.w / 2;
+        this.floatText(x, this.L.bubbleY - 30, `${"★".repeat(e.stars)}${"☆".repeat(5 - e.stars)}`, e.stars >= 4 ? "#c98a0b" : e.stars <= 2 ? "#9a3b3b" : "#6b4430");
+        this.time.delayedCall(450, () => audio.play(e.stars >= 4 ? "star" : e.stars <= 2 ? "bad" : "click"));
+        break;
+      }
+      case "combo":
+        if (e.count === 0) {
+          this.floatText(this.L.cup.x, this.L.cup.y - 160, "Mất combo!", "#9a3b3b");
+          break;
+        }
+        this.floatText(this.L.cup.x, this.L.cup.y - 160, `🔥 Combo x${e.count}`, "#e08a3c");
+        if (e.count % 5 === 0) audio.play("fanfare");
+        break;
+      case "trash":
+        this.syncTrash(e.items);
+        break;
+      case "rival":
+        if (!this.reduced) this.cameras.main.shake(300, 0.006);
+        break;
     }
     this.dirty = true;
   }
@@ -421,6 +446,7 @@ export class ShopScene extends Phaser.Scene {
       zone,
     ]);
 
+    if (d.critic) card.add(text(-72, "📸", 30, "#4a2c1d", "800").setX(78));
     const view: CatView = { id: d.id, slot: d.slot, root, sprite, card, cardBg, bar, status, baseScale };
     this.cats.set(d.id, view);
     this.tweens.add({ targets: root, alpha: 1, duration: 300 });
@@ -530,6 +556,38 @@ export class ShopScene extends Phaser.Scene {
     this.tweens.add({ targets: t, y: y - 70, alpha: 0, delay: 1100, duration: 900, onComplete: () => t.destroy() });
   }
 
+  /** Rubbish dumped by the rival: tap each piece to sweep it (interactive objects win over cat taps). */
+  private syncTrash(items: TrashItem[]) {
+    const keep = new Set(items.map((t) => t.id));
+    for (const [id, view] of this.trashViews) {
+      if (keep.has(id)) continue;
+      this.trashViews.delete(id);
+      view.disableInteractive();
+      this.tweens.add({ targets: view, alpha: 0, scale: 0.2, angle: 90, duration: 220, onComplete: () => view.destroy() });
+    }
+    const icons = ["🥫", "🍌", "🗞️", "🧃", "🦴"];
+    for (const t of items) {
+      if (this.trashViews.has(t.id)) continue;
+      const x = 50 + t.x * (this.L.room.w - 100);
+      const y = this.L.counterY - 30 - t.y * 110;
+      const view = this.add.text(x, y, icons[t.kind % icons.length], { fontSize: "52px" }).setOrigin(0.5).setDepth(8).setAngle(t.kind * 23 - 40);
+      view.setInteractive({ useHandCursor: true });
+      view.on("pointerdown", () =>
+        this.command(() => {
+          if (!this.ctl.isInteractive()) return;
+          audio.play("sweep");
+          this.session.sweep(t.id);
+        }),
+      );
+      this.trashViews.set(t.id, view);
+      if (!this.reduced) {
+        view.setY(y - 260).setAlpha(0);
+        this.tweens.add({ targets: view, y, alpha: 1, duration: 420, delay: t.kind * 60, ease: "Bounce.easeOut" });
+        this.time.delayedCall(200, () => audio.play("trash"));
+      }
+    }
+  }
+
   // ---------------------------------------------------------------- frame
   private syncPause() {
     const paused = this.ctl.phase === "open" && this.ctl.paused;
@@ -540,18 +598,22 @@ export class ShopScene extends Phaser.Scene {
     this.time.paused = paused;
   }
 
+  private syncPourSound() {
+    const on = this.ctl.running && this.session.pouring !== null && this.session.cup !== null;
+    if (on !== this.pourSounding) {
+      this.pourSounding = on;
+      if (on) audio.startPour(liquidTotal(this.session.cup!));
+      else audio.stopPour();
+    }
+    if (on) audio.setPourFill(liquidTotal(this.session.cup!));
+  }
+
   update(_time: number, deltaMs: number) {
     if (this.ctl.running) {
       this.session.tick(deltaMs / 1000);
-      if (this.session.pouring) {
-        this.dirty = true;
-        this.pourSoundIn -= deltaMs / 1000;
-        if (this.pourSoundIn <= 0) {
-          audio.play("pour");
-          this.pourSoundIn = 0.2;
-        }
-      }
+      if (this.session.pouring) this.dirty = true;
     }
+    this.syncPourSound();
     this.drawStream();
     if (!this.dirty) return;
     this.dirty = false;

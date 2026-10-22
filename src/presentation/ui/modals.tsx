@@ -5,6 +5,7 @@ import { INGREDIENTS, INVENTORY_CAP, LEVEL_UNITS, QUESTS, RECIPES, UPGRADES } fr
 import { packCost } from "@/domain/economy";
 import type { IngredientId } from "@/domain/types";
 import { audio } from "../game/audio";
+import { BankModal, ReviewsModal, RivalModal } from "./features";
 import { Bar, Coin, Modal, Toggle, asset } from "./kit";
 import { useGame } from "./useGame";
 
@@ -313,6 +314,12 @@ export function Modals() {
       return <CloudModal />;
     case "pause":
       return <PauseModal />;
+    case "reviews":
+      return <ReviewsModal />;
+    case "bank":
+      return <BankModal />;
+    case "rival":
+      return <RivalModal />;
     default:
       return null;
   }

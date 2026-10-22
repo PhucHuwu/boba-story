@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { QUESTS } from "@/domain/catalog";
 import { audio } from "../game/audio";
+import { DayCard, ReviewItem, Stars } from "./features";
 import { Coin, asset } from "./kit";
 import { useGame } from "./useGame";
 
@@ -97,10 +98,24 @@ export function PrepScreen() {
       <div className="panel pop-in w-full max-w-[30em] p-[0.9em] text-center">
         <h2 className="text-[1.5em] font-extrabold leading-tight">Ngày {s.day} · Chuẩn bị mở cửa</h2>
         <p className="text-cocoa">
-          Quỹ: <Coin value={s.money} /> · Danh tiếng {Math.floor(s.reputation)}
+          Quỹ: <Coin value={s.money} />
+          {s.bank > 0 && (
+            <>
+              {" "}· Tiết kiệm <Coin value={s.bank} />
+            </>
+          )}{" "}
+          · Danh tiếng {Math.floor(s.reputation)}
         </p>
+        {s.loan && <p className="text-[0.85em] font-bold text-berry">Nợ ngân hàng {s.loan.remaining} xu · trả góp {Math.min(s.loan.installment, s.loan.remaining)} xu mỗi sáng</p>}
+        <DayCard />
         {low.length > 0 && <p className="mt-1 font-bold text-berry">Sắp hết: {low.map((id) => ({ cup: "ly", lid: "nắp", milk: "sữa", tea_black: "trà đen" })[id]).join(", ")}</p>}
         <div className="mt-[0.6em] grid grid-cols-3 gap-2">
+          <button className="btn btn-secondary !px-2" onClick={() => game.openModal("bank")}>
+            Ngân hàng
+          </button>
+          <button className="btn btn-secondary !px-2" onClick={() => game.openModal("reviews")}>
+            Đánh giá
+          </button>
           <button className="btn btn-secondary !px-2" onClick={() => game.openModal("shop")}>
             Cửa hàng
           </button>
@@ -148,6 +163,12 @@ export function SummaryScreen() {
     ["Thưởng nhiệm vụ", <Coin key="w" value={st.rewards} />],
     ["Chi phí nguyên liệu đã dùng", <Coin key="c" value={st.ingredientValueUsed} />],
   ];
+  if (st.bestCombo >= 2) rows.splice(4, 0, ["Combo cao nhất", `🔥 x${st.bestCombo}`]);
+  if (st.reviews) rows.splice(4, 0, ["Đánh giá hôm nay", <Stars key="s" value={st.starsSum / st.reviews} />]);
+  if (st.goalReward) rows.push(["Thưởng mục tiêu ngày", <Coin key="g" value={st.goalReward} />]);
+  if (st.otherCosts) rows.push(["Chi phí khác (đối thủ...)", <Coin key="o" value={st.otherCosts} />]);
+  const highlights = [...sum.reviews].sort((a, b) => a.stars - b.stars);
+  const shown = highlights.length > 3 ? [highlights[0], highlights[Math.floor(highlights.length / 2)], highlights[highlights.length - 1]] : highlights;
   return (
     <div className="pointer-events-auto absolute inset-0 z-30 flex items-center justify-center bg-[rgba(42,24,16,0.6)] p-[5%]">
       <section className="panel pop-in max-h-full w-full max-w-[28em] overflow-y-auto p-[1em]">
@@ -168,12 +189,28 @@ export function SummaryScreen() {
             </dd>
           </div>
         </dl>
+        {sum.goal && (
+          <p className={`mt-2 rounded-2xl border-2 p-2 text-center font-bold ${sum.goal.met ? "border-matcha bg-[#e3f4dc]" : "border-[#e9d7c3] bg-white/60 text-cocoa"}`}>
+            🎯 {sum.goal.label}: {sum.goal.met ? `Hoàn thành! +${sum.goalReward} xu` : "Chưa đạt"}
+          </p>
+        )}
+        {st.rivalOutcome && <p className="mt-2 rounded-2xl border-2 border-[#e2b4ae] bg-[#fdf0ee] p-2 text-center text-[0.9em]">🐶 {st.rivalOutcome}</p>}
+        {shown.length > 0 && (
+          <>
+            <h3 className="mt-3 font-extrabold">Mèo khách nói gì hôm nay</h3>
+            <ul className="mt-1 flex flex-col gap-2">
+              {shown.map((r) => (
+                <ReviewItem key={r.id} r={r} />
+              ))}
+            </ul>
+          </>
+        )}
         <div className="mt-3 flex gap-2">
           <button className="btn btn-secondary flex-1" onClick={() => game.openModal("quests")}>
             Nhiệm vụ
           </button>
           <button className="btn btn-green flex-[2]" onClick={() => game.nextDay()}>
-            Sang ngày {game.save.day}
+            Đóng cửa 🌙
           </button>
         </div>
       </section>

@@ -73,6 +73,51 @@ export interface Stats {
   regularVisits: number;
   pickyHappy: number;
   daysCompleted: number;
+  fiveStars: number;
+  goalsMet: number;
+  rivalsBeaten: number;
+  robberies: number;
+  bestCombo: number;
+}
+
+export type WeatherId = "sunny" | "hot" | "rainy" | "cloudy" | "festival";
+export type GoalKind = "served" | "perfect" | "noLost" | "avgStars" | "combo";
+
+export interface DayGoal {
+  kind: GoalKind;
+  target: number;
+  reward: number;
+}
+
+export type RivalEventId = "discount" | "trash" | "fakeReviews" | "powerCut" | "karaoke";
+
+/** Everything decided for a day before it opens (stored so reloading cannot reroll it). */
+export interface DayPlan {
+  day: number;
+  weather: WeatherId;
+  goal: DayGoal;
+  rival: RivalEventId | null;
+  /** Fraction of the business day (0..1) when the rival strikes. */
+  rivalAt: number;
+}
+
+export interface Review {
+  id: number;
+  day: number;
+  stars: number;
+  text: string;
+  archetype: ArchetypeId;
+  /** Planted by the rival (or by the player answering the rival). */
+  fake?: boolean;
+  /** Food critic: weighs triple in the shop rating. */
+  critic?: boolean;
+}
+
+export interface Loan {
+  /** Amount still owed. */
+  remaining: number;
+  /** Deducted every night. */
+  installment: number;
 }
 
 export interface SaveData {
@@ -88,6 +133,17 @@ export interface SaveData {
   settings: Settings;
   tutorialDone: boolean;
   regularStage: number;
+  /** Savings at the bank: safe from robbers, not spendable until withdrawn. */
+  bank: number;
+  loan: Loan | null;
+  reviews: Review[];
+  nextReviewId: number;
+  plan: DayPlan | null;
+  lastRobberyDay: number;
+  /** The day ended but the night (bank, robbery, loan) has not been resolved yet. */
+  nightPending: boolean;
+  /** Bills (rent, loan installment) the shop could not pay. > 0 means bankrupt: a bank loan is required. */
+  overdue: number;
   updatedAt: number;
 }
 
@@ -104,4 +160,13 @@ export interface DayStats {
   perfect: number;
   recipesServed: string[];
   ingredientValueUsed: number;
+  starsSum: number;
+  reviews: number;
+  bestCombo: number;
+  comboBonus: number;
+  /** Money spent on rival-event choices, bank fees and loan installments. */
+  otherCosts: number;
+  goalMet: boolean;
+  goalReward: number;
+  rivalOutcome: string | null;
 }

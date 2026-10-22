@@ -1,7 +1,18 @@
 import type { ArchetypeId, DayStats, SaveData } from "./types";
 
 export function emptyDayStats(): DayStats {
-  return { revenue: 0, tips: 0, rewards: 0, spent: 0, served: 0, lost: 0, qualitySum: 0, perfect: 0, recipesServed: [], ingredientValueUsed: 0 };
+  return {
+    revenue: 0, tips: 0, rewards: 0, spent: 0, served: 0, lost: 0, qualitySum: 0, perfect: 0, recipesServed: [],
+    ingredientValueUsed: 0,
+    starsSum: 0,
+    reviews: 0,
+    bestCombo: 0,
+    comboBonus: 0,
+    otherCosts: 0,
+    goalMet: false,
+    goalReward: 0,
+    rivalOutcome: null,
+  };
 }
 
 export const PERFECT_QUALITY = 90;
@@ -13,6 +24,8 @@ export interface ServeRecord {
   quality: number;
   recipeId: string;
   archetype: ArchetypeId;
+  /** Combo count after this drink (0 = broken). */
+  combo?: number;
 }
 
 /** Books a served drink into the save and the day's ledger. */
@@ -34,6 +47,10 @@ export function recordServe(save: SaveData, day: DayStats, r: ServeRecord) {
     save.regularStage++;
   }
   if (r.archetype === "picky" && r.quality >= 80) save.stats.pickyHappy++;
+  if (r.combo !== undefined) {
+    day.bestCombo = Math.max(day.bestCombo, r.combo);
+    save.stats.bestCombo = Math.max(save.stats.bestCombo, r.combo);
+  }
 }
 
 export function recordLost(save: SaveData, day: DayStats, reputationPenalty: number) {
@@ -42,7 +59,7 @@ export function recordLost(save: SaveData, day: DayStats, reputationPenalty: num
 }
 
 export function dayProfit(day: DayStats): number {
-  return day.revenue + day.tips + day.rewards - day.ingredientValueUsed;
+  return day.revenue + day.tips + day.rewards + day.goalReward - day.ingredientValueUsed - day.otherCosts;
 }
 
 const clampRep = (v: number) => Math.max(0, Math.min(100, v));

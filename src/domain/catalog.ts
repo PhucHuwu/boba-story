@@ -1,6 +1,6 @@
 import type { ArchetypeId, IngredientId, Level, Recipe, SaveData, TeaId, ToppingId } from "./types";
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 export const TEA_IDS: TeaId[] = ["tea_black", "tea_green", "tea_oolong"];
 export const TOPPING_IDS: ToppingId[] = ["top_boba", "top_jelly", "top_pudding"];
@@ -130,6 +130,8 @@ export const UPGRADES: UpgradeDef[] = [
   { id: "wide_counter", name: "Quầy rộng", cost: 350, description: "Thêm chỗ đứng cho mèo khách thứ 4." },
   { id: "cozy_plants", name: "Cây xanh & đèn lồng", cost: 120, description: "Không gian dễ chịu: mèo khách kiên nhẫn hơn 15%." },
   { id: "bell", name: "Chuông gió mèo thần tài", cost: 150, description: "Tiền tip tăng 25% và danh tiếng tăng nhanh hơn." },
+  { id: "camera", name: "Camera an ninh", cost: 220, description: "Trộm ngại vào quán: giảm 65% khả năng bị đột nhập ban đêm." },
+  { id: "safe", name: "Két sắt chống trộm", cost: 280, description: "Nếu bị trộm, kẻ gian chỉ lấy được 35% tiền mặt." },
 ];
 
 export interface ArchetypeDef {
@@ -173,7 +175,20 @@ export interface QuestDef {
   title: string;
   target: number;
   reward: number;
-  metric: "served" | "perfect" | "totalEarned" | "recipes" | "upgrades" | "regularVisits" | "pickyHappy" | "daysCompleted" | "reputation";
+  metric:
+    | "served"
+    | "perfect"
+    | "totalEarned"
+    | "recipes"
+    | "upgrades"
+    | "regularVisits"
+    | "pickyHappy"
+    | "daysCompleted"
+    | "reputation"
+    | "fiveStars"
+    | "goalsMet"
+    | "rivalsBeaten"
+    | "bestCombo";
 }
 
 export const QUESTS: QuestDef[] = [
@@ -189,6 +204,11 @@ export const QUESTS: QuestDef[] = [
   { id: "q_serve40", title: "Phục vụ 40 mèo khách", target: 40, reward: 200, metric: "served" },
   { id: "q_rep50", title: "Đạt 50 danh tiếng", target: 50, reward: 250, metric: "reputation" },
   { id: "q_days5", title: "Kinh doanh trọn 5 ngày", target: 5, reward: 200, metric: "daysCompleted" },
+  { id: "q_combo5", title: "Đạt chuỗi combo 5 ly ngon", target: 5, reward: 120, metric: "bestCombo" },
+  { id: "q_goal3", title: "Hoàn thành 3 mục tiêu ngày", target: 3, reward: 150, metric: "goalsMet" },
+  { id: "q_five15", title: "Nhận 15 đánh giá 5★", target: 15, reward: 180, metric: "fiveStars" },
+  { id: "q_rival2", title: "Thắng đối thủ 2 lần", target: 2, reward: 200, metric: "rivalsBeaten" },
+  { id: "q_days14", title: "Trụ vững 14 ngày", target: 14, reward: 400, metric: "daysCompleted" },
 ];
 
 export const DAY = {
@@ -226,10 +246,18 @@ export function defaultSave(): SaveData {
     unlockedRecipes: RECIPES.filter((r) => r.unlockCost === 0).map((r) => r.id),
     upgrades: [],
     quests: Object.fromEntries(QUESTS.map((q) => [q.id, { progress: 0, done: false, claimed: false }])),
-    stats: { served: 0, perfect: 0, totalEarned: 0, regularVisits: 0, pickyHappy: 0, daysCompleted: 0 },
+    stats: { served: 0, perfect: 0, totalEarned: 0, regularVisits: 0, pickyHappy: 0, daysCompleted: 0, fiveStars: 0, goalsMet: 0, rivalsBeaten: 0, robberies: 0, bestCombo: 0 },
     settings: { music: 0.5, sfx: 0.8, reducedMotion: false, relaxed: false, hints: true },
     tutorialDone: false,
     regularStage: 0,
+    bank: 0,
+    loan: null,
+    reviews: [],
+    nextReviewId: 1,
+    plan: null,
+    lastRobberyDay: 0,
+    nightPending: false,
+    overdue: 0,
     updatedAt: Date.now(),
   };
 }

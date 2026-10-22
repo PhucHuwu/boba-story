@@ -2,6 +2,7 @@
 
 import { DAY } from "@/domain/catalog";
 import { audio } from "../game/audio";
+import { DayStatus, RatingChip } from "./features";
 import { Coin } from "./kit";
 import { useGame } from "./useGame";
 import { pctX, pctY, useLayout } from "./useLayout";
@@ -25,9 +26,7 @@ export function Hud() {
         <span className="chip pointer-events-auto !cursor-default">
           <Coin value={s.money} />
         </span>
-        <span className="chip pointer-events-auto !cursor-default" title="Danh tiếng">
-          ⭐ {Math.floor(s.reputation)}
-        </span>
+        <RatingChip />
         <span className="chip pointer-events-auto !cursor-default flex-1 justify-center tabular-nums" aria-live="off">
           Ngày {s.day} · {open ? (session.closing ? "Đóng cửa" : formatHour(session.hour)) : "Chuẩn bị"}
         </span>
@@ -42,6 +41,7 @@ export function Hud() {
           <div className="h-full bg-caramel" style={{ width: `${Math.min(1, progress) * 100}%` }} />
         </div>
       )}
+      <DayStatus />
     </div>
   );
 }

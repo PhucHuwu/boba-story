@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { getGame } from "@/composition/client";
 import { audio } from "../game/audio";
 import { LAYOUTS } from "../game/layout";
+import { BankruptScreen, NightScreen } from "./features";
 import { HintBar, Hud, Toasts, unlockAudioOnce } from "./hud";
 import { Modals } from "./modals";
 import { LoadingScreen, MainMenu, PrepScreen, SummaryScreen } from "./screens";
@@ -33,6 +34,8 @@ function Overlays() {
       {(game.phase === "prep" || game.phase === "open") && <Hud />}
       {game.phase === "prep" && <PrepScreen />}
       {game.phase === "summary" && <SummaryScreen />}
+      {game.phase === "night" && <NightScreen />}
+      {game.phase === "bankrupt" && <BankruptScreen />}
       <HintBar />
       <Modals />
       <Toasts />

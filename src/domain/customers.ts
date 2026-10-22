@@ -22,6 +22,8 @@ export interface Customer {
   slot: number;
   cancelled: boolean;
   line: string;
+  /** Food critic: their review weighs triple. */
+  critic: boolean;
 }
 
 /** Enforces the lifecycle Approaching → Ordering → Waiting → Receiving → Leaving. */
@@ -79,9 +81,11 @@ export interface OrderFactoryInput {
   id: number;
   /** Recipes we have stock for; falls back to any unlocked recipe. */
   makeable: string[];
+  /** Ice levels to pick from (weather). */
+  iceLevels?: Level[];
 }
 
-export function createOrder({ rng, save, archetype, id, makeable }: OrderFactoryInput): Order {
+export function createOrder({ rng, save, archetype, id, makeable, iceLevels }: OrderFactoryInput): Order {
   const pool = makeable.length ? makeable : save.unlockedRecipes;
   let recipeId = pick(rng, pool);
   if (archetype === "regular" && pool.includes(REGULAR_FAVORITE)) recipeId = REGULAR_FAVORITE;
@@ -92,7 +96,7 @@ export function createOrder({ rng, save, archetype, id, makeable }: OrderFactory
   const easy = save.day <= 1 && !save.tutorialDone;
   const size: Size = easy ? "M" : rng() < 0.3 ? "L" : "M";
   const sugar: Level = easy ? 50 : archetype === "picky" ? pick(rng, LEVELS) : pick(rng, [50, 50, 100, 0] as Level[]);
-  const ice: Level = easy ? 50 : archetype === "picky" ? pick(rng, LEVELS) : pick(rng, [50, 100, 100, 0] as Level[]);
+  const ice: Level = easy ? 50 : archetype === "picky" ? pick(rng, LEVELS) : pick(rng, iceLevels ?? ([50, 100, 100, 0] as Level[]));
   return { id, recipeId, size, sugar, ice };
 }
 
@@ -115,5 +119,6 @@ export function createCustomer(id: number, archetype: ArchetypeId, order: Order,
     slot,
     cancelled: false,
     line,
+    critic: false,
   };
 }

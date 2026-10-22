@@ -1,5 +1,50 @@
 import { INGREDIENTS, QUESTS, RECIPE_BY_ID, SAVE_VERSION, UPGRADES, defaultSave } from "./catalog";
-import type { IngredientId, SaveData } from "./types";
+import type { DayPlan, GoalKind, IngredientId, Loan, Review, RivalEventId, SaveData, WeatherId } from "./types";
+import { REVIEW_KEEP } from "./reviews";
+
+const WEATHERS: WeatherId[] = ["sunny", "hot", "rainy", "cloudy", "festival"];
+const GOALS: GoalKind[] = ["served", "perfect", "noLost", "avgStars", "combo"];
+const RIVALS: RivalEventId[] = ["discount", "trash", "fakeReviews", "powerCut", "karaoke"];
+const ARCHS = ["student", "office", "regular", "picky"] as const;
+
+function parseReviews(v: unknown): Review[] {
+  if (!Array.isArray(v)) return [];
+  const out: Review[] = [];
+  for (const r of v.slice(-REVIEW_KEEP)) {
+    if (!isObj(r) || typeof r.text !== "string" || !ARCHS.includes(r.archetype as (typeof ARCHS)[number])) continue;
+    out.push({
+      id: Math.floor(num(r.id, 0, 0)),
+      day: Math.floor(num(r.day, 1, 1)),
+      stars: Math.round(num(r.stars, 3, 1, 5)),
+      text: r.text.slice(0, 200),
+      archetype: r.archetype as Review["archetype"],
+      ...(r.fake === true ? { fake: true } : {}),
+      ...(r.critic === true ? { critic: true } : {}),
+    });
+  }
+  return out;
+}
+
+function parsePlan(v: unknown): DayPlan | null {
+  if (!isObj(v) || !isObj(v.goal)) return null;
+  const weather = v.weather as WeatherId;
+  const kind = v.goal.kind as GoalKind;
+  if (!WEATHERS.includes(weather) || !GOALS.includes(kind)) return null;
+  const rival = RIVALS.includes(v.rival as RivalEventId) ? (v.rival as RivalEventId) : null;
+  return {
+    day: Math.floor(num(v.day, 1, 1)),
+    weather,
+    goal: { kind, target: num(v.goal.target, 1, 0, 100), reward: Math.floor(num(v.goal.reward, 0, 0, 1000)) },
+    rival,
+    rivalAt: num(v.rivalAt, 0.4, 0, 1),
+  };
+}
+
+function parseLoan(v: unknown): Loan | null {
+  if (!isObj(v)) return null;
+  const remaining = Math.floor(num(v.remaining, 0, 0, 1e6));
+  return remaining > 0 ? { remaining, installment: Math.max(1, Math.floor(num(v.installment, remaining, 1, 1e6))) } : null;
+}
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const num = (v: unknown, fallback: number, min = -Infinity, max = Infinity) =>
@@ -33,6 +78,7 @@ export function migrate(raw: unknown): SaveData | null {
     settings.relaxed = raw.settings.relaxed === true;
     settings.hints = raw.settings.hints !== false;
   }
+  const reviews = parseReviews(raw.reviews);
   return {
     version: SAVE_VERSION,
     day: Math.floor(num(raw.day, 1, 1, 9999)),
@@ -46,6 +92,14 @@ export function migrate(raw: unknown): SaveData | null {
     settings,
     tutorialDone: raw.tutorialDone === true,
     regularStage: Math.floor(num(raw.regularStage, 0, 0, 99)),
+    bank: Math.floor(num(raw.bank, 0, 0, 1e7)),
+    loan: parseLoan(raw.loan),
+    reviews,
+    nextReviewId: Math.max(Math.floor(num(raw.nextReviewId, 1, 1)), ...reviews.map((r) => r.id + 1)),
+    plan: parsePlan(raw.plan),
+    lastRobberyDay: Math.floor(num(raw.lastRobberyDay, 0, 0)),
+    nightPending: raw.nightPending === true,
+    overdue: Math.floor(num(raw.overdue, 0, 0, 1e6)),
     updatedAt: num(raw.updatedAt, Date.now()),
   };
 }
