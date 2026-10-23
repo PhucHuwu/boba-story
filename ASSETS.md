@@ -127,29 +127,29 @@ Chỉ gen nhóm này sau khi chốt kế hoạch NPC.
 
 ### Mèo shipper (2-3 ly/đơn, hoa hồng 20%)
 - [x] `shipper_grab_idle`
-- [ ] `shipper_grab_happy` (ref: shipper_grab_idle)
-- [ ] `shipper_grab_sad` (ref: shipper_grab_idle)
-- [ ] `shipper_grab_impatient` (ref: shipper_grab_idle)
+- [x] `shipper_grab_happy` (ref: shipper_grab_idle)
+- [x] `shipper_grab_sad` (ref: shipper_grab_idle)
+- [x] `shipper_grab_impatient` (ref: shipper_grab_idle)
 - [x] `shipper_bee_idle`
-- [ ] `shipper_bee_happy` (ref: shipper_bee_idle)
-- [ ] `shipper_bee_sad` (ref: shipper_bee_idle)
-- [ ] `shipper_bee_impatient` (ref: shipper_bee_idle)
+- [x] `shipper_bee_happy` (ref: shipper_bee_idle)
+- [x] `shipper_bee_sad` (ref: shipper_bee_idle)
+- [x] `shipper_bee_impatient` (ref: shipper_bee_idle)
 - [x] `shipper_food_idle`
-- [ ] `shipper_food_happy` (ref: shipper_food_idle)
-- [ ] `shipper_food_sad` (ref: shipper_food_idle)
-- [ ] `shipper_food_impatient` (ref: shipper_food_idle)
+- [x] `shipper_food_happy` (ref: shipper_food_idle)
+- [x] `shipper_food_sad` (ref: shipper_food_idle)
+- [x] `shipper_food_impatient` (ref: shipper_food_idle)
 - [x] `icon_delivery`
 
 ### Bà cụ hàng xóm
 - [x] `cat_granny_idle`
-- [ ] `cat_granny_happy` (ref: cat_granny_idle)
-- [ ] `cat_granny_sad` (ref: cat_granny_idle)
+- [x] `cat_granny_happy` (ref: cat_granny_idle)
+- [x] `cat_granny_sad` (ref: cat_granny_idle)
 - [ ] `cat_granny_impatient` (ref: cat_granny_idle)
 
 ### Mèo TikToker
 - [x] `cat_tiktoker_idle`
-- [ ] `cat_tiktoker_happy` (ref: cat_tiktoker_idle)
-- [ ] `cat_tiktoker_sad` (ref: cat_tiktoker_idle)
+- [x] `cat_tiktoker_happy` (ref: cat_tiktoker_idle)
+- [x] `cat_tiktoker_sad` (ref: cat_tiktoker_idle)
 - [ ] `cat_tiktoker_impatient` (ref: cat_tiktoker_idle)
 
 ### Mèo bán vé số
@@ -158,7 +158,7 @@ Chỉ gen nhóm này sau khi chốt kế hoạch NPC.
 
 ### Mèo hoang nhỏ
 - [x] `npc_stray_idle`
-- [ ] `npc_stray_happy` (ref: npc_stray_idle)
+- [x] `npc_stray_happy` (ref: npc_stray_idle)
 
 ### Mèo đại lý nguyên liệu
 - [x] `npc_supplier`
