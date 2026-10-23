@@ -34,6 +34,28 @@ interface CatView {
   idleTween?: Phaser.Tweens.Tween;
 }
 
+/**
+ * Draw order. Everything standing on the shop floor (cats, rubbish) shares the ACTORS band and is
+ * y-sorted by where it touches the floor: lower on screen = closer to the counter = drawn on top.
+ */
+const CUP = 20;
+const DEPTH = {
+  actors: 5,
+  counter: 10,
+  cards: 30,
+  bubble: 35,
+  flyingCup: 40,
+  draggedCup: 45,
+  highlight: 50,
+  popup: 60,
+  ghost: 70,
+};
+/**
+ * Maps a floor y (canvas px, < 10000) into the ACTORS band. On the same row the earlier customer
+ * (smaller id) stays in front, so a newcomer never covers someone already being served.
+ */
+const actorDepth = (floorY: number, id = 0) => DEPTH.actors + floorY / 10000 + (999 - (id % 1000)) / 1e8;
+
 interface Station {
   obj: Phaser.GameObjects.Image;
   label: Phaser.GameObjects.Text;
@@ -91,10 +113,10 @@ export class ShopScene extends Phaser.Scene {
     this.buildRoom();
     this.buildWorktop();
     this.buildStations();
-    this.cupGfx = this.add.graphics().setDepth(20);
-    this.gauge = this.add.graphics().setDepth(20);
+    this.cupGfx = this.add.graphics().setDepth(CUP);
+    this.gauge = this.add.graphics().setDepth(CUP);
     this.stream = this.add.graphics().setDepth(19);
-    this.highlight = this.add.graphics().setDepth(50);
+    this.highlight = this.add.graphics().setDepth(DEPTH.highlight);
     this.buildCupHitArea();
     this.bindInput();
 
@@ -139,10 +161,10 @@ export class ShopScene extends Phaser.Scene {
     shade.fillGradientStyle(0x3b2416, 0x3b2416, 0x3b2416, 0x3b2416, 0.35, 0.35, 0, 0);
     shade.fillRect(0, 0, room.w, 200);
 
-    const g = this.add.graphics().setDepth(10);
+    const g = this.add.graphics().setDepth(DEPTH.counter);
     g.fillStyle(0x9c6440, 1).fillRect(0, counterY - 6, room.w, 40);
     if (this.textures.exists("counter_front")) {
-      const rail = this.add.image(-10, counterY - 26, "counter_front").setOrigin(0, 0).setDepth(10);
+      const rail = this.add.image(-10, counterY - 26, "counter_front").setOrigin(0, 0).setDepth(DEPTH.counter);
       rail.setDisplaySize(room.w + 20, Math.max(34, ((room.w + 20) / rail.width) * rail.height));
       return;
     }
@@ -241,6 +263,7 @@ export class ShopScene extends Phaser.Scene {
     hit.on("pointerdown", (p: Phaser.Input.Pointer) => {
       if (this.session.cup?.sealed && this.ctl.isInteractive()) {
         this.draggingCup = true;
+        this.cupGfx.setDepth(DEPTH.draggedCup);
         this.dragStart = { x: p.x, y: p.y };
       }
     });
@@ -287,7 +310,7 @@ export class ShopScene extends Phaser.Scene {
     audio.unlock();
     this.dragTopping = t;
     this.dragStart = { x: p.x, y: p.y };
-    this.dragGhost = this.fit(this.add.image(p.x, p.y, t).setDepth(70).setAlpha(0.9), 70, 50);
+    this.dragGhost = this.fit(this.add.image(p.x, p.y, t).setDepth(DEPTH.ghost).setAlpha(0.9), 70, 50);
   }
 
   private endToppingDrag() {
@@ -308,11 +331,27 @@ export class ShopScene extends Phaser.Scene {
     if (this.draggingCup) {
       this.draggingCup = false;
       this.cupGfx.setPosition(0, 0);
+      this.cupGfx.setDepth(CUP);
       for (const c of this.cats.values()) c.sprite.setAlpha(1);
       const target = this.catAt(p);
       if (target) this.session.deliver(target.id);
       else if (moved < 12) this.session.deliverToSelected();
     }
+  }
+
+  /** Customer drawn above `depth` whose visible (non-transparent) pixels are under the pointer. */
+  private catCovering(p: Phaser.Input.Pointer, depth: number): CatView | undefined {
+    let best: CatView | undefined;
+    const active = new Set(this.session.customers.filter((c) => c.data.state === "waiting" || c.data.state === "ordering").map((c) => c.data.id));
+    for (const c of this.cats.values()) {
+      if (!active.has(c.id) || c.root.depth <= depth || c.root.alpha < 0.5 || (best && best.root.depth > c.root.depth)) continue;
+      const local = c.sprite.getLocalPoint(p.x, p.y);
+      const { width, height } = c.sprite.frame;
+      if (local.x < 0 || local.y < 0 || local.x >= width || local.y >= height) continue;
+      const alpha = this.textures.getPixelAlpha(Math.floor(local.x), Math.floor(local.y), c.sprite.texture.key);
+      if ((alpha ?? 0) > 40) best = c;
+    }
+    return best;
   }
 
   private catAt(p: Phaser.Input.Pointer): CatView | undefined {
@@ -367,7 +406,7 @@ export class ShopScene extends Phaser.Scene {
       case "served": {
         const c = this.cats.get(e.id);
         if (!c) break;
-        const flying = this.fit(this.add.image(this.L.cup.x, this.L.cup.y, "cup_stack").setDepth(40), 60, 90);
+        const flying = this.fit(this.add.image(this.L.cup.x, this.L.cup.y, "cup_stack").setDepth(DEPTH.flyingCup), 60, 90);
         this.tweens.add({ targets: flying, x: c.root.x, y: this.L.counterY - this.L.catHeight / 2, scale: flying.scale * 0.8, duration: 350, ease: "Quad.easeOut", onComplete: () => flying.destroy() });
         const { info } = e;
         audio.play(info.happy ? "happy" : "sad");
@@ -430,9 +469,9 @@ export class ShopScene extends Phaser.Scene {
     const sprite = this.add.image(0, 0, `cat_${d.archetype}_idle`).setOrigin(0.5, 1);
     const baseScale = this.L.catHeight / sprite.height;
     sprite.setScale(baseScale);
-    const root = this.add.container(this.L.door.x, this.L.door.y, [sprite]).setDepth(5).setScale(0.45).setAlpha(0);
+    const root = this.add.container(this.L.door.x, this.L.door.y, [sprite]).setDepth(actorDepth(this.L.door.y, d.id)).setScale(0.45).setAlpha(0);
 
-    const card = this.add.container(x, this.L.cardY - 10).setDepth(30).setAlpha(0);
+    const card = this.add.container(x, this.L.cardY - 10).setDepth(DEPTH.cards).setAlpha(0);
     const cardBg = this.add.graphics();
     const text = (y: number, s: string, size: number, color: string, weight: string) =>
       this.add.text(0, y, s, { fontFamily: FONT, fontSize: `${size}px`, color, fontStyle: weight, align: "center" }).setOrigin(0.5);
@@ -530,7 +569,7 @@ export class ShopScene extends Phaser.Scene {
     g.fillStyle(0xffffff, 0.96).fillRoundedRect(-w / 2, -h / 2, w, h, 14);
     g.lineStyle(2, COLORS.cocoa, 1).strokeRoundedRect(-w / 2, -h / 2, w, h, 14);
     const x = Phaser.Math.Clamp(slotX(this.L, c.slot, maxCustomers(this.ctl.save)), w / 2 + 6, this.L.room.w - w / 2 - 6);
-    const bubble = this.add.container(x, this.L.bubbleY + 10, [g, t]).setDepth(35).setAlpha(0);
+    const bubble = this.add.container(x, this.L.bubbleY + 10, [g, t]).setDepth(DEPTH.bubble).setAlpha(0);
     c.bubble = bubble;
     this.tweens.add({ targets: bubble, alpha: 1, y: this.L.bubbleY, duration: 200 });
     this.tweens.add({
@@ -558,10 +597,10 @@ export class ShopScene extends Phaser.Scene {
         strokeThickness: 6,
       })
       .setOrigin(0.5)
-      .setDepth(60);
+      .setDepth(DEPTH.popup);
     const parts: Phaser.GameObjects.Components.Transform[] = [t];
     if (icon && this.textures.exists(icon)) {
-      const img = this.add.image(cx - t.width / 2 - 18, y, icon).setDisplaySize(40, 40).setDepth(60);
+      const img = this.add.image(cx - t.width / 2 - 18, y, icon).setDisplaySize(40, 40).setDepth(DEPTH.popup);
       t.setX(cx + 18);
       parts.push(img);
     }
@@ -572,7 +611,7 @@ export class ShopScene extends Phaser.Scene {
   private floatStars(x: number, y: number, stars: number, total = 5) {
     const size = 30;
     const cx = Phaser.Math.Clamp(x, 110, this.L.room.w - 110);
-    const row = this.add.container(cx, y).setDepth(60);
+    const row = this.add.container(cx, y).setDepth(DEPTH.popup);
     for (let i = 0; i < total; i++) {
       const s = this.add.image((i - (total - 1) / 2) * (size + 2), 0, "star").setDisplaySize(size, size);
       if (i >= stars) s.setTint(0xc9b39a).setAlpha(0.55);
@@ -599,12 +638,15 @@ export class ShopScene extends Phaser.Scene {
       const view = this.add
         .image(x, y, this.textures.exists(key) ? key : this.trashFallback())
         .setDisplaySize(64, 64)
-        .setDepth(8)
+        .setDepth(actorDepth(y + 32))
         .setAngle(t.kind * 23 - 40);
       view.setInteractive({ useHandCursor: true });
-      view.on("pointerdown", () =>
+      view.on("pointerdown", (p: Phaser.Input.Pointer) =>
         this.command(() => {
           if (!this.ctl.isInteractive()) return;
+          // Rubbish sits behind customers standing at the counter: a tap on a cat's body goes to the cat.
+          const front = this.catCovering(p, view.depth);
+          if (front) return this.session.tapCustomer(front.id);
           audio.play("sweep");
           this.session.sweep(t.id);
         }),
@@ -659,6 +701,7 @@ export class ShopScene extends Phaser.Scene {
       this.session.tick(deltaMs / 1000);
       if (this.session.pouring) this.dirty = true;
     }
+    for (const c of this.cats.values()) c.root.setDepth(actorDepth(c.root.y, c.id));
     this.syncPourSound();
     this.drawStream();
     if (!this.dirty) return;
