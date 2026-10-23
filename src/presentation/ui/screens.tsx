@@ -111,18 +111,23 @@ export function PrepScreen() {
         {low.length > 0 && <p className="mt-1 font-bold text-berry">Sắp hết: {low.map((id) => ({ cup: "ly", lid: "nắp", milk: "sữa", tea_black: "trà đen" })[id]).join(", ")}</p>}
         <div className="mt-[0.6em] grid grid-cols-3 gap-2">
           <button className="btn btn-secondary !px-2" onClick={() => game.openModal("bank")}>
+            <Icon name="icon_bank" />
             Ngân hàng
           </button>
           <button className="btn btn-secondary !px-2" onClick={() => game.openModal("reviews")}>
+            <Icon name="icon_reviews" />
             Đánh giá
           </button>
           <button className="btn btn-secondary !px-2" onClick={() => game.openModal("shop")}>
+            <Icon name="icon_shop" />
             Cửa hàng
           </button>
           <button className="btn btn-secondary !px-2" onClick={() => game.openModal("recipes")}>
+            <Icon name="icon_recipes" />
             Công thức
           </button>
           <button className="btn btn-secondary relative !px-2" onClick={() => game.openModal("quests")}>
+            <Icon name="icon_quests" />
             Nhiệm vụ
             {claimable > 0 && <span className="absolute -right-1 -top-2 rounded-full border-2 border-bean bg-berry px-[0.45em] text-[0.8em] text-white">{claimable}</span>}
           </button>
@@ -210,6 +215,7 @@ export function SummaryScreen() {
         )}
         <div className="mt-3 flex gap-2">
           <button className="btn btn-secondary flex-1" onClick={() => game.openModal("quests")}>
+            <Icon name="icon_quests" />
             Nhiệm vụ
           </button>
           <button className="btn btn-green flex-[2]" onClick={() => game.nextDay()}>

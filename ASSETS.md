@@ -94,71 +94,71 @@ Hiện các chỗ này đang **trống** hoặc dùng ảnh thay thế. Gen xong
 ## 3. Còn thiếu: UI đang chỉ có chữ (chưa có prompt, cần thêm chỗ hiển thị)
 
 ### Đồ uống (tab Công thức trong Cửa hàng, Sổ công thức, phiếu gọi món)
-- [ ] `drink_classic`: Trà sữa truyền thống
-- [ ] `drink_boba`: Trà sữa trân châu
-- [ ] `drink_jasmine`: Trà xanh nhài
-- [ ] `drink_oolong_milk`: Ô long sữa
-- [ ] `drink_green_jelly`: Trà xanh sữa thạch dừa
-- [ ] `drink_oolong_pudding`: Ô long pudding trứng
-- [ ] `drink_black_jelly`: Hồng trà thạch dừa
+- [x] `drink_classic`: Trà sữa truyền thống
+- [x] `drink_boba`: Trà sữa trân châu
+- [x] `drink_jasmine`: Trà xanh nhài
+- [x] `drink_oolong_milk`: Ô long sữa
+- [x] `drink_green_jelly`: Trà xanh sữa thạch dừa
+- [x] `drink_oolong_pudding`: Ô long pudding trứng
+- [x] `drink_black_jelly`: Hồng trà thạch dừa
 
 ### Nâng cấp (tab Nâng cấp trong Cửa hàng; camera và két sắt dùng lại `icon_camera`/`icon_safe`)
-- [ ] `upg_fast_tap`: Vòi trà tốc độ cao
-- [ ] `upg_auto_sealer`: Máy dán nắp tự động
-- [ ] `upg_wide_counter`: Quầy rộng
-- [ ] `upg_cozy_plants`: Cây xanh & đèn lồng
-- [ ] `upg_bell`: Chuông gió mèo thần tài
+- [x] `upg_fast_tap`: Vòi trà tốc độ cao
+- [x] `upg_auto_sealer`: Máy dán nắp tự động
+- [x] `upg_wide_counter`: Quầy rộng
+- [x] `upg_cozy_plants`: Cây xanh & đèn lồng
+- [x] `upg_bell`: Chuông gió mèo thần tài
 
 ### Nút màn chuẩn bị và icon chung
-- [ ] `icon_shop`: nút Cửa hàng
-- [ ] `icon_recipes`: nút Công thức
-- [ ] `icon_quests`: nút Nhiệm vụ, popup nhiệm vụ
-- [ ] `icon_reviews`: nút Đánh giá
-- [ ] `icon_rent`: tiền mặt bằng (màn đêm/sáng)
-- [ ] `app_icon`: favicon và icon "Thêm vào màn hình chính" (hiện vẫn là logo mặc định của Next.js)
+- [x] `icon_shop`: nút Cửa hàng
+- [x] `icon_recipes`: nút Công thức
+- [x] `icon_quests`: nút Nhiệm vụ, popup nhiệm vụ
+- [x] `icon_reviews`: nút Đánh giá
+- [x] `icon_rent`: tiền mặt bằng (màn đêm/sáng)
+- [x] `app_icon`: favicon và icon "Thêm vào màn hình chính" (hiện vẫn là logo mặc định của Next.js)
 
 ## 4. NPC mới đã đề xuất (chưa code, chưa có prompt)
 
 Chỉ gen nhóm này sau khi chốt kế hoạch NPC.
 
 ### Mèo công an (thu thuế mỗi 7 ngày)
-- [ ] `npc_police`
-- [ ] `icon_tax`
+- [x] `npc_police`
+- [x] `icon_tax`
 
 ### Mèo shipper (2-3 ly/đơn, hoa hồng 20%)
-- [ ] `shipper_grab_idle`
+- [x] `shipper_grab_idle`
 - [ ] `shipper_grab_happy` (ref: shipper_grab_idle)
 - [ ] `shipper_grab_sad` (ref: shipper_grab_idle)
 - [ ] `shipper_grab_impatient` (ref: shipper_grab_idle)
-- [ ] `shipper_bee_idle`
+- [x] `shipper_bee_idle`
 - [ ] `shipper_bee_happy` (ref: shipper_bee_idle)
 - [ ] `shipper_bee_sad` (ref: shipper_bee_idle)
 - [ ] `shipper_bee_impatient` (ref: shipper_bee_idle)
-- [ ] `shipper_food_idle`
+- [x] `shipper_food_idle`
 - [ ] `shipper_food_happy` (ref: shipper_food_idle)
 - [ ] `shipper_food_sad` (ref: shipper_food_idle)
 - [ ] `shipper_food_impatient` (ref: shipper_food_idle)
-- [ ] `icon_delivery`
+- [x] `icon_delivery`
 
 ### Bà cụ hàng xóm
-- [ ] `cat_granny_idle`
+- [x] `cat_granny_idle`
 - [ ] `cat_granny_happy` (ref: cat_granny_idle)
 - [ ] `cat_granny_sad` (ref: cat_granny_idle)
 - [ ] `cat_granny_impatient` (ref: cat_granny_idle)
 
 ### Mèo TikToker
-- [ ] `cat_tiktoker_idle`
+- [x] `cat_tiktoker_idle`
 - [ ] `cat_tiktoker_happy` (ref: cat_tiktoker_idle)
 - [ ] `cat_tiktoker_sad` (ref: cat_tiktoker_idle)
 - [ ] `cat_tiktoker_impatient` (ref: cat_tiktoker_idle)
 
 ### Mèo bán vé số
-- [ ] `npc_lottery`
-- [ ] `icon_lottery`
+- [x] `npc_lottery`
+- [x] `icon_lottery`
 
 ### Mèo hoang nhỏ
-- [ ] `npc_stray_idle`
+- [x] `npc_stray_idle`
 - [ ] `npc_stray_happy` (ref: npc_stray_idle)
 
 ### Mèo đại lý nguyên liệu
-- [ ] `npc_supplier`
+- [x] `npc_supplier`

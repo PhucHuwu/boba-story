@@ -11,6 +11,7 @@ import { useGame } from "./useGame";
 
 const STOCK_ORDER: IngredientId[] = ["cup", "lid", "tea_black", "tea_green", "tea_oolong", "milk", "sugar", "ice", "top_boba", "top_jelly", "top_pudding"];
 const ICON: Partial<Record<IngredientId, string>> = { cup: "cup_stack", lid: "sealer" };
+const UPGRADE_ICON: Record<string, string> = { camera: "icon_camera", safe: "icon_safe" };
 
 function ShopModal() {
   const game = useGame();
@@ -60,6 +61,7 @@ function ShopModal() {
             const owned = s.unlockedRecipes.includes(r.id);
             return (
               <li key={r.id} className="flex items-center gap-3 rounded-2xl border-2 border-[#e9d7c3] bg-white/60 p-2">
+                <Icon name={`drink_${r.id}`} className="h-12 w-12" />
                 <div className="min-w-0 flex-1">
                   <p className="font-extrabold leading-tight">{r.name}</p>
                   <p className="text-[0.85em] text-cocoa">Giá bán {r.price} xu</p>
@@ -82,6 +84,7 @@ function ShopModal() {
             const owned = s.upgrades.includes(u.id);
             return (
               <li key={u.id} className="flex items-center gap-3 rounded-2xl border-2 border-[#e9d7c3] bg-white/60 p-2">
+                <Icon name={UPGRADE_ICON[u.id] ?? `upg_${u.id}`} className="h-11 w-11" />
                 <div className="min-w-0 flex-1">
                   <p className="font-extrabold leading-tight">{u.name}</p>
                   <p className="text-[0.85em] text-cocoa">{u.description}</p>
@@ -114,7 +117,9 @@ function RecipesModal() {
         {RECIPES.map((r) => {
           const owned = s.unlockedRecipes.includes(r.id);
           return (
-            <li key={r.id} className={`rounded-2xl border-2 border-[#e9d7c3] bg-white/60 p-2 ${owned ? "" : "opacity-55"}`}>
+            <li key={r.id} className={`flex items-start gap-3 rounded-2xl border-2 border-[#e9d7c3] bg-white/60 p-2 ${owned ? "" : "opacity-55"}`}>
+              <Icon name={`drink_${r.id}`} className="h-14 w-14" />
+              <div className="min-w-0 flex-1">
               <p className="font-extrabold">
                 {r.name} {!owned && <Icon name="icon_lock" className="ml-1 h-[1.1em] w-[1.1em]" alt="Chưa mở khóa" />}
               </p>
@@ -123,6 +128,7 @@ function RecipesModal() {
                 {r.topping ? ` · ${INGREDIENTS[r.topping].name}` : ""}
               </p>
               <p className="text-[0.85em] text-cocoa">{r.description}</p>
+              </div>
             </li>
           );
         })}
@@ -136,6 +142,9 @@ function QuestsModal() {
   const s = game.save;
   return (
     <Modal title="Nhiệm vụ" onClose={() => game.closeModal()}>
+      <div className="mb-2 flex justify-center">
+        <Icon name="icon_quests" className="h-16 w-16" />
+      </div>
       <ul className="flex flex-col gap-2">
         {QUESTS.map((q) => {
           const p = s.quests[q.id] ?? { progress: 0, done: false, claimed: false };
@@ -265,12 +274,15 @@ function PauseModal() {
     >
       <div className="grid grid-cols-2 gap-2">
         <button className="btn btn-secondary" onClick={() => game.openModal("shop")}>
+          <Icon name="icon_shop" />
           Cửa hàng
         </button>
         <button className="btn btn-secondary" onClick={() => game.openModal("recipes")}>
+          <Icon name="icon_recipes" />
           Công thức
         </button>
         <button className="btn btn-secondary" onClick={() => game.openModal("quests")}>
+          <Icon name="icon_quests" />
           Nhiệm vụ
         </button>
         <button className="btn btn-secondary" onClick={() => game.openModal("settings")}>

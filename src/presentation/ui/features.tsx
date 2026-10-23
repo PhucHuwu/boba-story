@@ -305,6 +305,7 @@ export function NightScreen() {
             <ul className="my-2 flex list-disc flex-col gap-1 pl-[1.2em] text-[0.85em] text-cocoa">
               <li>Phí gửi: {fee} xu. Tiền trong ngân hàng không bị trộm lấy.</li>
               <li>
+                <Icon name="icon_rent" className="mr-1 h-[1.2em] w-[1.2em]" />
                 Sáng mai thu tiền mặt bằng: {rent} xu{s.loan ? ` + trả góp ${Math.min(s.loan.installment, s.loan.remaining)} xu` : ""} (thiếu sẽ trừ vào tiết kiệm).
               </li>
               <li>{s.upgrades.includes("camera") ? "Camera đang canh quán." : "Không có camera, quán dễ bị dòm ngó."}</li>
@@ -370,7 +371,7 @@ function MorningReport() {
         )}
         {r.rent > 0 && (
           <div className="flex justify-between py-[0.3em]">
-            <dt>Tiền thuê mặt bằng</dt>
+            <dt><Icon name="icon_rent" className="mr-1 h-[1.3em] w-[1.3em]" />Tiền thuê mặt bằng</dt>
             <dd className="font-extrabold text-berry">-{r.rent}</dd>
           </div>
         )}
