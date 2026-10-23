@@ -141,6 +141,11 @@ export class ShopScene extends Phaser.Scene {
 
     const g = this.add.graphics().setDepth(10);
     g.fillStyle(0x9c6440, 1).fillRect(0, counterY - 6, room.w, 40);
+    if (this.textures.exists("counter_front")) {
+      const rail = this.add.image(-10, counterY - 26, "counter_front").setOrigin(0, 0).setDepth(10);
+      rail.setDisplaySize(room.w + 20, Math.max(34, ((room.w + 20) / rail.width) * rail.height));
+      return;
+    }
     g.fillStyle(0xc68a5b, 1).fillRoundedRect(-10, counterY - 26, room.w + 20, 34, 12);
     g.fillStyle(0xe2ab78, 1).fillRoundedRect(-10, counterY - 26, room.w + 20, 10, { tl: 12, tr: 12, bl: 0, br: 0 });
     g.lineStyle(3, 0x5b3523, 1).strokeRoundedRect(-10, counterY - 26, room.w + 20, 34, 12);
