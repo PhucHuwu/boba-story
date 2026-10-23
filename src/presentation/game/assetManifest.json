@@ -47,5 +47,20 @@
   "icon_moon",
   "icon_sunrise",
   "icon_critic",
-  "icon_mic"
+  "icon_discount",
+  "icon_wrench",
+  "icon_mic",
+  "icon_bankrupt",
+  "trash_can",
+  "trash_banana",
+  "trash_paper",
+  "trash_box",
+  "trash_bone",
+  "robber",
+  "rival_dog",
+  "rival_discount",
+  "rival_trash",
+  "rival_fakeReviews",
+  "rival_powerCut",
+  "rival_karaoke"
 ]
