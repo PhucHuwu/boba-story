@@ -188,3 +188,16 @@ describe("save v2", () => {
     expect(bad.plan).toBeNull();
   });
 });
+
+describe("delivery apps", () => {
+  it("the app keeps 20% of each cup's price", async () => {
+    const { splitCommission, currentOrder, createDelivery } = await import("./delivery");
+    expect(splitCommission(40)).toEqual({ net: 32, commission: 8 });
+    expect(splitCommission(0)).toEqual({ net: 0, commission: 0 });
+    const o = (id: number) => ({ id, recipeId: "classic", size: "M" as const, sugar: 50 as const, ice: 50 as const });
+    const d = createDelivery("bee", [o(1), o(2)]);
+    expect(currentOrder(d).id).toBe(1);
+    d.done = 1;
+    expect(currentOrder(d).id).toBe(2);
+  });
+});

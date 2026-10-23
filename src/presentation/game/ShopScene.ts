@@ -4,7 +4,7 @@ import type { PourSource, ShopCustomer, ShopEvent, TrashItem } from "@/applicati
 import type { HintTarget } from "@/application/game/tutorial";
 import { INGREDIENTS, RECIPE_BY_ID, TEA_IDS } from "@/domain/catalog";
 import { liquidTotal } from "@/domain/cup";
-import { maxCustomers } from "@/domain/customers";
+import { maxCustomers, type Customer } from "@/domain/customers";
 import type { IngredientId, Mood, Size, TeaId, ToppingId } from "@/domain/types";
 import manifest from "./assetManifest.json";
 import { audio } from "./audio";
@@ -29,6 +29,8 @@ interface CatView {
   cardBg: Phaser.GameObjects.Graphics;
   bar: Phaser.GameObjects.Rectangle;
   status: Phaser.GameObjects.Text;
+  title: Phaser.GameObjects.Text;
+  detail: Phaser.GameObjects.Text;
   bubble?: Phaser.GameObjects.Container;
   baseScale: number;
   idleTween?: Phaser.Tweens.Tween;
@@ -446,6 +448,15 @@ export class ShopScene extends Phaser.Scene {
       case "trash":
         this.syncTrash(e.items);
         break;
+      case "nextCup": {
+        const c = this.cats.get(e.id);
+        const d = this.session.customers.find((x) => x.data.id === e.id)?.data;
+        if (c && d) {
+          this.fillCard(c, d);
+          if (!this.reduced) this.tweens.add({ targets: c.card, scale: { from: 1.12, to: 1 }, duration: 260, ease: "Back.easeOut" });
+        }
+        break;
+      }
       case "rival":
         if (!this.reduced) this.cameras.main.shake(300, 0.006);
         break;
@@ -466,7 +477,7 @@ export class ShopScene extends Phaser.Scene {
     const d = customer.data;
     const slots = maxCustomers(this.ctl.save);
     const x = slotX(this.L, d.slot, slots);
-    const sprite = this.add.image(0, 0, `cat_${d.archetype}_idle`).setOrigin(0.5, 1);
+    const sprite = this.add.image(0, 0, this.catTexture(d, "idle")).setOrigin(0.5, 1);
     const baseScale = this.L.catHeight / sprite.height;
     sprite.setScale(baseScale);
     const root = this.add.container(this.L.door.x, this.L.door.y, [sprite]).setDepth(actorDepth(this.L.door.y, d.id)).setScale(0.45).setAlpha(0);
@@ -475,15 +486,16 @@ export class ShopScene extends Phaser.Scene {
     const cardBg = this.add.graphics();
     const text = (y: number, s: string, size: number, color: string, weight: string) =>
       this.add.text(0, y, s, { fontFamily: FONT, fontSize: `${size}px`, color, fontStyle: weight, align: "center" }).setOrigin(0.5);
-    const order = d.order;
     const status = text(22, "", 15, "#9a3b3b", "800");
     const bar = this.add.rectangle(-75, 44, 150, 10, COLORS.good).setOrigin(0, 0.5);
     const zone = this.add.zone(0, 0, 180, 120).setInteractive({ useHandCursor: true });
     zone.on("pointerdown", () => this.command(() => this.session.tapCustomer(d.id)));
+    const title = text(-40, "", 21, "#4a2c1d", "800");
+    const detail = text(-8, "", 16, "#6b4430", "700");
     card.add([
       cardBg,
-      text(-40, SHORT_RECIPE_NAME[order.recipeId] ?? RECIPE_BY_ID[order.recipeId].name, 21, "#4a2c1d", "800"),
-      text(-8, `${order.size} · Đường ${order.sugar}% · Đá ${order.ice}%`, 16, "#6b4430", "700"),
+      title,
+      detail,
       status,
       this.add.rectangle(-75, 44, 150, 10, 0xe9d7c3).setOrigin(0, 0.5),
       bar,
@@ -491,7 +503,9 @@ export class ShopScene extends Phaser.Scene {
     ]);
 
     if (d.critic && this.textures.exists("icon_critic")) card.add(this.add.image(80, -66, "icon_critic").setDisplaySize(48, 48));
-    const view: CatView = { id: d.id, slot: d.slot, root, sprite, card, cardBg, bar, status, baseScale };
+    const view: CatView = { id: d.id, slot: d.slot, root, sprite, card, cardBg, bar, status, title, detail, baseScale };
+    this.fillCard(view, d);
+    if (d.delivery && this.textures.exists("icon_delivery")) card.add(this.add.image(-80, -66, "icon_delivery").setDisplaySize(48, 48));
     this.cats.set(d.id, view);
     this.tweens.add({ targets: root, alpha: 1, duration: 300 });
     this.tweens.add({ targets: root, x, y: this.L.counterY + 30, scale: 1, duration: duration * 1000, ease: "Sine.easeInOut" });
@@ -550,10 +564,29 @@ export class ShopScene extends Phaser.Scene {
   private setMood(id: number, mood: Mood) {
     const c = this.cats.get(id);
     if (!c) return;
-    c.sprite.setTexture(`cat_${this.session.customers.find((x) => x.data.id === id)?.data.archetype}_${mood}`);
+    const data = this.session.customers.find((x) => x.data.id === id)?.data;
+    if (!data) return;
+    c.sprite.setTexture(this.catTexture(data, mood));
     c.baseScale = this.L.catHeight / c.sprite.height;
     const state = this.session.customers.find((x) => x.data.id === id)?.data.state;
     this.setIdle(c, state === "ordering" || state === "waiting" || state === "receiving");
+  }
+
+  /** Sprite for a customer and mood; shippers use their app brand and fall back to the idle pose. */
+  private catTexture(d: Customer, mood: Mood): string {
+    const base = d.delivery ? `shipper_${d.delivery.brand}` : `cat_${d.archetype}`;
+    const key = `${base}_${mood}`;
+    return this.textures.exists(key) ? key : `${base}_idle`;
+  }
+
+  /** Order ticket text; shippers also show which cup of the delivery this is. */
+  private fillCard(c: CatView, d: Customer) {
+    const order = d.order;
+    const name = SHORT_RECIPE_NAME[order.recipeId] ?? RECIPE_BY_ID[order.recipeId].name;
+    const cupNo = d.delivery ? `Ly ${d.delivery.done + 1}/${d.delivery.orders.length}: ` : "";
+    c.title.setText(cupNo + name).setFontSize(21);
+    if (c.title.width > 168) c.title.setFontSize(Math.floor((21 * 168) / c.title.width));
+    c.detail.setText(`${order.size} · Đường ${order.sugar}% · Đá ${order.ice}%`);
   }
 
   private say(id: number, text: string) {

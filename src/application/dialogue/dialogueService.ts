@@ -7,6 +7,7 @@ const PERSONAS: Record<ArchetypeId, string> = {
   office: "một anh mèo nhân viên văn phòng bận rộn, lịch sự nhưng hay vội",
   regular: "Mochi, cô mèo tam thể khách quen, họa sĩ, thân thiện và ấm áp",
   picky: "một quý cô mèo Ba Tư sang chảnh, khó tính, rất để ý công thức",
+  shipper: "một bạn mèo shipper giao đồ ăn qua app, nhanh nhẹn, lễ phép, đang chờ lấy đơn nhiều ly",
 };
 
 export const DIALOGUE_EVENTS: readonly DialogueEvent[] = ["order", "happy", "sad", "leave", "review"];

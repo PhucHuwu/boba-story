@@ -13,12 +13,13 @@ import {
   type Customer,
 } from "@/domain/customers";
 import { COMBO_QUALITY, CRITIC_CHANCE, CRITIC_FROM_DAY, WEATHER, comboTipBonus } from "@/domain/dayPlan";
+import { SHIPPER_BRANDS, SHIPPER_CHANCE, SHIPPER_FROM_DAY, createDelivery, splitCommission } from "@/domain/delivery";
 import { LEAVE_REPUTATION_PENALTY, canMake, payment } from "@/domain/economy";
 import type { ServeRecord } from "@/domain/ledger";
 import { evaluate, grade } from "@/domain/quality";
 import { ratingSpawnFactor, shopRating, writeReview } from "@/domain/reviews";
 import { TRASH_TEXTS, type Effect } from "@/domain/rivalEvents";
-import type { ArchetypeId, CupState, IngredientId, Mood, Order, RivalEventId, SaveData, Size, TeaId, ToppingId } from "@/domain/types";
+import type { ArchetypeId, CupState, IngredientId, Mood, Order, RivalEventId, SaveData, ShipperBrand, Size, TeaId, ToppingId } from "@/domain/types";
 import { Emitter } from "../common/emitter";
 import type { NoticeKind } from "../common/notifier";
 import type { DialogueEvent, DialogueGateway, Rng } from "../ports";
@@ -74,7 +75,9 @@ export type ShopEvent =
   | { type: "review"; id: number; stars: number; text: string }
   | { type: "combo"; count: number }
   | { type: "trash"; items: TrashItem[] }
-  | { type: "rival"; id: RivalEventId };
+  | { type: "rival"; id: RivalEventId }
+  /** A shipper got one cup and now waits for the next one in the same delivery. */
+  | { type: "nextCup"; id: number };
 
 export interface TrashItem {
   id: number;
@@ -330,9 +333,12 @@ export class ShopSession {
     const { rng } = this.deps;
     const slot = free[Math.floor(rng() * free.length)];
     const id = this.nextId++;
-    const archetype = this.tutorial
+    const shipper = this.wantsShipper();
+    const archetype: ArchetypeId = this.tutorial
       ? "regular"
-      : chooseArchetype(rng, this.save, this.regularServedToday, this.customers.map((c) => c.data.archetype));
+      : shipper
+        ? "shipper"
+        : chooseArchetype(rng, this.save, this.regularServedToday, this.customers.map((c) => c.data.archetype));
     const makeable = this.save.unlockedRecipes.filter((r) => canMake(this.save, r));
     const order = this.tutorial ? { id, ...TUTORIAL_ORDER } : createOrder({ rng, save: this.save, archetype, id, makeable, iceLevels: this.weather.ice });
     const line =
@@ -342,13 +348,27 @@ export class ShopSession {
     if (archetype === "regular") this.regularServedToday = true;
     const duration = this.walk(TIMING.walkIn);
     const customer: ShopCustomer = { data: createCustomer(id, archetype, order, slot, this.save.upgrades, line), mood: "idle", timer: duration };
-    if (!this.tutorial && archetype !== "regular" && this.save.day >= CRITIC_FROM_DAY && rng() < CRITIC_CHANCE) {
+    if (shipper) {
+      const brands = Object.keys(SHIPPER_BRANDS) as ShipperBrand[];
+      const brand = brands[Math.floor(rng() * brands.length) % brands.length];
+      const count = rng() < 0.5 ? 2 : 3;
+      const orders = [order, ...Array.from({ length: count - 1 }, () => createOrder({ rng, save: this.save, archetype, id, makeable, iceLevels: this.weather.ice }))];
+      customer.data.delivery = createDelivery(brand, orders);
+      customer.data.line = `${SHIPPER_BRANDS[brand].name} tới lấy đơn ${count} ly nè chủ quán!`;
+      this.host.notify(`Mèo shipper ${SHIPPER_BRANDS[brand].name} đến lấy đơn ${count} ly. App giữ 20% tiền mỗi ly.`, "info");
+    } else if (!this.tutorial && archetype !== "regular" && this.save.day >= CRITIC_FROM_DAY && rng() < CRITIC_CHANCE) {
       customer.data.critic = true;
       customer.data.line = "Tôi là food reviewer. Hãy cho tôi thấy quán có gì đặc biệt.";
       this.host.notify("Một mèo food reviewer vừa bước vào! Đánh giá của họ nặng gấp 3.", "info");
     }
     this.customers.push(customer);
     this.events.emit({ type: "arrived", customer, duration });
+  }
+
+  /** At most one shipper at a time, from SHIPPER_FROM_DAY on. */
+  private wantsShipper(): boolean {
+    if (this.tutorial || this.save.day < SHIPPER_FROM_DAY || this.customers.some((c) => c.data.delivery)) return false;
+    return this.deps.rng() < SHIPPER_CHANCE;
   }
 
   private leave(c: ShopCustomer, delay: number) {
@@ -495,7 +515,10 @@ export class ShopSession {
     if (!cup.sealed) return this.fail("Hãy dán nắp trước khi giao");
     const d = c.data;
     if (d.state === "ordering") transition(d, "waiting");
-    if (!transition(d, "receiving")) return;
+    if (d.state !== "waiting") return;
+    const delivery = d.delivery;
+    const lastCup = !delivery || delivery.done + 1 >= delivery.orders.length;
+    if (lastCup && !transition(d, "receiving")) return;
 
     const result = evaluate({ cup, order: d.order, patience: d.patience, tolerance: ARCHETYPES[d.archetype].tolerance });
     const good = !result.wrongDrink && result.quality >= COMBO_QUALITY;
@@ -504,7 +527,15 @@ export class ShopSession {
       priceMul: this.mod("priceMul"),
       tipMul: this.weather.tipMul * (1 + comboTipBonus(combo)),
     });
-    this.host.served({ ...pay, quality: result.quality, recipeId: d.order.recipeId, archetype: d.archetype, combo });
+    let commission: number | undefined;
+    if (delivery) {
+      const split = splitCommission(pay.price);
+      pay.price = split.net;
+      commission = split.commission;
+      delivery.qualitySum += result.quality;
+      delivery.done++;
+    }
+    this.host.served({ ...pay, quality: result.quality, recipeId: d.order.recipeId, archetype: d.archetype, combo, commission });
     if (good) {
       this.combo = combo;
       if (combo >= 2) this.events.emit({ type: "combo", count: combo });
@@ -515,6 +546,7 @@ export class ShopSession {
       this.host.notify("Tuyệt vời! Bạn đã hoàn thành ly đầu tiên. Quán chính thức mở cửa!", "good");
     }
     this.cup = null;
+    if (delivery && !lastCup) return this.nextDeliveryCup(c, result.quality, pay.price);
     c.timer = TIMING.receive;
 
     const g = grade(result.quality);
@@ -524,8 +556,23 @@ export class ShopSession {
     this.say(c, happy ? "Ngon quá! Cảm ơn nha~ meo!" : result.notes[0] ? `Hmm... ${result.notes[0].toLowerCase()}.` : "Hmm... chưa đúng ý lắm.");
     void this.enrichLine(c, happy ? "happy" : "sad");
     if (!happy && result.notes.length) this.host.notify(`Góp ý: ${result.notes.slice(0, 3).join(", ")}`, "info");
-    if (!this.tutorial) this.review(c, result.quality);
+    if (!this.tutorial) this.review(c, delivery ? delivery.qualitySum / delivery.orders.length : result.quality);
     if (this.selectedId === d.id) this.selectNext();
+  }
+
+  /** A shipper got one cup of several: show it, then switch their ticket to the next cup. */
+  private nextDeliveryCup(c: ShopCustomer, quality: number, price: number) {
+    const d = c.data;
+    const delivery = d.delivery!;
+    const g = grade(quality);
+    const happy = quality >= 60;
+    this.events.emit({ type: "served", id: d.id, info: { quality, stars: g.stars, label: g.label, price, tip: 0, happy } });
+    d.order = delivery.orders[delivery.done];
+    d.patience = Math.min(100, d.patience + 25);
+    this.setMood(c, happy ? "happy" : "sad");
+    this.say(c, `Còn ${delivery.orders.length - delivery.done} ly nữa nha!`);
+    this.events.emit({ type: "nextCup", id: d.id });
+    this.host.changed();
   }
 
   // ------------------------------------------------------------ reviews, combo

@@ -194,6 +194,45 @@ describe("ShopSession tutorial order", () => {
     expect(events).toContain("gone");
   });
 
+  it("a shipper takes several cups one by one and the app keeps 20% of each", () => {
+    // rng 0.01: every arrival is a shipper (one at a time), brand grab, 2 cups.
+    const { game } = makeGame({ rng: () => 0.01 });
+    game.newGame();
+    Object.assign(game.save, { day: 4, tutorialDone: true, plan: null });
+    game.openShop();
+    const s = game.session;
+    const events: ShopEvent["type"][] = [];
+    s.events.on((e) => events.push(e.type));
+    run(game, () => s.customers.some((c) => c.data.state === "ordering"));
+    const shippers = s.customers.filter((c) => c.data.delivery);
+    expect(shippers).toHaveLength(1);
+    const cat = shippers[0];
+    const d = cat.data.delivery!;
+    expect(d.brand).toBe("grab");
+    expect(d.orders).toHaveLength(2);
+    s.tapCustomer(cat.data.id);
+
+    const brew = () => {
+      s.takeCup("M");
+      s.startPour("tea_black");
+      run(game, () => s.cup!.tea.tea_black >= 0.5);
+      s.stopPour();
+      s.sealCup();
+      run(game, () => !!s.cup?.sealed);
+      s.deliver(cat.data.id);
+    };
+    brew();
+    expect(d.done).toBe(1);
+    expect(cat.data.state).toBe("waiting");
+    expect(cat.data.order).toBe(d.orders[1]);
+    expect(events).toContain("nextCup");
+    brew();
+    expect(cat.data.state).toBe("receiving");
+    expect(game.dayStats.deliveries).toBe(2);
+    expect(game.dayStats.revenue).toBeGreaterThan(0);
+    expect(game.dayStats.commission).toBe(Math.round((game.dayStats.revenue + game.dayStats.commission) * 0.2 / 2) * 2);
+  });
+
   it("rejects actions without a cup and reports them", () => {
     const { game } = makeGame();
     game.newGame();

@@ -4,7 +4,8 @@ export type IngredientId = TeaId | ToppingId | "milk" | "sugar" | "ice" | "cup" 
 export type Size = "M" | "L";
 /** Sugar / ice level requested by the customer, in percent. */
 export type Level = 0 | 50 | 100;
-export type ArchetypeId = "student" | "office" | "regular" | "picky";
+export type ArchetypeId = "student" | "office" | "regular" | "picky" | "shipper";
+export type ShipperBrand = "grab" | "bee" | "food";
 export type Mood = "idle" | "happy" | "sad" | "impatient";
 
 export interface Recipe {
@@ -171,4 +172,7 @@ export interface DayStats {
   goalMet: boolean;
   goalReward: number;
   rivalOutcome: string | null;
+  /** Cups handed to delivery-app shippers and the app commission on them. */
+  deliveries: number;
+  commission: number;
 }

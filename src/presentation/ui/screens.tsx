@@ -171,6 +171,7 @@ export function SummaryScreen() {
   if (st.bestCombo >= 2) rows.splice(4, 0, ["Combo cao nhất", <span key="b" className="inline-flex items-center gap-1"><Icon name="icon_combo" />x{st.bestCombo}</span>]);
   if (st.reviews) rows.splice(4, 0, ["Đánh giá hôm nay", <Stars key="s" value={st.starsSum / st.reviews} />]);
   if (st.goalReward) rows.push(["Thưởng mục tiêu ngày", <Coin key="g" value={st.goalReward} />]);
+  if (st.deliveries) rows.splice(1, 0, ["Ly giao qua app", <span key="d" className="inline-flex items-center gap-1"><Icon name="icon_delivery" />{st.deliveries} ly (app giữ {st.commission} xu)</span>]);
   if (st.otherCosts) rows.push(["Chi phí khác (đối thủ...)", <Coin key="o" value={st.otherCosts} />]);
   const highlights = [...sum.reviews].sort((a, b) => a.stars - b.stars);
   const shown = highlights.length > 3 ? [highlights[0], highlights[Math.floor(highlights.length / 2)], highlights[highlights.length - 1]] : highlights;

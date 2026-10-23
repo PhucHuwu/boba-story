@@ -12,6 +12,8 @@ export function emptyDayStats(): DayStats {
     goalMet: false,
     goalReward: 0,
     rivalOutcome: null,
+    deliveries: 0,
+    commission: 0,
   };
 }
 
@@ -26,6 +28,8 @@ export interface ServeRecord {
   archetype: ArchetypeId;
   /** Combo count after this drink (0 = broken). */
   combo?: number;
+  /** Delivery-app cut already taken off `price`. */
+  commission?: number;
 }
 
 /** Books a served drink into the save and the day's ledger. */
@@ -37,6 +41,10 @@ export function recordServe(save: SaveData, day: DayStats, r: ServeRecord) {
   day.qualitySum += r.quality;
   if (r.quality >= PERFECT_QUALITY) day.perfect++;
   if (!day.recipesServed.includes(r.recipeId)) day.recipesServed.push(r.recipeId);
+  if (r.commission !== undefined) {
+    day.deliveries++;
+    day.commission += r.commission;
+  }
   save.money += earned;
   save.reputation = clampRep(save.reputation + r.reputation);
   save.stats.served++;

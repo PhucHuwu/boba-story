@@ -150,6 +150,7 @@ export const ARCHETYPES: Record<ArchetypeId, ArchetypeDef> = {
   office: { id: "office", name: "Mèo văn phòng", decay: 100 / 48, tolerance: 1, tipMul: 1.2, minReputation: 0 },
   regular: { id: "regular", name: "Mèo Mochi (khách quen)", decay: 100 / 90, tolerance: 1, tipMul: 1.3, minReputation: 0 },
   picky: { id: "picky", name: "Mèo tiểu thư khó tính", decay: 100 / 65, tolerance: 0.6, tipMul: 2, minReputation: 25 },
+  shipper: { id: "shipper", name: "Mèo shipper", decay: 100 / 110, tolerance: 1.1, tipMul: 0, minReputation: 0 },
 };
 
 export const REGULAR_FAVORITE = "boba";
@@ -168,6 +169,7 @@ export const FALLBACK_LINES: Record<ArchetypeId, string[]> = {
   office: ["Làm nhanh giúp tôi nhé, sắp họp rồi.", "Một ly để tỉnh táo cả buổi chiều.", "Deadline dí quá, cần trà sữa gấp!"],
   regular: REGULAR_LINES,
   picky: ["Hy vọng lần này đúng công thức nhé.", "Ta rất kỹ tính về tỷ lệ trà và sữa đấy.", "Đừng làm ta thất vọng, chủ quán nhỏ."],
+  shipper: ["Đơn app nè chủ quán, làm giúp em mấy ly nha!", "Khách đặt qua app, em chờ lấy hàng nhé.", "Shipper tới lấy đơn đây, meo!"],
 };
 
 export interface QuestDef {

@@ -1,4 +1,5 @@
 import { ARCHETYPES, DAY, RECIPE_BY_ID, REGULAR_FAVORITE } from "./catalog";
+import type { Delivery } from "./delivery";
 import type { ArchetypeId, Level, Order, SaveData, Size } from "./types";
 
 export type CustomerState = "approaching" | "ordering" | "waiting" | "receiving" | "leaving" | "gone";
@@ -24,6 +25,8 @@ export interface Customer {
   line: string;
   /** Food critic: their review weighs triple. */
   critic: boolean;
+  /** Delivery-app shipper picking up several cups (`order` is the cup currently being made). */
+  delivery?: Delivery;
 }
 
 /** Enforces the lifecycle Approaching → Ordering → Waiting → Receiving → Leaving. */
