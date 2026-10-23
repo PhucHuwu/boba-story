@@ -144,6 +144,8 @@ export interface SaveData {
   nightPending: boolean;
   /** Bills (rent, loan installment) the shop could not pay. > 0 means bankrupt: a bank loan is required. */
   overdue: number;
+  /** Takings (price + tips) since the last tax collection; taxed every TAX_PERIOD days. */
+  taxBase: number;
   updatedAt: number;
 }
 

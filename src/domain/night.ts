@@ -7,6 +7,19 @@ export function rentFor(day: number): number {
   return day < 2 ? 0 : 20 + 3 * Math.min(day, 20);
 }
 
+export const TAX_PERIOD = 7;
+export const TAX_RATE = 0.1;
+
+/** The police cat collects tax on the morning of days 8, 15, 22, ... (after each full week). */
+export function isTaxDay(day: number): boolean {
+  return day > 1 && (day - 1) % TAX_PERIOD === 0;
+}
+
+/** Tax owed on the morning of `day`: TAX_RATE of the takings since the last collection. */
+export function taxFor(save: SaveData, day: number): number {
+  return isTaxDay(day) ? Math.floor(save.taxBase * TAX_RATE) : 0;
+}
+
 export const BANK_FEE = 0.02;
 
 export function depositFee(amount: number): number {
@@ -52,6 +65,7 @@ export interface NightReport {
   robbed: boolean;
   stolen: number;
   rent: number;
+  tax: number;
   installment: number;
   /** Bills that could not be paid (> 0 = bankrupt). */
   overdue: number;
@@ -59,7 +73,7 @@ export interface NightReport {
 }
 
 /**
- * Resolves the night after `day`: deposit, robbery roll, then the morning bills for `day + 1` (rent and loan
+ * Resolves the night after `day`: deposit, robbery roll, then the morning bills for `day + 1` (rent, weekly tax and loan
  * installment, paid from cash then savings). Mutates the save; returns what happened for the UI.
  */
 export function resolveNight(save: SaveData, day: number, depositAmount: number, rng: Rng): NightReport {
@@ -78,8 +92,10 @@ export function resolveNight(save: SaveData, day: number, depositAmount: number,
   }
 
   const rent = rentFor(day + 1);
+  const tax = taxFor(save, day + 1);
+  if (isTaxDay(day + 1)) save.taxBase = 0;
   const installment = save.loan ? Math.min(save.loan.installment, save.loan.remaining) : 0;
-  const due = rent + installment;
+  const due = rent + tax + installment;
   const fromCash = Math.min(save.money, due);
   save.money -= fromCash;
   const fromBank = Math.min(save.bank, due - fromCash);
@@ -89,7 +105,7 @@ export function resolveNight(save: SaveData, day: number, depositAmount: number,
 
   let loanPaidOff = false;
   if (save.loan) {
-    const paidToLoan = Math.max(0, paid - rent);
+    const paidToLoan = Math.max(0, paid - rent - tax);
     save.loan.remaining -= paidToLoan;
     if (save.loan.remaining <= 0) {
       save.loan = null;
@@ -97,7 +113,7 @@ export function resolveNight(save: SaveData, day: number, depositAmount: number,
     }
   }
   save.overdue = overdue;
-  return { day, deposited, fee, robbed, stolen, rent, installment, overdue, loanPaidOff };
+  return { day, deposited, fee, robbed, stolen, rent, tax, installment, overdue, loanPaidOff };
 }
 
 /** Bankrupt: bills are overdue, or there is no money left to run the shop at all. */

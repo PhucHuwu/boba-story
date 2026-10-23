@@ -1,6 +1,6 @@
 import type { ArchetypeId, IngredientId, Level, Recipe, SaveData, TeaId, ToppingId } from "./types";
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 export const TEA_IDS: TeaId[] = ["tea_black", "tea_green", "tea_oolong"];
 export const TOPPING_IDS: ToppingId[] = ["top_boba", "top_jelly", "top_pudding"];
@@ -258,6 +258,7 @@ export function defaultSave(): SaveData {
     lastRobberyDay: 0,
     nightPending: false,
     overdue: 0,
+    taxBase: 0,
     updatedAt: Date.now(),
   };
 }

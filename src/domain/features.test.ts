@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { defaultSave } from "./catalog";
 import { comboTipBonus, goalStatus, planDay } from "./dayPlan";
 import { emptyDayStats } from "./ledger";
-import { deposit, isBankrupt, loanOffer, rentFor, repayLoan, resolveNight, robberyChance, takeLoan } from "./night";
+import { deposit, isBankrupt, isTaxDay, loanOffer, rentFor, repayLoan, resolveNight, robberyChance, takeLoan, TAX_RATE } from "./night";
 import { PETTY_COMMENTS, addReview, ratingSpawnFactor, shopRating, starsForQuality, writeReview, REVIEW_KEEP } from "./reviews";
 import { RIVAL_EVENTS } from "./rivalEvents";
 import { migrate } from "./saveSchema";
@@ -148,6 +148,20 @@ describe("night: bank, robbery, rent, loan", () => {
     expect(save.loan).toBeNull();
   });
 
+  it("the police cat taxes a week of takings on the morning after each 7th day", () => {
+    expect([2, 7, 8, 9, 15].map(isTaxDay)).toEqual([false, false, true, false, true]);
+    const save = defaultSave();
+    save.money = 2000;
+    save.taxBase = 1234;
+    const quiet = resolveNight(save, 5, 0, () => 0.99);
+    expect(quiet.tax).toBe(0);
+    expect(save.taxBase).toBe(1234);
+    const r = resolveNight(save, 7, 0, () => 0.99);
+    expect(r.tax).toBe(Math.floor(1234 * TAX_RATE));
+    expect(save.taxBase).toBe(0);
+    expect(save.money).toBe(2000 - quiet.rent - r.rent - r.tax);
+  });
+
   it("deposit fee is small and never deposits more than the cash", () => {
     const save = defaultSave();
     save.money = 100;
@@ -162,7 +176,8 @@ describe("save v2", () => {
     const v1 = { ...defaultSave(), version: 1, money: 777 } as Record<string, unknown>;
     for (const k of ["bank", "loan", "reviews", "nextReviewId", "plan", "lastRobberyDay", "nightPending", "overdue"]) delete v1[k];
     const s = migrate(v1)!;
-    expect(s.version).toBe(2);
+    expect(s.version).toBe(3);
+    expect(s.taxBase).toBe(0);
     expect(s.money).toBe(777);
     expect(s.reviews).toEqual([]);
     expect(s.loan).toBeNull();

@@ -100,6 +100,7 @@ export function migrate(raw: unknown): SaveData | null {
     lastRobberyDay: Math.floor(num(raw.lastRobberyDay, 0, 0)),
     nightPending: raw.nightPending === true,
     overdue: Math.floor(num(raw.overdue, 0, 0, 1e6)),
+    taxBase: Math.floor(num(raw.taxBase, 0, 0, 1e7)),
     updatedAt: num(raw.updatedAt, Date.now()),
   };
 }

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ARCHETYPES } from "@/domain/catalog";
 import { GOAL_TEXT, WEATHER, goalStatus } from "@/domain/dayPlan";
-import { depositFee, rentFor } from "@/domain/night";
+import { TAX_PERIOD, TAX_RATE, depositFee, isTaxDay, rentFor, taxFor } from "@/domain/night";
 import { RATING_WINDOW, starDistribution } from "@/domain/reviews";
 import { RIVAL_EVENTS, RIVAL_NAME } from "@/domain/rivalEvents";
 import type { Review } from "@/domain/types";
@@ -281,6 +281,7 @@ export function NightScreen() {
 
   const fee = depositFee(amount);
   const rent = rentFor(s.day);
+  const tax = taxFor(s, s.day);
   return (
     <div className={`pointer-events-auto absolute inset-0 z-30 flex items-center justify-center p-[5%] ${report?.robbed ? "bg-[rgba(40,6,6,0.9)]" : "bg-[rgba(14,16,40,0.88)]"}`}>
       <section className="panel pop-in max-h-full w-full max-w-[28em] overflow-y-auto p-[1em]">
@@ -308,6 +309,12 @@ export function NightScreen() {
                 <Icon name="icon_rent" className="mr-1 h-[1.2em] w-[1.2em]" />
                 Sáng mai thu tiền mặt bằng: {rent} xu{s.loan ? ` + trả góp ${Math.min(s.loan.installment, s.loan.remaining)} xu` : ""} (thiếu sẽ trừ vào tiết kiệm).
               </li>
+              {isTaxDay(s.day) && (
+                <li className="font-bold text-berry">
+                  <Icon name="icon_tax" className="mr-1 h-[1.2em] w-[1.2em]" />
+                  Sáng mai mèo công an ghé thu thuế tuần: {tax} xu ({Math.round(TAX_RATE * 100)}% doanh thu {TAX_PERIOD} ngày qua).
+                </li>
+              )}
               <li>{s.upgrades.includes("camera") ? "Camera đang canh quán." : "Không có camera, quán dễ bị dòm ngó."}</li>
               {s.upgrades.includes("safe") && <li>Có két sắt giữ tiền.</li>}
             </ul>
@@ -360,6 +367,14 @@ function MorningReport() {
           <p className="mb-2 text-center text-cocoa">Một đêm yên bình. Quán vẫn nguyên vẹn.</p>
         </>
       )}
+      {r.tax > 0 && (
+        <div className="mb-2 flex items-center gap-2 rounded-2xl border-2 border-[#c9d3b0] bg-[#eef3e2] p-2">
+          <Icon name="npc_police" className="h-[4.5em] w-[4.5em] shrink-0" alt="Mèo công an" />
+          <p className="text-[0.9em] leading-snug">
+            <b>Mèo công an</b> ghé quán: &quot;Chào chủ quán! Đến kỳ thu thuế tuần rồi nhé.&quot; Đã nộp <b className="text-berry">{r.tax} xu</b>.
+          </p>
+        </div>
+      )}
       <dl className="divide-y-2 divide-[#efe1cf]">
         {r.deposited > 0 && (
           <div className="flex justify-between py-[0.3em]">
@@ -373,6 +388,12 @@ function MorningReport() {
           <div className="flex justify-between py-[0.3em]">
             <dt><Icon name="icon_rent" className="mr-1 h-[1.3em] w-[1.3em]" />Tiền thuê mặt bằng</dt>
             <dd className="font-extrabold text-berry">-{r.rent}</dd>
+          </div>
+        )}
+        {r.tax > 0 && (
+          <div className="flex justify-between py-[0.3em]">
+            <dt><Icon name="icon_tax" className="mr-1 h-[1.3em] w-[1.3em]" />Thuế tuần ({Math.round(TAX_RATE * 100)}% doanh thu)</dt>
+            <dd className="font-extrabold text-berry">-{r.tax}</dd>
           </div>
         )}
         {r.installment > 0 && (

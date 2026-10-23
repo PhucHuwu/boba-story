@@ -41,6 +41,7 @@ export function recordServe(save: SaveData, day: DayStats, r: ServeRecord) {
   save.reputation = clampRep(save.reputation + r.reputation);
   save.stats.served++;
   save.stats.totalEarned += earned;
+  save.taxBase += earned;
   if (r.quality >= PERFECT_QUALITY) save.stats.perfect++;
   if (r.archetype === "regular") {
     save.stats.regularVisits++;
