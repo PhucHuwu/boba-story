@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bean: #4a2c1d;
+  --color-cocoa: #8a5a3b;
+  --color-caramel: #e08a3c;
+  --color-cream: #fff8ec;
+  --color-matcha: #4f9a52;
+  --color-berry: #c8473d;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+  background: #f6efe6;
+  color: var(--color-bean);
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-[#e6d6c3] bg-white p-4 shadow-sm;
+  }
+  .btn {
+    @apply inline-flex min-h-9 items-center justify-center gap-1 rounded-lg bg-caramel px-3 text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply inline-flex min-h-9 items-center justify-center gap-1 rounded-lg border border-[#e6d6c3] bg-white px-3 text-sm font-semibold text-bean transition hover:bg-cream disabled:opacity-50;
+  }
+  .btn-danger {
+    @apply inline-flex min-h-9 items-center justify-center gap-1 rounded-lg border border-[#f0c8c3] bg-white px-3 text-sm font-semibold text-berry transition hover:bg-[#fdf0ee];
+  }
+  .input {
+    @apply w-full rounded-lg border border-[#d9c6b0] bg-white px-3 py-2 text-sm outline-none focus:border-caramel focus:ring-2 focus:ring-caramel/30;
+  }
+  .label {
+    @apply mb-1 block text-sm font-semibold;
+  }
+}

@@ -1,4 +1,5 @@
-import type { CloudSaveGateway, DialogueGateway, DialogueRequest, GatewayResult } from "@/application/ports";
+import type { CloudSaveGateway, CommunityGateway, DialogueGateway, DialogueRequest, GatewayResult } from "@/application/ports";
+import type { Announcement, DayTelemetry, FeedbackInput } from "@/domain/community";
 import type { SaveData } from "@/domain/types";
 
 const OFFLINE = "Không có kết nối mạng";
@@ -51,6 +52,36 @@ export class HttpDialogueGateway implements DialogueGateway {
       if (!res.ok) return null;
       const json = (await res.json()) as { line?: string; source?: string };
       return json.line && json.source !== "fallback" ? json.line : null;
+    } catch {
+      return null;
+    }
+  }
+}
+
+const postJson = (url: string, body: unknown, keepalive = false) =>
+  fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), keepalive });
+
+/** Client adapter for `/api/feedback`, `/api/telemetry` and `/api/announcement`. */
+export class HttpCommunityGateway implements CommunityGateway {
+  async sendFeedback(input: FeedbackInput): Promise<GatewayResult<null>> {
+    try {
+      const res = await postJson("/api/feedback", input);
+      return res.ok ? { ok: true, value: null } : { ok: false, message: await errorMessage(res, "Không gửi được góp ý") };
+    } catch {
+      return { ok: false, message: OFFLINE };
+    }
+  }
+
+  async sendTelemetry(report: DayTelemetry) {
+    await postJson("/api/telemetry", report, true).catch(() => undefined);
+  }
+
+  async announcement(): Promise<Announcement | null> {
+    try {
+      const res = await fetch("/api/announcement");
+      if (!res.ok) return null;
+      const json = (await res.json()) as { announcement?: Announcement | null };
+      return json.announcement ?? null;
     } catch {
       return null;
     }

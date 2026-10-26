@@ -15,15 +15,16 @@ import { adjustReputation, dayProfit, emptyDayStats, recordLost, recordServe, ty
 import { isBankrupt, loanOffer, repayLoan, resolveNight, takeLoan, withdraw, type NightReport } from "@/domain/night";
 import { addReview, shopRating } from "@/domain/reviews";
 import { FAKE_REVIEW_TEXTS, RIVAL_EVENTS } from "@/domain/rivalEvents";
+import type { Announcement, FeedbackCategory } from "@/domain/community";
 import { migrate } from "@/domain/saveSchema";
 import type { DayStats, IngredientId, Review, RivalEventId, SaveData, Settings } from "@/domain/types";
 import { Observable } from "../common/emitter";
 import { Notifier, type NoticeKind } from "../common/notifier";
-import type { CloudSaveGateway, DialogueGateway, RecoveryCodeStore, Rng, SaveRepository } from "../ports";
+import type { CloudSaveGateway, CommunityGateway, DialogueGateway, RecoveryCodeStore, Rng, SaveRepository } from "../ports";
 import { ShopSession, type ReviewDraft, type ShopHost } from "./shopSession";
 
 export type Phase = "loading" | "menu" | "prep" | "open" | "summary" | "night" | "bankrupt";
-export type Modal = null | "shop" | "recipes" | "settings" | "quests" | "pause" | "cloud" | "reviews" | "bank" | "rival";
+export type Modal = null | "shop" | "recipes" | "settings" | "quests" | "pause" | "cloud" | "reviews" | "bank" | "rival" | "feedback";
 
 export interface DaySummary {
   day: number;
@@ -41,6 +42,7 @@ export interface GameDeps {
   cloud: CloudSaveGateway;
   recoveryCode: RecoveryCodeStore;
   dialogue: DialogueGateway;
+  community: CommunityGateway;
   rng: Rng;
   prefersReducedMotion: () => boolean;
 }
@@ -59,6 +61,9 @@ export class GameController extends Observable implements ShopHost {
   dayStats: DayStats = emptyDayStats();
   lastSummary: DaySummary | null = null;
   cloudBusy = false;
+  feedbackBusy = false;
+  /** Message from the developers shown on the main menu. */
+  announcement: Announcement | null = null;
   /** Rival event waiting for the player's choice. */
   rivalEvent: RivalEventId | null = null;
   /** Result of the last resolved night (shown on the morning screen). */
@@ -78,6 +83,10 @@ export class GameController extends Observable implements ShopHost {
     if (local) this.save = local;
     else if (this.deps.prefersReducedMotion()) this.save.settings.reducedMotion = true;
     this.changed();
+    void this.deps.community.announcement().then((a) => {
+      this.announcement = a;
+      this.changed();
+    });
   }
 
   get recoveryCode() {
@@ -346,6 +355,7 @@ export class GameController extends Observable implements ShopHost {
       lottery,
     };
     this.rivalEvent = null;
+    this.reportDay(this.lastSummary);
     this.save.nightPending = true;
     this.save.day++;
     this.checkQuests();
@@ -463,6 +473,43 @@ export class GameController extends Observable implements ShopHost {
     this.save.settings = { ...this.save.settings, ...patch };
     this.persist();
     this.changed();
+  }
+
+  /** Anonymous end-of-day summary for balancing; skipped when the player turned it off. */
+  private reportDay(sum: DaySummary) {
+    const s = this.save;
+    if (!s.settings.telemetry) return;
+    const st = sum.stats;
+    void this.deps.community.sendTelemetry({
+      day: sum.day,
+      served: st.served,
+      lost: st.lost,
+      avgQuality: st.served ? Math.round(st.qualitySum / st.served) : 0,
+      perfect: st.perfect,
+      profit: sum.profit,
+      money: s.money,
+      reputation: Math.floor(s.reputation),
+      goalMet: st.goalMet,
+      relaxed: s.settings.relaxed,
+    });
+  }
+
+  /** Sends player feedback with the current game context. Returns true when it was accepted. */
+  async sendFeedback(category: FeedbackCategory, message: string, rating: number | null, screen: string): Promise<boolean> {
+    if (this.feedbackBusy) return false;
+    this.feedbackBusy = true;
+    this.changed();
+    const s = this.save;
+    const r = await this.deps.community.sendFeedback({
+      category,
+      message,
+      rating,
+      context: { day: s.day, money: s.money, reputation: Math.floor(s.reputation), phase: this.phase, screen },
+    });
+    this.feedbackBusy = false;
+    this.notify(r.ok ? "Cảm ơn bạn đã góp ý!" : r.message, r.ok ? "good" : "bad");
+    this.changed();
+    return r.ok;
   }
 
   private persist() {

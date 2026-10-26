@@ -12,11 +12,13 @@ src/
     delivery.ts      Delivery-app shippers (multi-cup orders, commission).
     guests.ts        Special guests during the day (granny, TikToker).
     visitors.ts      Morning visitors on the prep screen (lottery seller, supplier, stray kitten).
+    community.ts     Feedback, anonymous day telemetry and menu announcement: shapes + validation.
   application/     Use cases + ports. Depends on domain only.
     ports.ts         Interfaces the outside world must implement (saves, cloud, AI text, cache, rate limit…).
     game/            GameController (app facade, observable), ShopSession (day simulation), tutorial.
     cloud/           CloudSaveService (server use case).
     dialogue/        DialogueService (server use case: AI line → cache → fallback).
+    community/       CommunityService (public: feedback, telemetry, announcement) and AdminService.
   infrastructure/  Adapters implementing ports.
     browser/         localStorage saves, HTTP gateways to /api/*.
     server/          Upstash Redis store/cache/limiter, OpenAI-compatible text generator.
@@ -26,8 +28,12 @@ src/
     ui/              React overlays (HUD, menus, modals) reading GameController via useGame().
   composition/     Composition roots — the only place concrete adapters are chosen.
     client.ts        getGame(): GameController wired with browser adapters.
-    server.ts        serverServices(): server use cases wired with Upstash + AI adapters.
-  app/             Next.js App Router: page + thin route handlers (`/api/save`, `/api/dialogue`, `/api/health`).
+    server.ts        serverServices(): server use cases wired with Upstash + AI adapters; isAdminRequest().
+    http.ts          Route helpers: small JSON body parsing, ServiceResult → Response, admin-key guard.
+  app/             Next.js App Router: page + thin route handlers (`/api/save`, `/api/dialogue`, `/api/health`,
+                   `/api/feedback`, `/api/telemetry`, `/api/announcement`, `/api/admin/*`).
+admin/             Separate Next.js app (own package.json, own Vercel project `boba-story-admin`).
+                   Not part of the layers above: it only calls the game's `/api/admin/*` over HTTP.
 ```
 
 | Layer | May import |
@@ -50,6 +56,20 @@ src/
 3. Player input → session commands (`takeCup`, `startPour`, `deliver`…). All rules (quality, payment,
    reputation, quests) are evaluated in domain/application code and are unit-tested without a browser.
 4. Server routes call `serverServices()`; missing env vars degrade gracefully (`/api/health` reports status).
+5. Admin: the admin app's server (never the browser) calls `/api/admin/*` with `Authorization: Bearer
+   ADMIN_API_KEY`. Without that env var every admin route answers 401. The admin app has its own login
+   (`ADMIN_USERNAME` + scrypt `ADMIN_PASSWORD_HASH`, HMAC-signed httpOnly cookie, 7 days); login attempts are
+   rate-limited through the game's Redis (`/api/admin/login-attempt`).
+
+### Redis keys
+
+| Key | Content |
+| --- | --- |
+| `save:<code>` | Cloud save (TTL 180 days) |
+| `fb:seq`, `fb:<id>`, `fb:index` (zset) | Feedback entries, newest 2000 kept |
+| `tm:day:<n>` (hash), `tm:days` (zset), `tm:date:<YYYY-MM-DD>` | Telemetry sums per game day, reports per date (TTL 40 days) |
+| `announcement` | Current menu announcement |
+| `rl:*` | Rate-limit windows |
 
 ## Adding things
 

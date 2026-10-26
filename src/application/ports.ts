@@ -2,6 +2,7 @@
  * Ports (interfaces) owned by the application layer.
  * Infrastructure adapters implement them; the composition root wires them in.
  */
+import type { Announcement, DayTelemetry, FeedbackEntry, FeedbackInput, TelemetryStats } from "@/domain/community";
 import type { ArchetypeId, SaveData } from "@/domain/types";
 
 // ---------- client-side ports ----------
@@ -42,6 +43,13 @@ export interface DialogueGateway {
   line(req: DialogueRequest): Promise<string | null>;
 }
 
+/** Player feedback and the menu announcement, as seen from the client. Failures are reported, never thrown. */
+export interface CommunityGateway {
+  sendFeedback(input: FeedbackInput): Promise<GatewayResult<null>>;
+  sendTelemetry(report: DayTelemetry): Promise<void>;
+  announcement(): Promise<Announcement | null>;
+}
+
 export type Rng = () => number;
 
 // ---------- server-side ports ----------
@@ -67,4 +75,30 @@ export interface ChatMessage {
 
 export interface TextGenerator {
   generate(messages: ChatMessage[], opts?: { maxTokens?: number; timeoutMs?: number }): Promise<string | null>;
+}
+
+export interface FeedbackQuery {
+  category?: string;
+  handled?: boolean;
+  limit: number;
+}
+
+export interface FeedbackStore {
+  add(entry: Omit<FeedbackEntry, "id">): Promise<FeedbackEntry>;
+  /** Newest first, at most `max` entries. */
+  recent(max: number): Promise<FeedbackEntry[]>;
+  get(id: number): Promise<FeedbackEntry | null>;
+  update(entry: FeedbackEntry): Promise<void>;
+  remove(id: number): Promise<boolean>;
+}
+
+export interface TelemetryStore {
+  record(report: DayTelemetry, date: string): Promise<void>;
+  stats(dates: string[]): Promise<TelemetryStats>;
+}
+
+export interface AnnouncementStore {
+  get(): Promise<Announcement | null>;
+  set(a: Announcement): Promise<void>;
+  clear(): Promise<void>;
 }

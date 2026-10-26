@@ -1,5 +1,5 @@
 import { GameController } from "@/application/game/gameController";
-import { HttpCloudSaveGateway, HttpDialogueGateway } from "@/infrastructure/browser/httpGateways";
+import { HttpCloudSaveGateway, HttpCommunityGateway, HttpDialogueGateway } from "@/infrastructure/browser/httpGateways";
 import { LocalStorageRecoveryCode, LocalStorageSaveRepository } from "@/infrastructure/browser/localStorageSaves";
 
 /** Client composition root: builds the game once per page with browser adapters. */
@@ -11,6 +11,7 @@ export function getGame(): GameController {
     cloud: new HttpCloudSaveGateway(),
     recoveryCode: new LocalStorageRecoveryCode(),
     dialogue: new HttpDialogueGateway(),
+    community: new HttpCommunityGateway(),
     rng: Math.random,
     prefersReducedMotion: () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true,
   }));

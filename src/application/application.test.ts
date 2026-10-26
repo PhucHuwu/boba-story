@@ -2,10 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 import { defaultSave } from "@/domain/catalog";
 import type { SaveData } from "@/domain/types";
 import { CloudSaveService } from "./cloud/cloudSaveService";
+import { AdminService, CommunityService, type CommunityDeps } from "./community/communityService";
+import type { Announcement, DayTelemetry, FeedbackEntry, TelemetryStats } from "@/domain/community";
 import { DialogueService, parseDialogueQuery } from "./dialogue/dialogueService";
 import { GameController } from "./game/gameController";
 import type { ShopEvent } from "./game/shopSession";
-import type { CloudSaveGateway, CloudSaveStore, SaveRepository } from "./ports";
+import type { CloudSaveGateway, CloudSaveStore, CommunityGateway, FeedbackStore, SaveRepository } from "./ports";
 
 class MemorySaves implements SaveRepository {
   data: SaveData | null = null;
@@ -14,13 +16,14 @@ class MemorySaves implements SaveRepository {
   clear = () => void (this.data = null);
 }
 
-function makeGame(opts: { saves?: MemorySaves; cloud?: Partial<CloudSaveGateway>; rng?: () => number } = {}) {
+function makeGame(opts: { saves?: MemorySaves; cloud?: Partial<CloudSaveGateway>; community?: Partial<CommunityGateway>; rng?: () => number } = {}) {
   const saves = opts.saves ?? new MemorySaves();
   const game = new GameController({
     saves,
     cloud: { upload: async () => ({ ok: true, value: null }), download: async () => ({ ok: false, message: "x" }), ...opts.cloud },
     recoveryCode: { get: () => "AAAA-BBBB-CCCC", set: () => {} },
     dialogue: { line: async () => null },
+    community: { sendFeedback: async () => ({ ok: true, value: null }), sendTelemetry: async () => {}, announcement: async () => null, ...opts.community },
     rng: opts.rng ?? (() => 0.42),
     prefersReducedMotion: () => false,
   });
@@ -374,5 +377,132 @@ describe("server use cases", () => {
     expect((await down.line(q, "ip")).source).toBe("fallback");
     const up = new DialogueService({ generator: { generate: async () => 'Mèo: "Ngon tuyệt meo!"' }, cache: null, limiter, rng: () => 0 });
     expect(await up.line(q, "ip")).toEqual({ line: "Ngon tuyệt meo!", source: "ai" });
+  });
+});
+
+class MemoryFeedback implements FeedbackStore {
+  rows = new Map<number, FeedbackEntry>();
+  seq = 0;
+  add = async (e: Omit<FeedbackEntry, "id">) => {
+    const full = { ...e, id: ++this.seq };
+    this.rows.set(full.id, full);
+    return full;
+  };
+  recent = async (max: number) => [...this.rows.values()].sort((a, b) => b.id - a.id).slice(0, max);
+  get = async (id: number) => this.rows.get(id) ?? null;
+  update = async (e: FeedbackEntry) => void this.rows.set(e.id, e);
+  remove = async (id: number) => this.rows.delete(id);
+}
+
+function communityDeps(over: Partial<CommunityDeps> = {}): CommunityDeps {
+  let ann: Announcement | null = null;
+  const reports: DayTelemetry[] = [];
+  return {
+    feedback: new MemoryFeedback(),
+    telemetry: { record: async (r) => void reports.push(r), stats: async (): Promise<TelemetryStats> => ({ days: [], daily: [] }) },
+    announcement: { get: async () => ann, set: async (a) => void (ann = a), clear: async () => void (ann = null) },
+    saves: null,
+    limiter: { allow: async () => true },
+    now: () => 1_000_000,
+    version: "test",
+    ...over,
+  };
+}
+
+describe("community and admin use cases", () => {
+  const fb = { category: "bug", message: "  Ly bị tràn  ", rating: 4, context: { day: 3, money: 120, reputation: 55.7, phase: "open", screen: "open" } };
+
+  it("validates, stores and rate-limits feedback", async () => {
+    const deps = communityDeps();
+    const svc = new CommunityService(deps);
+    expect(await svc.submitFeedback(fb, "ip", "UA")).toEqual({ ok: true, value: { id: 1 } });
+    const saved = await deps.feedback!.get(1);
+    expect(saved).toMatchObject({ message: "Ly bị tràn", rating: 4, handled: false, version: "test", userAgent: "UA" });
+    expect(saved?.context.reputation).toBe(55);
+    expect((await svc.submitFeedback({ ...fb, category: "spam" }, "ip", "")).ok).toBe(false);
+    expect((await svc.submitFeedback({ ...fb, message: "a" }, "ip", "")).ok).toBe(false);
+    expect((await svc.submitFeedback({ ...fb, rating: 9 }, "ip", "")).ok).toBe(true);
+    expect((await deps.feedback!.get(2))?.rating).toBeNull();
+    const limited = new CommunityService(communityDeps({ limiter: { allow: async () => false } }));
+    expect(await limited.submitFeedback(fb, "ip", "")).toMatchObject({ ok: false, status: 429 });
+    expect(await new CommunityService(communityDeps({ feedback: null })).submitFeedback(fb, "ip", "")).toMatchObject({ ok: false, status: 503 });
+  });
+
+  it("lets the admin filter, mark and delete feedback", async () => {
+    const deps = communityDeps();
+    const svc = new CommunityService(deps);
+    await svc.submitFeedback(fb, "ip", "");
+    await svc.submitFeedback({ ...fb, category: "idea" }, "ip", "");
+    const admin = new AdminService(deps);
+    expect((await admin.setHandled(1, true)).ok).toBe(true);
+    const open = await admin.listFeedback({ handled: false, limit: 10 });
+    expect(open.ok && open.value.items.map((e) => e.id)).toEqual([2]);
+    const bugs = await admin.listFeedback({ category: "bug", limit: 10 });
+    expect(bugs.ok && [bugs.value.items.length, bugs.value.total, bugs.value.open]).toEqual([1, 2, 1]);
+    expect((await admin.deleteFeedback(2)).ok).toBe(true);
+    expect(await admin.deleteFeedback(2)).toMatchObject({ ok: false, status: 404 });
+    expect(await admin.setHandled(99, true)).toMatchObject({ ok: false, status: 404 });
+  });
+
+  it("posts, expires and clears the announcement", async () => {
+    let now = 1_000_000;
+    const deps = communityDeps({ now: () => now });
+    const admin = new AdminService(deps);
+    const pub = new CommunityService(deps);
+    expect((await admin.postAnnouncement({ text: "  ", tone: "info" })).ok).toBe(false);
+    expect((await admin.postAnnouncement({ text: "Sự kiện Trung thu!", tone: "event", hours: 2 })).ok).toBe(true);
+    expect((await pub.currentAnnouncement())?.tone).toBe("event");
+    now += 3 * 3600_000;
+    expect(await pub.currentAnnouncement()).toBeNull();
+    await admin.postAnnouncement({ text: "Bảo trì", tone: "nope" });
+    expect((await pub.currentAnnouncement())?.tone).toBe("info");
+    await admin.clearAnnouncement();
+    expect(await pub.currentAnnouncement()).toBeNull();
+  });
+
+  it("validates telemetry and looks up saves by recovery code", async () => {
+    const recorded: [DayTelemetry, string][] = [];
+    const deps = communityDeps({
+      telemetry: { record: async (r, d) => void recorded.push([r, d]), stats: async () => ({ days: [], daily: [] }) },
+      saves: { get: async (code) => (code === "AAAA-BBBB-CCCC" ? { version: 1, day: 4, money: 50 } : null), put: async () => {} },
+      now: () => Date.UTC(2026, 9, 26, 12),
+    });
+    const pub = new CommunityService(deps);
+    expect((await pub.recordTelemetry({ day: 0 }, "ip")).ok).toBe(false);
+    expect((await pub.recordTelemetry({ day: 2, served: 9999, profit: -40, avgQuality: 81.6 }, "ip")).ok).toBe(true);
+    expect(recorded[0][1]).toBe("2026-10-26");
+    expect(recorded[0][0]).toMatchObject({ day: 2, served: 500, profit: -40, avgQuality: 81 });
+    const admin = new AdminService(deps);
+    const hit = await admin.lookupSave("aaaa-bbbb-cccc");
+    expect(hit.ok && [hit.value.save.day, hit.value.save.money]).toEqual([4, 50]);
+    expect(await admin.lookupSave("ZZZZ-ZZZZ-ZZZZ")).toMatchObject({ ok: false, status: 404 });
+    expect(await admin.lookupSave("bad")).toMatchObject({ ok: false, status: 400 });
+  });
+
+  it("game sends telemetry at closing unless turned off, and feedback with context", async () => {
+    const sent: DayTelemetry[] = [];
+    const feedback: unknown[] = [];
+    const { game } = makeGame({
+      community: {
+        sendTelemetry: async (r) => void sent.push(r),
+        sendFeedback: async (f) => (feedback.push(f), { ok: true, value: null }),
+      },
+    });
+    game.newGame();
+    game.openShop();
+    game.requestEndDay();
+    run(game, () => game.phase === "summary");
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ day: 1, money: game.save.money });
+    expect(await game.sendFeedback("idea", "Thêm trà đào", 5, "summary")).toBe(true);
+    expect(feedback[0]).toMatchObject({ category: "idea", rating: 5, context: { day: 2, phase: "summary" } });
+    game.updateSettings({ telemetry: false });
+    game.nextDay();
+    game.endNight(0);
+    game.startMorning();
+    game.openShop();
+    game.requestEndDay();
+    run(game, () => game.phase === "summary");
+    expect(sent).toHaveLength(1);
   });
 });

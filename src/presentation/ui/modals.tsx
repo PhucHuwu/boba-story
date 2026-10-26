@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { INGREDIENTS, INVENTORY_CAP, LEVEL_UNITS, QUESTS, RECIPES, UPGRADES } from "@/domain/catalog";
+import { FEEDBACK_CATEGORIES, FEEDBACK_LABEL, FEEDBACK_MAX_CHARS, FEEDBACK_MIN_CHARS, type FeedbackCategory } from "@/domain/community";
 import { packCost } from "@/domain/economy";
 import type { IngredientId } from "@/domain/types";
 import { audio } from "../game/audio";
@@ -194,6 +195,12 @@ function SettingsModal() {
       <Toggle label="Chế độ thư giãn" hint="Mèo khách không bỏ về, không mất danh tiếng." checked={st.relaxed} onChange={(v) => game.updateSettings({ relaxed: v })} />
       <Toggle label="Gợi ý pha chế" hint="Hiện vạch mục tiêu trên ly và hướng dẫn." checked={st.hints} onChange={(v) => game.updateSettings({ hints: v })} />
       <Toggle label="Giảm chuyển động" hint="Ít hiệu ứng nhún nhảy, đi lại nhanh hơn." checked={st.reducedMotion} onChange={(v) => game.updateSettings({ reducedMotion: v })} />
+      <Toggle
+        label="Gửi thống kê ẩn danh"
+        hint="Cuối mỗi ngày gửi số ly, chất lượng, lợi nhuận (không kèm thông tin cá nhân) để cân bằng độ khó."
+        checked={st.telemetry}
+        onChange={(v) => game.updateSettings({ telemetry: v })}
+      />
       <div className="mt-3 flex flex-wrap gap-2 border-t-2 border-[#efe1cf] pt-3">
         <button className="btn btn-secondary flex-1" onClick={() => game.openModal("cloud")}>
           Lưu đám mây
@@ -260,6 +267,77 @@ function CloudModal() {
   );
 }
 
+function FeedbackModal() {
+  const game = useGame();
+  const [category, setCategory] = useState<FeedbackCategory>("idea");
+  const [message, setMessage] = useState("");
+  const [rating, setRating] = useState<number | null>(null);
+  // Opened from the pause menu mid-day: go back there instead of resuming play.
+  const close = () => (game.phase === "open" ? game.openModal("pause") : game.closeModal());
+  const text = message.trim();
+  return (
+    <Modal title="Góp ý cho quán" onClose={close}>
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (await game.sendFeedback(category, text, rating, game.phase)) close();
+        }}
+      >
+        <p className="text-[0.9em] text-cocoa">Bạn gặp lỗi, có ý tưởng hay thấy game quá khó/dễ? Nhà phát triển đọc từng góp ý. Ngày chơi, số xu và danh tiếng hiện tại sẽ được gửi kèm, không có thông tin cá nhân.</p>
+        <div className="grid grid-cols-4 gap-1" role="radiogroup" aria-label="Loại góp ý">
+          {FEEDBACK_CATEGORIES.map((c) => (
+            <button
+              key={c}
+              type="button"
+              role="radio"
+              aria-checked={category === c}
+              className={`chip justify-center !px-1 ${category === c ? "!bg-caramel text-white" : ""}`}
+              onClick={() => setCategory(c)}
+            >
+              {FEEDBACK_LABEL[c]}
+            </button>
+          ))}
+        </div>
+        <label className="flex flex-col gap-1">
+          <span className="font-bold">Nội dung</span>
+          <textarea
+            className="min-h-[7em] rounded-xl border-2 border-bean bg-white px-3 py-2"
+            maxLength={FEEDBACK_MAX_CHARS}
+            value={message}
+            placeholder="Ví dụ: mèo khách đi quá nhanh ở ngày 5..."
+            onChange={(e) => setMessage(e.target.value)}
+          />
+          <span className="self-end text-[0.75em] text-cocoa tabular-nums">
+            {message.length}/{FEEDBACK_MAX_CHARS}
+          </span>
+        </label>
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-bold">Chấm điểm game (tùy chọn)</span>
+          <span className="inline-flex" role="radiogroup" aria-label="Số sao">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                key={n}
+                type="button"
+                role="radio"
+                aria-checked={rating === n}
+                aria-label={`${n} sao`}
+                className="p-[0.15em]"
+                onClick={() => setRating(rating === n ? null : n)}
+              >
+                <Icon name="star" className={`h-[1.6em] w-[1.6em] ${rating !== null && n <= rating ? "" : "opacity-35 grayscale"}`} />
+              </button>
+            ))}
+          </span>
+        </div>
+        <button className="btn btn-green" disabled={game.feedbackBusy || text.length < FEEDBACK_MIN_CHARS}>
+          {game.feedbackBusy ? "Đang gửi..." : "Gửi góp ý"}
+        </button>
+      </form>
+    </Modal>
+  );
+}
+
 function PauseModal() {
   const game = useGame();
   return (
@@ -287,6 +365,9 @@ function PauseModal() {
         </button>
         <button className="btn btn-secondary" onClick={() => game.openModal("settings")}>
           Cài đặt
+        </button>
+        <button className="btn btn-secondary col-span-2" onClick={() => game.openModal("feedback")}>
+          Góp ý cho quán
         </button>
       </div>
       <div className="mt-3 flex flex-col gap-2 border-t-2 border-[#efe1cf] pt-3">
@@ -332,6 +413,8 @@ export function Modals() {
       return <BankModal />;
     case "rival":
       return <RivalModal />;
+    case "feedback":
+      return <FeedbackModal />;
     default:
       return null;
   }

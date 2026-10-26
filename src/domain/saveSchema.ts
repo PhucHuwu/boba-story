@@ -82,6 +82,7 @@ export function migrate(raw: unknown): SaveData | null {
     settings.reducedMotion = raw.settings.reducedMotion === true;
     settings.relaxed = raw.settings.relaxed === true;
     settings.hints = raw.settings.hints !== false;
+    settings.telemetry = raw.settings.telemetry !== false;
   }
   const reviews = parseReviews(raw.reviews);
   return {

@@ -30,7 +30,7 @@ const eslintConfig = defineConfig([
   ),
   layer("infrastructure", ["@/presentation/*", "@/composition/*", "@/app/*"], "infrastructure implements application ports; it must not know the UI or wiring."),
   layer("presentation/game", ["@/infrastructure/*", "@/app/*", "@/composition/*"], "the Phaser view talks to the application only."),
-  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "art-src/**", "scripts/**"]),
+  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "art-src/**", "scripts/**", "admin/**"]),
 ]);
 
 export default eslintConfig;

@@ -255,7 +255,7 @@ export function defaultSave(): SaveData {
     upgrades: [],
     quests: Object.fromEntries(QUESTS.map((q) => [q.id, { progress: 0, done: false, claimed: false }])),
     stats: { served: 0, perfect: 0, totalEarned: 0, regularVisits: 0, pickyHappy: 0, daysCompleted: 0, fiveStars: 0, goalsMet: 0, rivalsBeaten: 0, robberies: 0, bestCombo: 0 },
-    settings: { music: 0.5, sfx: 0.8, reducedMotion: false, relaxed: false, hints: true },
+    settings: { music: 0.5, sfx: 0.8, reducedMotion: false, relaxed: false, hints: true, telemetry: true },
     tutorialDone: false,
     regularStage: 0,
     bank: 0,

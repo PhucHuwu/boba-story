@@ -43,6 +43,8 @@ npm run dev                  # http://localhost:3000
 | `IMAGE_PROVIDER`, `IMAGE_FALLBACK`, `FAL_KEY`, `FAL_IMAGE_MODEL` | Dùng fal.ai để sinh ảnh thay cho proxy, hoặc làm dự phòng khi proxy lỗi | Không |
 | `KV_REST_API_URL`, `KV_REST_API_TOKEN` (hoặc `UPSTASH_REDIS_REST_*`) | Lưu đám mây, cache lời thoại, giới hạn tần suất | Không — thiếu thì `/api/save` trả 503 |
 
+| `ADMIN_API_KEY` | Khoá chung giữa game và trang quản trị cho `/api/admin/*` (≥ 32 ký tự) | Không — thiếu thì mọi API quản trị trả 401 |
+
 Không commit `.env*`. Trên Vercel, đặt biến bằng `vercel env add` hoặc cài Upstash qua Marketplace.
 
 ## Kiến trúc
@@ -58,3 +60,19 @@ Dự án Vercel `boba-story`. Frontend (trang tĩnh) và backend (route handlers
 vercel deploy          # preview
 vercel deploy --prod   # production
 ```
+
+Push lên `main` sẽ tự deploy production.
+
+## Trang quản trị (`admin/`)
+
+Next.js riêng, deploy thành dự án Vercel `boba-story-admin` (Root Directory `admin`). Có 4 mục: góp ý của người chơi, thống kê ẩn danh theo ngày chơi, tra cứu bản lưu theo mã khôi phục, thông báo hiện ở menu game.
+
+| Biến (dự án admin) | Ý nghĩa |
+| --- | --- |
+| `ADMIN_USERNAME` | Tên đăng nhập |
+| `ADMIN_PASSWORD_HASH` | Mật khẩu đã băm: `printf '%s' 'mật-khẩu' \| npm run -s hash-password` |
+| `ADMIN_SESSION_SECRET` | Chuỗi ngẫu nhiên ≥ 32 ký tự để ký cookie (đổi biến này hoặc đổi mật khẩu sẽ đăng xuất mọi phiên) |
+| `ADMIN_API_KEY` | Trùng với biến cùng tên trên dự án game |
+| `GAME_API_URL` | `https://boba-story.vercel.app` |
+
+Chạy local: `cd admin && npm install && npm run dev` (cổng 3200, cần `admin/.env.local`).

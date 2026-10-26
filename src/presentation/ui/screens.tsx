@@ -23,6 +23,20 @@ export function LoadingScreen() {
   );
 }
 
+const TONE_STYLE = {
+  info: "border-bean bg-[#fff8ec]",
+  event: "border-matcha bg-[#e3f4dc]",
+  warning: "border-berry bg-[#fdf0ee]",
+} as const;
+
+function AnnouncementCard({ tone, text }: { tone: keyof typeof TONE_STYLE; text: string }) {
+  return (
+    <div role="status" className={`pop-in w-[min(80%,24em)] whitespace-pre-line rounded-2xl border-[3px] px-[0.8em] py-[0.5em] text-center text-[0.9em] font-bold text-bean shadow-lg ${TONE_STYLE[tone]}`}>
+      {text}
+    </div>
+  );
+}
+
 export function MainMenu() {
   const game = useGame();
   const [restoring, setRestoring] = useState(false);
@@ -38,6 +52,7 @@ export function MainMenu() {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={asset("logo")} alt="Boba Story" className="floaty absolute top-[6%] w-[min(62cqw,40cqh)] drop-shadow-xl" />
       <p className="mb-[0.5em] px-[8%] text-center text-[1.05em] font-bold text-cream drop-shadow">Quán trà sữa nhỏ của những vị khách mèo</p>
+      {game.announcement && <AnnouncementCard tone={game.announcement.tone} text={game.announcement.text} />}
       {game.hasSave && (
         <button className="btn btn-green w-[min(62%,20em)] text-[1.25em]" onClick={start(() => game.continueGame())}>
           Tiếp tục · Ngày {game.save.day}
@@ -59,6 +74,9 @@ export function MainMenu() {
           Khôi phục
         </button>
       </div>
+      <button className="chip text-[0.9em]" onClick={() => game.openModal("feedback")}>
+        Góp ý cho quán
+      </button>
       {restoring && (
         <form
           className="panel pop-in flex w-[min(80%,24em)] flex-col gap-2 p-[0.8em]"
@@ -233,6 +251,9 @@ export function SummaryScreen() {
           <button className="btn btn-secondary flex-1" onClick={() => game.openModal("quests")}>
             <Icon name="icon_quests" />
             Nhiệm vụ
+          </button>
+          <button className="btn btn-secondary flex-1" onClick={() => game.openModal("feedback")}>
+            Góp ý
           </button>
           <button className="btn btn-green flex-[2]" onClick={() => game.nextDay()}>
             <span className="inline-flex items-center gap-2">

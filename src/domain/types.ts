@@ -68,6 +68,8 @@ export interface Settings {
   reducedMotion: boolean;
   relaxed: boolean;
   hints: boolean;
+  /** Send an anonymous end-of-day summary to help balance the game. */
+  telemetry: boolean;
 }
 
 export interface Stats {
