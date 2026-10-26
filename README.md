@@ -7,6 +7,16 @@ Game 2D ấm áp về một quán trà sữa nhỏ — mọi vị khách đều 
 - Lưu tiến trình trên máy (localStorage) + lưu đám mây bằng mã khôi phục (Upstash Redis, tùy chọn).
 - Lời thoại mèo khách sinh bằng AI qua proxy tương thích OpenAI (tùy chọn, có lời thoại dự phòng).
 
+## Trong game có gì
+
+- Pha chế tay từng ly; chất lượng tính theo công thức, yêu cầu của khách, thao tác và tốc độ.
+- Mỗi ngày có thời tiết, mục tiêu ngày, combo, đánh giá sao và đôi khi chó đối thủ phá quán.
+- Kinh tế: nhập hàng, mở công thức, nâng cấp, tiền mặt bằng mỗi sáng, ngân hàng (gửi tiết kiệm, vay khi phá sản), trộm ban đêm, **thuế tuần** do mèo công an thu (10% doanh thu, mỗi 7 ngày).
+- Khách: học sinh, văn phòng, khách quen Mochi, tiểu thư khó tính, nhà phê bình, **mèo shipper** (đơn 2–3 ly, app giữ 20%), **bà cụ hàng xóm** (tặng trân châu) và **mèo TikToker** (video lên xu hướng hoặc bị chê).
+- Khách ghé buổi sáng ở màn chuẩn bị: **mèo bán vé số**, **mèo đại lý nguyên liệu** (lô hàng rẻ 30%) và **mèo hoang nhỏ** (cho ăn đủ 5 lần thì thành mèo của quán).
+
+Con số chi tiết: [`GDD.md` mục 17](GDD.md).
+
 ## Chạy local
 
 ```bash
@@ -20,7 +30,8 @@ npm run dev                  # http://localhost:3000
 | `npm run dev` / `build` / `start` | Next.js |
 | `npm run check` | typecheck + lint (kể cả luật phân lớp) + test |
 | `npm test` | Vitest (domain, application, layout) |
-| `npm run gen:assets [-- --force] [key...]` | Sinh lại ảnh game qua AI proxy → `public/assets/*.webp` |
+| `npm run gen:assets [-- --force] [key...]` | Sinh ảnh game qua AI proxy → `public/assets/*.webp` (prompt nằm trong `scripts/gen-assets.mjs`) |
+| `node scripts/asset-status.mjs` | Đếm ảnh đã có so với checklist [`ASSETS.md`](ASSETS.md) |
 
 ## Biến môi trường
 
@@ -29,6 +40,7 @@ npm run dev                  # http://localhost:3000
 | `AI_PROXY_BASE_URL`, `AI_PROXY_API_KEY` | Lời thoại AI (`/api/dialogue`) và script sinh ảnh | Không — thiếu thì dùng lời thoại có sẵn |
 | `AI_CHAT_MODEL` | Model chat (mặc định `gemini-3-flash`) | Không |
 | `AI_IMAGE_MODEL` | Model ảnh cho `gen:assets` | Không |
+| `IMAGE_PROVIDER`, `IMAGE_FALLBACK`, `FAL_KEY`, `FAL_IMAGE_MODEL` | Dùng fal.ai để sinh ảnh thay cho proxy, hoặc làm dự phòng khi proxy lỗi | Không |
 | `KV_REST_API_URL`, `KV_REST_API_TOKEN` (hoặc `UPSTASH_REDIS_REST_*`) | Lưu đám mây, cache lời thoại, giới hạn tần suất | Không — thiếu thì `/api/save` trả 503 |
 
 Không commit `.env*`. Trên Vercel, đặt biến bằng `vercel env add` hoặc cài Upstash qua Marketplace.

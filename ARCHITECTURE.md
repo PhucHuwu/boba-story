@@ -7,6 +7,11 @@ about Phaser, React, Next.js or Redis. The rule is enforced by `no-restricted-im
 ```
 src/
   domain/          Pure game rules: catalog, cup mixing, quality scoring, customers, economy, save schema.
+    dayPlan.ts       Weather, daily goal, rival attack and morning visitor, rolled once per day.
+    night.ts         Rent, bank, robbery, weekly tax, bankruptcy and loans.
+    delivery.ts      Delivery-app shippers (multi-cup orders, commission).
+    guests.ts        Special guests during the day (granny, TikToker).
+    visitors.ts      Morning visitors on the prep screen (lottery seller, supplier, stray kitten).
   application/     Use cases + ports. Depends on domain only.
     ports.ts         Interfaces the outside world must implement (saves, cloud, AI text, cache, rate limit…).
     game/            GameController (app facade, observable), ShopSession (day simulation), tutorial.
@@ -50,4 +55,10 @@ src/
 
 - **New ingredient / recipe** → `domain/catalog.ts` (+ station in each layout in `presentation/game/layout.ts`).
 - **New storage or AI provider** → implement the port in `infrastructure/`, wire it in `composition/`.
+- **New in-shop customer type** → `ArchetypeId` in `domain/types.ts` (+ `ARCHS` in `saveSchema.ts`), `ARCHETYPES` and
+  lines in `domain/catalog.ts`, order rules in `createOrder`, spawn rule in `ShopSession.spawn`, art `cat_<id>_<mood>`.
+- **New morning visitor** → `MorningVisitor` + `pickVisitor` in `domain/visitors.ts`, an action on `GameController`,
+  and a branch in `VisitorCard` (`presentation/ui/features.tsx`).
+- **New art** → prompt in `scripts/gen-assets.mjs`, a `- [ ]` line in `ASSETS.md`, then `npm run gen:assets -- <key>`
+  (the manifest `presentation/game/assetManifest.json` is regenerated; `Icon` renders nothing for missing art).
 - **New screen size** → add a `Layout` to `LAYOUTS` and extend `pickLayoutKind`; `layout.test.ts` checks bounds.

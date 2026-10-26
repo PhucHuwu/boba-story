@@ -71,6 +71,8 @@ Các kiểu dưới đây là archetype về hành vi, không phải các loài 
 - **Mèo khó tính:** yêu cầu công thức cụ thể, đánh giá đồ uống kỹ hơn.
 - **Mèo đặc biệt:** xuất hiện theo nhiệm vụ hoặc sự kiện, có ngoại hình và phần thưởng riêng.
 
+Đã triển khai thêm: mèo shipper, bà cụ hàng xóm, mèo TikToker và các NPC buổi sáng. Xem mục 17.
+
 MVP chỉ cần 2–3 archetype có khác biệt hành vi rõ ràng. Có thể tái sử dụng rig/animation cơ bản và thay đổi màu lông, trang phục, phụ kiện để tiết kiệm công sức, nhưng không nên chỉ đổi màu cho tất cả nhân vật nếu điều đó làm chúng thiếu cá tính.
 
 ### 3.3. Animation tối thiểu cho khách mèo
@@ -260,6 +262,8 @@ Khách quen nhớ món yêu thích, có hội thoại hoặc phản ứng khác 
 **Nguồn thu:** bán đồ uống, tip, nhiệm vụ và thưởng danh tiếng.
 
 **Chi phí:** nguyên liệu, vật tư tiêu hao và nâng cấp thiết bị. Nhân viên, thuế, vay vốn và khấu hao nằm ngoài MVP.
+
+Sau MVP đã có thêm tiền mặt bằng, ngân hàng (tiết kiệm, vay khi phá sản), thuế tuần, hoa hồng app giao hàng và vé số. Xem mục 17.
 
 Công thức tổng quát:
 
@@ -510,3 +514,48 @@ Sau khi có phân tích, hãy bắt đầu từ vertical slice nhỏ nhất có 
 - Không mở rộng phạm vi MVP nếu chưa hoàn thiện core loop.
 - Không thay đổi kiến trúc hiện có nếu chưa phân tích lợi ích và chi phí.
 - Mọi tính năng phải có tiêu chí nghiệm thu và được kiểm thử trước khi xem là hoàn thành.
+
+---
+
+## 17. Hệ thống sau MVP (đã triển khai)
+
+Các con số dưới đây là giá trị đang chạy trong code; nguồn sự thật là các hằng số trong `src/domain/`.
+
+### 17.1. Thuế tuần — mèo công an (`domain/night.ts`)
+
+- Thu vào sáng ngày 8, 15, 22… (mỗi 7 ngày), cùng lúc với tiền mặt bằng và trả góp.
+- Mức thuế: 10% tổng doanh thu (giá bán + tip) kể từ kỳ thu trước (`save.taxBase`), sau đó đặt lại về 0.
+- Trả từ tiền mặt trước, thiếu thì trừ tiết kiệm; không đủ thì tính vào nợ quá hạn (phá sản → vay ngân hàng).
+- Màn buổi sáng hiện mèo công an và dòng "Thuế tuần".
+
+### 17.2. Mèo shipper giao qua app (`domain/delivery.ts`)
+
+- Từ ngày 3, 15% mỗi lượt khách vào, tối đa 1 shipper trong quán cùng lúc.
+- Một đơn gồm 2–3 ly, pha và giao lần lượt từng ly; shipper rất kiên nhẫn (khoảng 110 giây).
+- App giữ 20% tiền bán (hoa hồng), shipper không tip. Cả đơn chỉ để lại một đánh giá theo chất lượng trung bình.
+- Ba hãng (Gráp Meow, Bee Mèo, MeoFood) có ảnh riêng; tổng kết ngày hiện số ly giao qua app và hoa hồng.
+
+### 17.3. Khách đặc biệt (`domain/guests.ts`)
+
+Mỗi khách đặc biệt ghé tối đa 1 lần mỗi ngày, được tung xúc xắc khi có khách thường vào quán.
+
+| Khách | Điều kiện | Đặc điểm gọi món | Kết quả |
+|---|---|---|---|
+| Bà cụ hàng xóm | Từ ngày 2, 7% | Rất kiên nhẫn (~160 s), dễ tính; luôn ly M, đường/đá 0% hoặc 50% | Ly ≥ 60 điểm: tặng 5 phần trân châu (không vượt sức chứa kho) và +2 danh tiếng |
+| Mèo TikToker | Từ ngày 4, danh tiếng ≥ 15, 6% | Sốt ruột (~45 s), khó tính hơn; luôn ly L, thường có topping | Ly ≥ 80: lên xu hướng, +6 danh tiếng, khách đến dày hơn (×0,55 thời gian chờ) trong 60 s. Ly < 50 hoặc sai món: −5. Bỏ về: thêm −4 (trừ chế độ thư giãn) |
+
+### 17.4. Khách ghé buổi sáng (`domain/visitors.ts`)
+
+Ở màn chuẩn bị, mỗi sáng có tối đa 1 NPC ghé (không có trong ngày hướng dẫn). Người chơi có thể bỏ qua mà không mất gì. NPC được chọn lúc lập kế hoạch ngày và lưu trong `plan.visitor`, nên tải lại trang không đổi được kết quả.
+
+| NPC | Điều kiện | Lựa chọn |
+|---|---|---|
+| Mèo bán vé số | Từ ngày 3, 30% số buổi sáng | Mua 1 vé 10 xu. Dò lúc đóng cửa: 1/250 trúng 1000 xu, 1/40 trúng 60 xu, 1/10 hoàn 10 xu. Kỳ vọng ~6,5 xu/vé: lỗ dần, chỉ để vui |
+| Mèo đại lý nguyên liệu | Từ ngày 5, 20% số buổi sáng | Một lô 2–3 gói của một nguyên liệu, rẻ hơn cửa hàng 30%. Chỉ bán nguyên lô; khóa nút nếu thiếu tiền hoặc kho không đủ chỗ |
+| Mèo hoang nhỏ | Từ ngày 2, 30% số buổi sáng, cho đến khi được nhận nuôi | Cho 1 phần sữa: +1 danh tiếng. Đủ 5 lần thì ở lại làm mèo của quán (nằm trên quầy, khách đến nhanh hơn ~5% vĩnh viễn) |
+
+Tiền trúng vé số cộng thẳng vào quỹ, không tính vào lợi nhuận bán hàng của ngày.
+
+### 17.5. Lưu trữ
+
+Save phiên bản 3 có thêm `taxBase`, `lotteryDay`, `strayFed` và các trường `visitor`, `visitorDone`, `deal` trong kế hoạch ngày. `migrate` điền giá trị mặc định cho save cũ và bỏ dữ liệu NPC không hợp lệ.

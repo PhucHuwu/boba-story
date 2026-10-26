@@ -81,7 +81,7 @@ Hiện các chỗ này đang **trống** hoặc dùng ảnh thay thế. Gen xong
 - [x] `trash_can`: rác trên sàn + chip HUD "N rác" (đang dùng nắm giấy vẽ bằng code)
 - [x] `trash_banana`: rác trên sàn
 - [x] `trash_paper`: rác trên sàn
-- [x] `trash_box`: rác trên sàn
+- [x] `trash_box`: rác trên sàn (đã gen lại, bỏ viền trắng kiểu sticker)
 - [x] `trash_bone`: rác trên sàn
 - [x] `robber`: màn sáng khi bị trộm (đang tạm dùng `icon_safe`)
 - [x] `rival_dog`: tổng kết ngày có đối thủ, popup đối thủ
