@@ -27,6 +27,8 @@ interface CatView {
   root: Phaser.GameObjects.Container;
   sprite: Phaser.GameObjects.Image;
   card: Phaser.GameObjects.Container;
+  cardArt: Phaser.GameObjects.Image;
+  /** Selection ring drawn over the card art. */
   cardBg: Phaser.GameObjects.Graphics;
   bar: Phaser.GameObjects.Rectangle;
   status: Phaser.GameObjects.Text;
@@ -84,6 +86,9 @@ const BUSY_ART: Partial<Record<StationId, string>> = {
 const STREAM_POINTS = 14;
 /** pour_stream is 39px wide; this makes the stream ~14px on the canvas. */
 const STREAM_SCALE = 0.36;
+/** ui_ticket is drawn at this scale; the tape then covers ~42px of the ticket's top-left corner. */
+const TICKET_ART_SCALE = 0.45;
+const TICKET_TAPE_W = 34;
 const SCOOP_ART: Record<ToppingId, string> = { top_boba: "scoop_boba", top_jelly: "scoop_jelly", top_pudding: "scoop_pudding" };
 /** How long a tap-to-use station keeps its "in use" art. */
 const BUSY_TAP_MS = 320;
@@ -100,7 +105,6 @@ export class ShopScene extends Phaser.Scene {
   private stream!: Phaser.GameObjects.Rope;
   private highlight!: Phaser.GameObjects.Graphics;
   private highlightTween?: Phaser.Tweens.Tween;
-  private ticketBg!: Phaser.GameObjects.Graphics;
   private ticketTitle!: Phaser.GameObjects.Text;
   private ticketLines!: Phaser.GameObjects.Text;
   private dragGhost: Phaser.GameObjects.Image | null = null;
@@ -137,6 +141,12 @@ export class ShopScene extends Phaser.Scene {
   }
 
   create() {
+    // ui_bubble (360×158): the rounded body is y 0..125; the tail hangs below around x 160..209.
+    const bubbleArt = this.textures.get("ui_bubble");
+    if (!bubbleArt.has("body")) {
+      bubbleArt.add("body", 0, 0, 0, 360, 126);
+      bubbleArt.add("tail", 0, 150, 116, 66, 42);
+    }
     this.buildRoom();
     this.buildWorktop();
     this.buildStations();
@@ -217,12 +227,16 @@ export class ShopScene extends Phaser.Scene {
       this.add.tileSprite(f.x, f.y, f.w, f.h, "worktop").setOrigin(0, 0).setDepth(11).setTileScale(0.6, 0.6).setTint(0xd9b48f);
       edge.fillRect(f.x, f.y, f.w, 8);
     }
-    this.ticketBg = this.add.graphics().setDepth(13);
-    this.ticketBg.fillStyle(COLORS.paper, 0.95).fillRoundedRect(t.x, t.y, t.w, t.h, 14);
-    this.ticketBg.lineStyle(3, COLORS.cocoa, 1).strokeRoundedRect(t.x, t.y, t.w, t.h, 14);
+    // ui_ticket (720×210): the paper spans x 32..718, y 32..208; the tape sits in the top-left corner.
+    const ts = TICKET_ART_SCALE;
+    this.add
+      .nineslice(t.x - 32 * ts, t.y - 32 * ts, "ui_ticket", undefined, t.w / ts + 33, t.h / ts + 33, 130, 20, 120, 20)
+      .setOrigin(0, 0)
+      .setScale(ts)
+      .setDepth(13);
     const pad = 12;
     this.ticketTitle = this.add
-      .text(t.x + pad, t.y + 8, "", { fontFamily: FONT, fontSize: `${t.titleSize}px`, color: "#4a2c1d", fontStyle: "800" })
+      .text(t.x + pad + TICKET_TAPE_W, t.y + 8, "", { fontFamily: FONT, fontSize: `${t.titleSize}px`, color: "#4a2c1d", fontStyle: "800" })
       .setDepth(14);
     this.ticketLines = this.add
       .text(t.x + pad, t.y + 14 + t.titleSize * 1.25, "", {
@@ -563,6 +577,8 @@ export class ShopScene extends Phaser.Scene {
 
     const card = this.add.container(x, this.L.cardY - 10).setDepth(DEPTH.cards).setAlpha(0);
     const cardBg = this.add.graphics();
+    // ui_card (360×280): body y 0..239 with the tail below, drawn at half size over -90..90 × -64..76.
+    const cardArt = this.add.image(0, -64, "ui_card").setOrigin(0.5, 0).setDisplaySize(180, 140);
     const text = (y: number, s: string, size: number, color: string, weight: string) =>
       this.add.text(0, y, s, { fontFamily: FONT, fontSize: `${size}px`, color, fontStyle: weight, align: "center" }).setOrigin(0.5);
     const status = text(22, "", 15, "#9a3b3b", "800");
@@ -572,6 +588,7 @@ export class ShopScene extends Phaser.Scene {
     const title = text(-40, "", 21, "#4a2c1d", "800");
     const detail = text(-8, "", 16, "#6b4430", "700");
     card.add([
+      cardArt,
       cardBg,
       title,
       detail,
@@ -582,7 +599,7 @@ export class ShopScene extends Phaser.Scene {
     ]);
 
     if (d.critic && this.textures.exists("icon_critic")) card.add(this.add.image(80, -66, "icon_critic").setDisplaySize(48, 48));
-    const view: CatView = { id: d.id, slot: d.slot, root, sprite, card, cardBg, bar, status, title, detail, baseScale };
+    const view: CatView = { id: d.id, slot: d.slot, root, sprite, card, cardArt, cardBg, bar, status, title, detail, baseScale };
     this.fillCard(view, d);
     if (d.delivery && this.textures.exists("icon_delivery")) card.add(this.add.image(-80, -66, "icon_delivery").setDisplaySize(48, 48));
     this.cats.set(d.id, view);
@@ -677,11 +694,12 @@ export class ShopScene extends Phaser.Scene {
       .setOrigin(0.5);
     const w = Math.max(120, t.width + 24);
     const h = t.height + 18;
-    const g = this.add.graphics();
-    g.fillStyle(0xffffff, 0.96).fillRoundedRect(-w / 2, -h / 2, w, h, 14);
-    g.lineStyle(2, COLORS.cocoa, 1).strokeRoundedRect(-w / 2, -h / 2, w, h, 14);
+    // ui_bubble: the body (frame "body") stretches as a nine-slice; the tail keeps its shape underneath.
+    const bs = 0.5;
+    const body = this.add.nineslice(0, 0, "ui_bubble", "body", w / bs, h / bs, 40, 40, 34, 30).setScale(bs);
+    const tail = this.add.image(0, h / 2 - 10 * bs, "ui_bubble", "tail").setOrigin(0.5, 0).setScale(bs);
     const x = Phaser.Math.Clamp(slotX(this.L, c.slot, maxCustomers(this.ctl.save)), w / 2 + 6, this.L.room.w - w / 2 - 6);
-    const bubble = this.add.container(x, this.L.bubbleY + 10, [g, t]).setDepth(DEPTH.bubble).setAlpha(0);
+    const bubble = this.add.container(x, this.L.bubbleY + 10, [body, tail, t]).setDepth(DEPTH.bubble).setAlpha(0);
     c.bubble = bubble;
     this.tweens.add({ targets: bubble, alpha: 1, y: this.L.bubbleY, duration: 200 });
     this.tweens.add({
@@ -865,14 +883,10 @@ export class ShopScene extends Phaser.Scene {
     const d = cust.data;
     const selected = this.session.selectedId === d.id;
     const g = c.cardBg;
-    const fill = selected ? COLORS.selected : COLORS.paper;
-    const line = selected ? COLORS.caramel : COLORS.cocoa;
+    if (selected) c.cardArt.setTint(COLORS.selected);
+    else c.cardArt.clearTint();
     g.clear();
-    g.fillStyle(0x000000, 0.12).fillRoundedRect(-88, -60, 180, 124, 16);
-    g.fillStyle(fill, 1).fillRoundedRect(-90, -64, 180, 122, 16);
-    g.lineStyle(selected ? 5 : 3, line, 1).strokeRoundedRect(-90, -64, 180, 122, 16);
-    g.fillStyle(fill, 1).fillTriangle(-12, 57, 12, 57, 0, 74);
-    g.lineStyle(selected ? 5 : 3, line, 1).lineBetween(-12, 58, 0, 74).lineBetween(12, 58, 0, 74);
+    if (selected) g.lineStyle(5, COLORS.caramel, 1).strokeRoundedRect(-92, -66, 184, 126, 20);
 
     c.bar.width = 150 * (d.patience / 100);
     c.bar.fillColor = d.patience > 60 ? COLORS.good : d.patience > 30 ? COLORS.warn : COLORS.bad;
