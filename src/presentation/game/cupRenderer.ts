@@ -2,7 +2,7 @@ import * as Phaser from "phaser";
 import { INGREDIENTS, RECIPE_BY_ID, TEA_IDS } from "@/domain/catalog";
 import { liquidTotal } from "@/domain/cup";
 import type { CupState, Order, ToppingId } from "@/domain/types";
-import { COLORS, type Point } from "./layout";
+import type { Point } from "./layout";
 
 const MILK_COLOR = 0xfff4e2;
 const MAX_LEVEL = 1.12;
@@ -25,6 +25,8 @@ const PIECE: Record<ToppingId, { key: string; size: number }> = {
   top_jelly: { key: "piece_jelly", size: 34 },
   top_pudding: { key: "piece_pudding", size: 40 },
 };
+/** Pour amount near a mark that still counts as hitting it (sparkle + ting). */
+const MARK_WINDOW = 0.05;
 const PIECES_PER_SCOOP = 7;
 const ICE_PER_SCOOP = 3;
 
@@ -66,7 +68,15 @@ export class CupView {
   private readonly toppingLayer: Phaser.GameObjects.Container;
   private readonly iceLayer: Phaser.GameObjects.Container;
   private readonly gauge: Phaser.GameObjects.Graphics;
+  private readonly tube: Phaser.GameObjects.Image;
+  private readonly splash: Phaser.GameObjects.Image;
   private readonly base: Point;
+  private scale: number = SCALE.L;
+  private topV = BOTTOM_V;
+  private lastTotal = 0;
+  private lastTea = 0;
+  /** Called when the liquid crosses the full line or the recipe's tea mark. */
+  onMark: (at: Point) => void = () => {};
   private lastMilk = 0;
   private swirlLevel = 0;
 
@@ -89,7 +99,36 @@ export class CupView {
     this.lid = scene.add.image(0, lv(27), "cup_lid").setDisplaySize(266, 80);
     this.straw = scene.add.image(44, lv(36), "cup_straw").setOrigin(0.5, 1).setDisplaySize(30, 200).setAngle(7);
     this.root.add([this.liquid, this.syrup, this.toppingLayer, this.swirl, this.surface, this.iceLayer, glass, this.lid, this.straw]);
+    this.tube = scene.add.image(0, 0, "gauge_tube").setDepth(depth);
     this.gauge = scene.add.graphics().setDepth(depth);
+    this.splash = scene.add.image(0, 0, "fx_splash").setDepth(depth + 0.5).setVisible(false);
+  }
+
+  /** Where a pour stream should land: the middle of the liquid surface, in world space. */
+  get surfacePoint(): Point {
+    return { x: this.root.x, y: this.root.y + this.scale * lv(this.topV) };
+  }
+
+  /** Splash at the surface while pouring, tinted like the stream. */
+  setPouring(color: number | null, time: number) {
+    if (color === null || !this.root.visible) {
+      this.splash.setVisible(false);
+      return;
+    }
+    const p = this.surfacePoint;
+    const wobble = 1 + Math.sin(time / 70) * 0.08;
+    this.splash
+      .setVisible(true)
+      .setTint(color)
+      .setPosition(p.x + Math.sin(time / 110) * 3, p.y - 10)
+      .setDisplaySize(64 * wobble, 40 / wobble);
+  }
+
+  private sparkle(at: Point) {
+    const img = this.scene.add.image(at.x, at.y, "fx_sparkle").setDepth(this.depth + 1).setDisplaySize(30, 30);
+    const s = img.scale;
+    this.scene.tweens.add({ targets: img, scale: s * 2, alpha: 0, angle: 25, duration: 650, ease: "Quad.easeOut", onComplete: () => img.destroy() });
+    this.onMark(at);
   }
 
   /** Moves the cup while it is dragged to a customer (coaster and gauge stay put); `null` puts it back. */
@@ -107,7 +146,11 @@ export class CupView {
   render(cup: CupState | null, order: Order | undefined, hints: boolean) {
     this.gauge.clear();
     this.root.setVisible(!!cup);
+    this.tube.setVisible(!!cup);
     if (!cup) {
+      this.lastTotal = 0;
+      this.lastTea = 0;
+      this.topV = BOTTOM_V;
       this.spill.setVisible(false);
       this.lastMilk = 0;
       this.swirlLevel = 0;
@@ -116,6 +159,7 @@ export class CupView {
     }
     const s = SCALE[cup.size];
     this.root.setScale(s);
+    this.scale = s;
     const total = liquidTotal(cup);
     const has = total > 0.01;
     const topV = BOTTOM_V - FULL_SPAN * Math.min(total, MAX_LEVEL);
@@ -123,6 +167,8 @@ export class CupView {
 
     if (cup.milk > this.lastMilk + 0.001) this.swirlLevel = 1.4;
     this.lastMilk = cup.milk;
+    this.topV = has ? topV : BOTTOM_V;
+    this.checkMarks(cup, order, hints, total);
 
     this.spill.setVisible(cup.overflow).setTint(color);
     this.drawLiquid(topV, color, has);
@@ -143,7 +189,27 @@ export class CupView {
 
     this.lid.setVisible(cup.sealed);
     this.straw.setVisible(cup.sealed);
-    this.drawGauge(cup, order, hints, s);
+    this.drawGauge(cup, order, hints);
+  }
+
+  /** Sparkle + ting once when the pour reaches the full line, or the tea mark of a milk recipe. */
+  private checkMarks(cup: CupState, order: Order | undefined, hints: boolean, total: number) {
+    const tea = TEA_IDS.reduce((a, t) => a + cup.tea[t], 0);
+    const gx = this.gaugeX();
+    const crossed = (prev: number, now: number, mark: number) => prev < mark - MARK_WINDOW && now >= mark - MARK_WINDOW && now <= mark + MARK_WINDOW;
+    if (crossed(this.lastTotal, total, 1)) this.sparkle({ x: gx, y: this.gaugeY(1) });
+    const r = order && RECIPE_BY_ID[order.recipeId];
+    if (r && hints && r.milkRatio > 0 && cup.milk === 0 && crossed(this.lastTea, tea, r.teaRatio)) this.sparkle({ x: gx, y: this.gaugeY(r.teaRatio) });
+    this.lastTotal = total;
+    this.lastTea = tea;
+  }
+
+  private gaugeX() {
+    return this.base.x + (IMG_W / 2) * this.scale + 24;
+  }
+
+  private gaugeY(v: number) {
+    return this.base.y + this.scale * lv(BOTTOM_V - FULL_SPAN * Math.min(v, 1.15));
   }
 
   private drawLiquid(topV: number, color: number, has: boolean) {
@@ -214,28 +280,29 @@ export class CupView {
     });
   }
 
-  private drawGauge(cup: CupState, order: Order | undefined, hints: boolean, s: number) {
+  private drawGauge(cup: CupState, order: Order | undefined, hints: boolean) {
     const gauge = this.gauge;
-    const toY = (v: number) => this.base.y + s * lv(BOTTOM_V - FULL_SPAN * Math.min(v, 1.15));
-    const gx = this.base.x + (IMG_W / 2) * s + 24;
-    const gTop = toY(1) - 30;
-    const gBottom = toY(0);
-    gauge.fillStyle(COLORS.paper, 0.95).fillRoundedRect(gx - 12, gTop - 8, 24, gBottom - gTop + 16, 10);
-    gauge.lineStyle(2, COLORS.cocoa, 1).strokeRoundedRect(gx - 12, gTop - 8, 24, gBottom - gTop + 16, 10);
+    const toY = (v: number) => this.gaugeY(v);
+    const gx = this.gaugeX();
+    const top = toY(1.15) - 14;
+    const bottom = toY(0) + 12;
+    // gauge_tube (61×360): the glass inside spans x 4..57 and y 6..~345.
+    this.tube.setPosition(gx, (top + bottom) / 2).setDisplaySize(28, bottom - top);
+    const innerW = 28 * (49 / 61);
     let acc = 0;
     const band = (amount: number, color: number) => {
       if (amount <= 0) return;
-      gauge.fillStyle(color, 1).fillRect(gx - 7, toY(acc + amount), 14, toY(acc) - toY(acc + amount));
+      gauge.fillStyle(color, 0.92).fillRect(gx - innerW / 2, toY(acc + amount), innerW, toY(acc) - toY(acc + amount));
       acc += amount;
     };
     for (const t of TEA_IDS) band(cup.tea[t], INGREDIENTS[t].color);
     band(cup.milk, 0xf3e3c8);
-    gauge.lineStyle(3, 0x2f6b2f, 1).lineBetween(gx - 16, toY(1), gx + 16, toY(1));
+    gauge.lineStyle(3, 0x2f6b2f, 1).lineBetween(gx - 18, toY(1), gx + 18, toY(1));
     if (order && hints) {
       const r = RECIPE_BY_ID[order.recipeId];
       if (r.milkRatio > 0) {
         gauge.lineStyle(3, INGREDIENTS[r.tea].color, 1);
-        for (let dx = -16; dx < 16; dx += 8) gauge.lineBetween(gx + dx, toY(r.teaRatio), gx + dx + 5, toY(r.teaRatio));
+        for (let dx = -18; dx < 18; dx += 8) gauge.lineBetween(gx + dx, toY(r.teaRatio), gx + dx + 5, toY(r.teaRatio));
       }
     }
   }

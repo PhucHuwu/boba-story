@@ -79,6 +79,10 @@ const BUSY_ART: Partial<Record<StationId, string>> = {
   ice: "ice_scoop",
   sealer: "sealer_press",
 };
+/** Vertices along the pour stream rope. */
+const STREAM_POINTS = 14;
+/** pour_stream is 39px wide; this makes the stream ~14px on the canvas. */
+const STREAM_SCALE = 0.36;
 const SCOOP_ART: Record<ToppingId, string> = { top_boba: "scoop_boba", top_jelly: "scoop_jelly", top_pudding: "scoop_pudding" };
 /** How long a tap-to-use station keeps its "in use" art. */
 const BUSY_TAP_MS = 320;
@@ -92,7 +96,7 @@ export class ShopScene extends Phaser.Scene {
   private trashViews = new Map<number, Phaser.GameObjects.Image>();
   private stations = new Map<StationId, Station>();
   private cupView!: CupView;
-  private stream!: Phaser.GameObjects.Graphics;
+  private stream!: Phaser.GameObjects.Rope;
   private highlight!: Phaser.GameObjects.Graphics;
   private highlightTween?: Phaser.Tweens.Tween;
   private ticketBg!: Phaser.GameObjects.Graphics;
@@ -136,7 +140,8 @@ export class ShopScene extends Phaser.Scene {
     this.buildWorktop();
     this.buildStations();
     this.cupView = new CupView(this, this.L.cup, CUP);
-    this.stream = this.add.graphics().setDepth(19);
+    this.stream = this.add.rope(0, 0, "pour_stream", undefined, Array.from({ length: STREAM_POINTS }, (_, i) => ({ x: 0, y: i })), false).setDepth(19).setScale(STREAM_SCALE).setVisible(false);
+    this.cupView.onMark = () => audio.play("ting");
     this.highlight = this.add.graphics().setDepth(DEPTH.highlight);
     this.buildCupHitArea();
     this.bindInput();
@@ -806,7 +811,7 @@ export class ShopScene extends Phaser.Scene {
     this.syncPourSound();
     this.syncPourArt();
     this.cupView.tick(deltaMs);
-    this.drawStream();
+    this.drawStream(_time);
     if (!this.dirty) return;
     this.dirty = false;
     this.renderState();
@@ -861,23 +866,31 @@ export class ShopScene extends Phaser.Scene {
     c.status.setText(label).setColor(impatient ? "#b23a3a" : "#5b7c3a");
   }
 
-  private drawStream() {
-    this.stream.clear();
-    const source = this.session.pouring;
-    if (!source || !this.session.cup || !this.ctl.running) return;
-    const st = this.stations.get(source);
-    if (!st) return;
-    const color = source === "milk" ? 0xfff8ec : INGREDIENTS[source].color;
-    const sx = st.obj.x + (source === "milk" ? -30 : 20);
-    const sy = st.obj.y + 40;
+  /** The pour stream: `pour_stream` bent along an arc from the spout to the liquid surface, tinted like the liquid. */
+  private drawStream(time: number) {
+    const source = this.ctl.running && this.session.cup ? this.session.pouring : null;
+    const st = source ? this.stations.get(source) : undefined;
+    if (!source || !st) {
+      this.stream.setVisible(false);
+      this.cupView.setPouring(null, time);
+      return;
+    }
+    const color = source === "milk" ? 0xffffff : INGREDIENTS[source].color;
+    const { obj } = st;
+    const sx = obj.x + (source === "milk" ? -obj.displayWidth * 0.42 : obj.displayWidth * 0.08);
+    const sy = obj.y + (source === "milk" ? -obj.displayHeight * 0.1 : obj.displayHeight * 0.3);
+    const end = this.cupView.surfacePoint;
     const curve = new Phaser.Curves.QuadraticBezier(
       new Phaser.Math.Vector2(sx, sy),
-      new Phaser.Math.Vector2((sx + this.L.cup.x) / 2, sy - 10),
-      new Phaser.Math.Vector2(this.L.cup.x, this.L.cup.y - 40),
+      new Phaser.Math.Vector2(end.x + (sx - end.x) * 0.15, sy - 6),
+      new Phaser.Math.Vector2(end.x + Math.sin(time / 90) * 2, end.y),
     );
-    const pts = curve.getPoints(12);
-    this.stream.lineStyle(10, color, 0.9).strokePoints(pts);
-    this.stream.lineStyle(3, 0xffffff, 0.5).strokePoints(pts);
+    // The rope's width is the texture width, so draw it scaled down with the points scaled up to match.
+    const pts = curve.getPoints(STREAM_POINTS - 1).map((p) => ({ x: p.x / STREAM_SCALE, y: p.y / STREAM_SCALE }));
+    this.stream.setVisible(true).setPoints(pts);
+    this.stream.setColors(color);
+    this.stream.setAlphas(0.95);
+    this.cupView.setPouring(color, time);
   }
 
   private drawHint(target: HintTarget) {

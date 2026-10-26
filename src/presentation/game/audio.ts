@@ -16,6 +16,7 @@ export type Sfx =
   | "error"
   | "pump"
   | "star"
+  | "ting"
   | "bad"
   | "alarm"
   | "crash"
@@ -334,6 +335,11 @@ class AudioManager {
       case "star":
         this.tone(midi(91), 0.25, "sine", 0.18);
         this.tone(midi(96), 0.4, "sine", 0.14, 0.06);
+        break;
+      case "ting":
+        // Small glassy chime when a pour hits its mark.
+        this.tone(midi(96), 0.18, "sine", 0.12);
+        this.tone(midi(103), 0.3, "sine", 0.06, 0.04);
         break;
       case "bad":
         // Comedic "wah-wah".
