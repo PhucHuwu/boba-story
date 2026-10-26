@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { addIce, addSugar, addTopping, newCup, pour, seal, shake } from "./cup";
 import { createCustomer, tickPatience, transition } from "./customers";
-import { RECIPES, defaultSave } from "./catalog";
+import { INGREDIENTS, QUESTS, RECIPES, defaultSave } from "./catalog";
+import { rentFor } from "./night";
 import { buyIngredient, buyUpgrade, canMake, claimQuest, needsRecovery, payment, refreshQuests } from "./economy";
 import { SKIPPED_SHAKE, evaluate } from "./quality";
 import { migrate } from "./saveSchema";
@@ -179,10 +180,11 @@ describe("economy", () => {
   });
 
   it("can afford the first upgrade after ~2 decent days", () => {
-    // 2 days * ~14 customers * ~(30 price - 11 cost) ≈ 530 profit on top of 500 starting coins.
+    // 2 days * ~14 customers * ~(32 price - 20 cost) on top of the starting coins, minus day-2 rent.
     const save = defaultSave();
     const perCup = payment(bobaOrder, { quality: 85, recipeAccuracy: 85, orderMatch: 85, process: 100, speed: 70, wrongDrink: false, notes: [] }, "student", []);
-    const profit = 2 * 14 * (perCup.price + perCup.tip - 11);
+    const cost = (["cup", "lid", "tea_black", "milk", "sugar", "ice", "top_boba"] as const).reduce((a, id) => a + INGREDIENTS[id].unitCost, 0);
+    const profit = 2 * 14 * (perCup.price + perCup.tip - cost) - rentFor(2);
     expect(save.money + profit).toBeGreaterThan(300 + 200);
   });
 
@@ -201,9 +203,10 @@ describe("economy", () => {
     save.stats.served = 3;
     expect(refreshQuests(save)).toContain("q_serve3");
     const money = save.money;
-    expect(claimQuest(save, "q_serve3")).toBe(40);
+    const reward = QUESTS.find((q) => q.id === "q_serve3")!.reward;
+    expect(claimQuest(save, "q_serve3")).toBe(reward);
     expect(claimQuest(save, "q_serve3")).toBe(0);
-    expect(save.money).toBe(money + 40);
+    expect(save.money).toBe(money + reward);
   });
 });
 

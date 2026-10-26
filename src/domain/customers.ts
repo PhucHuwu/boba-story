@@ -73,7 +73,7 @@ export function isPeak(hour: number): boolean {
 export function spawnInterval(hour: number, reputation: number, day: number): number {
   const base = isPeak(hour) ? 9 : 17;
   const repFactor = 1 - Math.min(0.35, reputation / 200);
-  const dayFactor = 1 - Math.min(0.2, (day - 1) * 0.04);
+  const dayFactor = day <= 2 ? 1.3 : 1 - Math.min(0.3, (day - 2) * 0.03);
   return base * repFactor * dayFactor;
 }
 

@@ -275,18 +275,26 @@ Phải nhất quán cách tính giá vốn: không trừ hai lần cùng một n
 
 ### 8.2. Giá trị ban đầu để cân bằng thử nghiệm
 
-Các con số sau chỉ là giả định ban đầu:
+Các con số sau đã được cân bằng bằng một lượt chơi thử người mới (khoảng 14 giây một ly) và một bản giả lập 14 ngày với ba mức tay nghề:
 
-| Hạng mục | Giá thử nghiệm |
+| Hạng mục | Giá hiện tại |
 |---|---:|
-| Vốn đầu game | 500 xu |
-| Giá bán một ly cơ bản | 25–35 xu |
-| Giá vốn một ly | 8–14 xu |
-| Nâng cấp máy | 300 xu |
-| Mở công thức | 100–200 xu |
-| Trang trí | 50–150 xu |
+| Vốn đầu game | 350 xu |
+| Giá bán một ly cơ bản | 22–36 xu (+6 cho size L) |
+| Giá vốn một ly | 15–24 xu |
+| Tip | tối đa 15% giá ly (theo chất lượng và loại khách) |
+| Tiền thuê mỗi sáng (từ ngày 2) | 60 + 14 × ngày, tối đa 300 xu |
+| Thuế mỗi tuần | 10% doanh thu |
+| Danh tiếng mỗi ly | +0,6 khi ≥ 90 điểm, +0,3 khi ≥ 75 điểm, −2 khi < 45 điểm |
+| Nâng cấp máy | 120–350 xu |
+| Mở công thức | 100–180 xu |
 
-Mục tiêu là người chơi có thể mua nâng cấp đầu tiên sau khoảng 1–2 ngày game nếu kinh doanh ổn. Cần kiểm thử để cân bằng.
+Mục tiêu cân bằng:
+- Ngày 1 lãi khoảng 250–350 xu.
+- Danh tiếng đạt 100 sau khoảng hai tuần.
+- Ngày 1–2 ít khách hơn để người mới làm quen, sau đó khách đông dần (tối đa nhanh hơn 30% vào khoảng ngày 12).
+- Đến ngày 14 người chơi có khoảng 2,5–3 nghìn xu.
+- Tiền thuê và thuế tăng dần nên người chơi phải tiếp tục pha tốt và đầu tư hợp lý.
 
 ### 8.3. Tránh bế tắc
 

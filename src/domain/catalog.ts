@@ -16,17 +16,17 @@ export interface IngredientDef {
 }
 
 export const INGREDIENTS: Record<IngredientId, IngredientDef> = {
-  cup: { id: "cup", name: "Ly nhựa", unitCost: 1, pack: 10, color: 0xdfeef5 },
-  lid: { id: "lid", name: "Màng dán nắp", unitCost: 1, pack: 10, color: 0xf6c1d0 },
-  tea_black: { id: "tea_black", name: "Trà đen", unitCost: 3, pack: 10, color: 0x8a3f22 },
-  tea_green: { id: "tea_green", name: "Trà xanh nhài", unitCost: 3, pack: 10, color: 0xb6c95a },
-  tea_oolong: { id: "tea_oolong", name: "Trà ô long", unitCost: 4, pack: 10, color: 0xc98a2b },
-  milk: { id: "milk", name: "Sữa tươi", unitCost: 3, pack: 10, color: 0xfff8ec },
-  sugar: { id: "sugar", name: "Siro đường nâu", unitCost: 1, pack: 10, color: 0xc77a2c },
+  cup: { id: "cup", name: "Ly nhựa", unitCost: 2, pack: 10, color: 0xdfeef5 },
+  lid: { id: "lid", name: "Màng dán nắp", unitCost: 2, pack: 10, color: 0xf6c1d0 },
+  tea_black: { id: "tea_black", name: "Trà đen", unitCost: 6, pack: 10, color: 0x8a3f22 },
+  tea_green: { id: "tea_green", name: "Trà xanh nhài", unitCost: 5, pack: 10, color: 0xb6c95a },
+  tea_oolong: { id: "tea_oolong", name: "Trà ô long", unitCost: 7, pack: 10, color: 0xc98a2b },
+  milk: { id: "milk", name: "Sữa tươi", unitCost: 5, pack: 10, color: 0xfff8ec },
+  sugar: { id: "sugar", name: "Siro đường nâu", unitCost: 2, pack: 10, color: 0xc77a2c },
   ice: { id: "ice", name: "Đá viên", unitCost: 1, pack: 10, color: 0xe6f6ff },
-  top_boba: { id: "top_boba", name: "Trân châu", unitCost: 3, pack: 10, color: 0x3a2318 },
-  top_jelly: { id: "top_jelly", name: "Thạch dừa", unitCost: 3, pack: 10, color: 0x8fcf6b },
-  top_pudding: { id: "top_pudding", name: "Pudding trứng", unitCost: 4, pack: 10, color: 0xf3c64f },
+  top_boba: { id: "top_boba", name: "Trân châu", unitCost: 6, pack: 10, color: 0x3a2318 },
+  top_jelly: { id: "top_jelly", name: "Thạch dừa", unitCost: 6, pack: 10, color: 0x8fcf6b },
+  top_pudding: { id: "top_pudding", name: "Pudding trứng", unitCost: 7, pack: 10, color: 0xf3c64f },
 };
 
 export const INVENTORY_CAP = 60;
@@ -200,23 +200,23 @@ export interface QuestDef {
 }
 
 export const QUESTS: QuestDef[] = [
-  { id: "q_serve3", title: "Phục vụ 3 mèo khách", target: 3, reward: 40, metric: "served" },
-  { id: "q_perfect1", title: "Pha 1 ly hoàn hảo (≥ 90 điểm)", target: 1, reward: 50, metric: "perfect" },
-  { id: "q_earn200", title: "Kiếm tổng cộng 200 xu", target: 200, reward: 60, metric: "totalEarned" },
-  { id: "q_day1", title: "Hoàn thành ngày đầu tiên", target: 1, reward: 50, metric: "daysCompleted" },
-  { id: "q_recipe1", title: "Mở khóa 1 công thức mới", target: 4, reward: 50, metric: "recipes" },
-  { id: "q_upgrade1", title: "Mua nâng cấp đầu tiên", target: 1, reward: 80, metric: "upgrades" },
-  { id: "q_regular3", title: "Phục vụ Mochi 3 lần", target: 3, reward: 100, metric: "regularVisits" },
-  { id: "q_picky2", title: "Làm mèo tiểu thư hài lòng 2 lần", target: 2, reward: 120, metric: "pickyHappy" },
-  { id: "q_perfect10", title: "Pha 10 ly hoàn hảo", target: 10, reward: 150, metric: "perfect" },
-  { id: "q_serve40", title: "Phục vụ 40 mèo khách", target: 40, reward: 200, metric: "served" },
-  { id: "q_rep50", title: "Đạt 50 danh tiếng", target: 50, reward: 250, metric: "reputation" },
-  { id: "q_days5", title: "Kinh doanh trọn 5 ngày", target: 5, reward: 200, metric: "daysCompleted" },
-  { id: "q_combo5", title: "Đạt chuỗi combo 5 ly ngon", target: 5, reward: 120, metric: "bestCombo" },
-  { id: "q_goal3", title: "Hoàn thành 3 mục tiêu ngày", target: 3, reward: 150, metric: "goalsMet" },
-  { id: "q_five15", title: "Nhận 15 đánh giá 5 sao", target: 15, reward: 180, metric: "fiveStars" },
-  { id: "q_rival2", title: "Thắng đối thủ 2 lần", target: 2, reward: 200, metric: "rivalsBeaten" },
-  { id: "q_days14", title: "Trụ vững 14 ngày", target: 14, reward: 400, metric: "daysCompleted" },
+  { id: "q_serve3", title: "Phục vụ 3 mèo khách", target: 3, reward: 30, metric: "served" },
+  { id: "q_perfect1", title: "Pha 1 ly hoàn hảo (≥ 90 điểm)", target: 1, reward: 40, metric: "perfect" },
+  { id: "q_earn200", title: "Kiếm tổng cộng 200 xu", target: 200, reward: 40, metric: "totalEarned" },
+  { id: "q_day1", title: "Hoàn thành ngày đầu tiên", target: 1, reward: 40, metric: "daysCompleted" },
+  { id: "q_recipe1", title: "Mở khóa 1 công thức mới", target: 4, reward: 40, metric: "recipes" },
+  { id: "q_upgrade1", title: "Mua nâng cấp đầu tiên", target: 1, reward: 60, metric: "upgrades" },
+  { id: "q_regular3", title: "Phục vụ Mochi 3 lần", target: 3, reward: 70, metric: "regularVisits" },
+  { id: "q_picky2", title: "Làm mèo tiểu thư hài lòng 2 lần", target: 2, reward: 80, metric: "pickyHappy" },
+  { id: "q_perfect10", title: "Pha 10 ly hoàn hảo", target: 10, reward: 100, metric: "perfect" },
+  { id: "q_serve40", title: "Phục vụ 40 mèo khách", target: 40, reward: 140, metric: "served" },
+  { id: "q_rep50", title: "Đạt 50 danh tiếng", target: 50, reward: 180, metric: "reputation" },
+  { id: "q_days5", title: "Kinh doanh trọn 5 ngày", target: 5, reward: 140, metric: "daysCompleted" },
+  { id: "q_combo5", title: "Đạt chuỗi combo 5 ly ngon", target: 5, reward: 80, metric: "bestCombo" },
+  { id: "q_goal3", title: "Hoàn thành 3 mục tiêu ngày", target: 3, reward: 100, metric: "goalsMet" },
+  { id: "q_five15", title: "Nhận 15 đánh giá 5 sao", target: 15, reward: 130, metric: "fiveStars" },
+  { id: "q_rival2", title: "Thắng đối thủ 2 lần", target: 2, reward: 140, metric: "rivalsBeaten" },
+  { id: "q_days14", title: "Trụ vững 14 ngày", target: 14, reward: 280, metric: "daysCompleted" },
 ];
 
 export const DAY = {
@@ -248,7 +248,7 @@ export function defaultSave(): SaveData {
   return {
     version: SAVE_VERSION,
     day: 1,
-    money: 500,
+    money: 350,
     reputation: 10,
     inventory,
     unlockedRecipes: RECIPES.filter((r) => r.unlockCost === 0).map((r) => r.id),

@@ -38,9 +38,9 @@ export function evaluate({ cup, order, patience, tolerance = 1 }: EvaluateInput)
   const wrongDrink = tea !== recipe.tea || (recipe.topping !== null && !cup.toppings.includes(recipe.topping));
 
   // Recipe accuracy: fill level, tea/milk ratio, purity of the tea base.
-  const fill = closeness(total - 1, 0.07 * tolerance, 0.45);
+  const fill = closeness(total - 1, 0.05 * tolerance, 0.35);
   const ratio = total > 0 ? teaAmount / total : 0;
-  const ratioScore = recipe.milkRatio === 0 ? closeness(cup.milk / Math.max(total, 0.01), 0.04 * tolerance, 0.3) : closeness(ratio - recipe.teaRatio, 0.08 * tolerance, 0.4);
+  const ratioScore = recipe.milkRatio === 0 ? closeness(cup.milk / Math.max(total, 0.01), 0.03 * tolerance, 0.25) : closeness(ratio - recipe.teaRatio, 0.05 * tolerance, 0.3);
   const purity = teaAmount > 0 ? clamp(100 - (wrongTeaAmount / teaAmount) * 250) : 0;
   const recipeAccuracy = clamp(fill * 0.35 + ratioScore * 0.4 + purity * 0.25);
   if (fill < 70) notes.push(total < 1 ? "Ly hơi vơi" : "Rót quá đầy");

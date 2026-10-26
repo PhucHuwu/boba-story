@@ -2,9 +2,11 @@ import type { Rng } from "./customers";
 import { canMake, packCost } from "./economy";
 import type { Loan, SaveData } from "./types";
 
-/** Daily rent collected every morning from day 2 on. */
+export const RENT_MAX = 300;
+
+/** Daily rent collected every morning from day 2 on; it climbs as the street gets busier. */
 export function rentFor(day: number): number {
-  return day < 2 ? 0 : 20 + 3 * Math.min(day, 20);
+  return day < 2 ? 0 : Math.min(RENT_MAX, 60 + 14 * day);
 }
 
 export const TAX_PERIOD = 7;
