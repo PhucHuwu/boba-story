@@ -14,17 +14,7 @@ import { useGame } from "./useGame";
 const WEATHER_ICON = (id: string) => `icon_${id}`;
 
 function StarIcon({ on }: { on: boolean }) {
-  return (
-    <svg viewBox="0 0 24 24" className="inline-block h-[1em] w-[1em] align-[-0.12em]" aria-hidden>
-      <path
-        d="M12 2.8l2.75 5.6 6.15.9-4.45 4.33 1.05 6.12L12 16.87l-5.5 2.88 1.05-6.12L3.1 9.3l6.15-.9z"
-        fill={on ? "#f2b630" : "#e6d6c1"}
-        stroke={on ? "#8a5a1b" : "#c9b39a"}
-        strokeWidth={1.6}
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <Icon name="star" className={`h-[1.15em] w-[1.15em] ${on ? "" : "opacity-35 grayscale"}`} />;
 }
 
 export function Stars({ value, className = "" }: { value: number; className?: string }) {
