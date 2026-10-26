@@ -1,13 +1,34 @@
-import type * as Phaser from "phaser";
+import * as Phaser from "phaser";
 import { INGREDIENTS, RECIPE_BY_ID, TEA_IDS } from "@/domain/catalog";
 import { liquidTotal } from "@/domain/cup";
-import type { CupState, Order } from "@/domain/types";
+import type { CupState, Order, ToppingId } from "@/domain/types";
 import { COLORS, type Point } from "./layout";
 
 const MILK_COLOR = 0xfff4e2;
 const MAX_LEVEL = 1.12;
 
-function mixColor(cup: CupState, total: number): number {
+/**
+ * Geometry of `cup_glass` (273×420) in its own pixels, measured from the art: the inner walls run
+ * from x≈23 at the rim (v≈53) inwards by ~0.109 px per px down; the inside bottom sits at v≈392.
+ * The container's origin is the bottom-centre of the image, so image pixel (u, v) is local (u - W/2, v - H).
+ */
+const IMG_W = 273;
+const IMG_H = 420;
+const BOTTOM_V = 392;
+const FULL_SPAN = 280;
+const SCALE = { L: 0.5, M: 0.44 } as const;
+const halfWidthAt = (v: number) => IMG_W / 2 - 23 - 0.109 * (v - 53) - 4;
+const lv = (v: number) => v - IMG_H;
+
+const PIECE: Record<ToppingId, { key: string; size: number }> = {
+  top_boba: { key: "piece_boba", size: 30 },
+  top_jelly: { key: "piece_jelly", size: 34 },
+  top_pudding: { key: "piece_pudding", size: 40 },
+};
+const PIECES_PER_SCOOP = 7;
+const ICE_PER_SCOOP = 3;
+
+export function mixColor(cup: CupState, total: number): number {
   let r = 0;
   let g = 0;
   let b = 0;
@@ -21,110 +42,201 @@ function mixColor(cup: CupState, total: number): number {
   return (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(b);
 }
 
-/** Draws the cup being brewed plus the fill gauge with target markers. */
-export function drawCup(
-  g: Phaser.GameObjects.Graphics,
-  gauge: Phaser.GameObjects.Graphics,
-  pos: Point,
-  cup: CupState | null,
-  order: Order | undefined,
-  hints: boolean,
-) {
-  g.clear();
-  gauge.clear();
-  const x = pos.x;
-  const yBottom = pos.y + 95;
+function shade(color: number, k: number): number {
+  const c = (s: number) => Math.min(255, Math.round(((color >> s) & 255) * k));
+  return (c(16) << 16) | (c(8) << 8) | c(0);
+}
 
-  g.fillStyle(0x6b4430, 0.18).fillEllipse(x, yBottom + 6, 170, 34);
-  if (!cup) {
-    g.lineStyle(3, COLORS.cocoa, 0.5).strokeEllipse(x, yBottom + 6, 150, 28);
-    return;
+/** Stable pseudo-random in [0,1) so pieces keep their spot between renders. */
+const hash = (n: number) => {
+  const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
+};
+
+/** The cup being brewed, built from art layers, plus the fill gauge with target markers. */
+export class CupView {
+  readonly root: Phaser.GameObjects.Container;
+  private readonly spill: Phaser.GameObjects.Image;
+  private readonly liquid: Phaser.GameObjects.Graphics;
+  private readonly syrup: Phaser.GameObjects.Image;
+  private readonly swirl: Phaser.GameObjects.Image;
+  private readonly surface: Phaser.GameObjects.Image;
+  private readonly lid: Phaser.GameObjects.Image;
+  private readonly straw: Phaser.GameObjects.Image;
+  private readonly toppingLayer: Phaser.GameObjects.Container;
+  private readonly iceLayer: Phaser.GameObjects.Container;
+  private readonly gauge: Phaser.GameObjects.Graphics;
+  private readonly base: Point;
+  private lastMilk = 0;
+  private swirlLevel = 0;
+
+  constructor(
+    private readonly scene: Phaser.Scene,
+    pos: Point,
+    private readonly depth: number,
+  ) {
+    this.base = { x: pos.x, y: pos.y + 100 };
+    scene.add.image(pos.x, this.base.y - 6, "cup_coaster").setDisplaySize(180, 60).setDepth(12);
+    this.spill = scene.add.image(pos.x + 26, this.base.y + 4, "fx_spill").setDisplaySize(210, 74).setDepth(12).setVisible(false);
+    this.root = scene.add.container(this.base.x, this.base.y).setDepth(depth);
+    this.liquid = scene.add.graphics();
+    this.syrup = scene.add.image(0, lv(BOTTOM_V - 24), "liquid_syrup").setAlpha(0);
+    this.toppingLayer = scene.add.container(0, 0);
+    this.swirl = scene.add.image(0, 0, "liquid_swirl").setAlpha(0);
+    this.surface = scene.add.image(0, 0, "liquid_surface");
+    this.iceLayer = scene.add.container(0, 0);
+    const glass = scene.add.image(0, 0, "cup_glass").setOrigin(0.5, 1);
+    this.lid = scene.add.image(0, lv(27), "cup_lid").setDisplaySize(266, 80);
+    this.straw = scene.add.image(44, lv(36), "cup_straw").setOrigin(0.5, 1).setDisplaySize(30, 200).setAngle(7);
+    this.root.add([this.liquid, this.syrup, this.toppingLayer, this.swirl, this.surface, this.iceLayer, glass, this.lid, this.straw]);
+    this.gauge = scene.add.graphics().setDepth(depth);
   }
-  const large = cup.size === "L";
-  const topW = large ? 140 : 122;
-  const botW = topW * 0.76;
-  const h = large ? 200 : 175;
-  const yTop = yBottom - h;
-  const widthAt = (y: number) => botW + (topW - botW) * ((yBottom - y) / h);
-  const fullY = yBottom - h * 0.86;
-  const total = liquidTotal(cup);
-  const liquidTopY = yBottom - (yBottom - fullY) * Math.min(total, MAX_LEVEL);
 
-  if (total > 0.001) {
-    const yl = Math.max(liquidTopY, yTop + 4);
-    g.fillStyle(mixColor(cup, total), 0.95);
-    g.beginPath();
-    g.moveTo(x - botW / 2 + 4, yBottom - 4);
-    g.lineTo(x + botW / 2 - 4, yBottom - 4);
-    g.lineTo(x + widthAt(yl) / 2 - 4, yl);
-    g.lineTo(x - widthAt(yl) / 2 + 4, yl);
-    g.closePath();
-    g.fillPath();
-    g.fillStyle(0xffffff, 0.25).fillRect(x - widthAt(yl) / 2 + 6, yl, widthAt(yl) - 12, 5);
-    if (cup.sugarPumps > 0) g.fillStyle(0xc77a2c, 0.35 + cup.sugarPumps * 0.1).fillRect(x - botW / 2 + 6, yBottom - 14, botW - 12, 10);
+  /** Moves the cup while it is dragged to a customer (coaster and gauge stay put); `null` puts it back. */
+  drag(offset: Point | null, depth = this.depth) {
+    this.root.setPosition(this.base.x + (offset?.x ?? 0), this.base.y + (offset?.y ?? 0)).setDepth(offset ? depth : this.depth);
   }
 
-  cup.toppings.forEach((t, i) => {
-    for (let k = 0; k < 7; k++) {
-      const px = x - botW / 2 + 14 + ((k * 37 + i * 13) % (botW - 28));
-      const py = yBottom - 12 - ((k * 7 + i * 11) % 22) - i * 8;
-      if (t === "top_boba") g.fillStyle(0x2e1a12, 1).fillCircle(px, py, 7);
-      else if (t === "top_jelly") g.fillStyle(0x8fcf6b, 0.95).fillRect(px - 6, py - 6, 12, 12);
-      else g.fillStyle(0xf3c64f, 1).fillRoundedRect(px - 8, py - 5, 16, 11, 4);
+  /** Fades the milk swirl after the milk stops flowing. */
+  tick(deltaMs: number) {
+    if (this.swirlLevel <= 0) return;
+    this.swirlLevel = Math.max(0, this.swirlLevel - deltaMs / 2200);
+    this.swirl.setAlpha(Math.min(0.8, this.swirlLevel));
+  }
+
+  render(cup: CupState | null, order: Order | undefined, hints: boolean) {
+    this.gauge.clear();
+    this.root.setVisible(!!cup);
+    if (!cup) {
+      this.spill.setVisible(false);
+      this.lastMilk = 0;
+      this.swirlLevel = 0;
+      this.swirl.setAlpha(0);
+      return;
     }
-  });
+    const s = SCALE[cup.size];
+    this.root.setScale(s);
+    const total = liquidTotal(cup);
+    const has = total > 0.01;
+    const topV = BOTTOM_V - FULL_SPAN * Math.min(total, MAX_LEVEL);
+    const color = has ? mixColor(cup, total) : MILK_COLOR;
 
-  const surface = total > 0.05 ? Math.max(liquidTopY, yTop + 10) : yBottom - 40;
-  for (let i = 0; i < cup.iceScoops * 3; i++) {
-    const px = x - 34 + ((i * 29) % 70);
-    const py = surface + 10 + ((i * 17) % 34);
-    g.fillStyle(0xeaf8ff, 0.85).fillRoundedRect(px - 9, py - 9, 18, 18, 4);
-    g.lineStyle(1.5, 0x9cc7dc, 0.9).strokeRoundedRect(px - 9, py - 9, 18, 18, 4);
+    if (cup.milk > this.lastMilk + 0.001) this.swirlLevel = 1.4;
+    this.lastMilk = cup.milk;
+
+    this.spill.setVisible(cup.overflow).setTint(color);
+    this.drawLiquid(topV, color, has);
+    const hw = halfWidthAt(topV);
+    this.surface
+      .setVisible(has)
+      .setTint(color)
+      .setPosition(0, lv(topV))
+      .setDisplaySize(hw * 2 + 8, Math.max(16, hw * 0.38));
+    this.swirl
+      .setVisible(has && cup.milk > 0)
+      .setPosition(0, lv((topV + BOTTOM_V) / 2))
+      .setDisplaySize(Math.min(150, hw * 1.4), Math.max(30, Math.min(170, (BOTTOM_V - topV) * 0.8)));
+    this.syrup.setAlpha(cup.sugarPumps > 0 ? Math.min(0.9, 0.35 + cup.sugarPumps * 0.14) : 0).setDisplaySize(150, 56);
+
+    this.renderToppings(cup.toppings, has ? topV : BOTTOM_V - 120);
+    this.renderIce(cup.iceScoops, has ? topV : null);
+
+    this.lid.setVisible(cup.sealed);
+    this.straw.setVisible(cup.sealed);
+    this.drawGauge(cup, order, hints, s);
   }
 
-  g.lineStyle(4, 0x6b4430, 1);
-  g.beginPath();
-  g.moveTo(x - topW / 2, yTop);
-  g.lineTo(x - botW / 2, yBottom);
-  g.lineTo(x + botW / 2, yBottom);
-  g.lineTo(x + topW / 2, yTop);
-  g.strokePath();
-  g.fillStyle(0xffffff, 0.18).fillRect(x - topW / 2 + 10, yTop + 8, 10, h - 20);
-  g.lineStyle(3, 0x6b4430, 1).strokeEllipse(x, yTop, topW, 14);
-
-  if (cup.overflow) {
-    g.fillStyle(COLORS.cocoa, 0.7);
-    g.fillCircle(x - topW / 2 + 4, yTop + 20, 6).fillCircle(x + topW / 2 - 6, yTop + 40, 5).fillCircle(x - topW / 2 + 10, yTop + 55, 4);
+  private drawLiquid(topV: number, color: number, has: boolean) {
+    const g = this.liquid.clear();
+    if (!has) return;
+    const hwTop = halfWidthAt(topV);
+    const bottomC = BOTTOM_V - 14;
+    const hwBot = halfWidthAt(bottomC);
+    const outline = (k: number, fromV: number) => {
+      const pts = [new Phaser.Math.Vector2(-halfWidthAt(fromV) * k, lv(fromV)), new Phaser.Math.Vector2(halfWidthAt(fromV) * k, lv(fromV))];
+      // Rounded bottom following the cup's base.
+      for (let i = 0; i <= 12; i++) {
+        const a = (i / 12) * Math.PI;
+        pts.push(new Phaser.Math.Vector2(Math.cos(a) * hwBot * k, lv(bottomC) + Math.sin(a) * 16));
+      }
+      return pts;
+    };
+    g.fillStyle(color, 0.93).fillPoints(outline(1, topV), true);
+    // A darker lower half gives the drink some depth.
+    const mid = Math.max(topV + 10, topV + (BOTTOM_V - topV) * 0.5);
+    if (mid < bottomC) g.fillStyle(shade(color, 0.8), 0.3).fillPoints(outline(1, mid), true);
+    // Light streak on the left, like light passing through the plastic.
+    g.fillStyle(0xffffff, 0.16).fillRect(-hwTop + 14, lv(topV) + 14, 14, Math.max(0, BOTTOM_V - topV - 40));
   }
 
-  if (cup.sealed) {
-    g.fillStyle(0xf6c1d0, 0.95).fillEllipse(x, yTop, topW - 2, 14);
-    g.fillStyle(0xffffff, 0.6).fillEllipse(x - 20, yTop - 2, 30, 4);
-    g.fillStyle(COLORS.bad, 1).fillRect(x + 14, yTop - 70, 14, 74);
-    g.fillStyle(0xffffff, 0.5).fillRect(x + 16, yTop - 70, 4, 74);
-    g.lineStyle(2, 0x6b4430, 1).strokeRect(x + 14, yTop - 70, 14, 74);
+  private pool(layer: Phaser.GameObjects.Container, n: number, key: string): Phaser.GameObjects.Image[] {
+    while (layer.length < n) layer.add(this.scene.add.image(0, 0, key).setVisible(false));
+    const list = layer.list as Phaser.GameObjects.Image[];
+    for (let i = n; i < list.length; i++) list[i].setVisible(false);
+    return list.slice(0, n);
   }
 
-  // Gauge: stacked liquids, full line, and the recipe's tea mark.
-  const gx = x + topW / 2 + 26;
-  const gTop = fullY - 30;
-  const toY = (v: number) => yBottom - (yBottom - fullY) * Math.min(v, 1.15);
-  gauge.fillStyle(COLORS.paper, 0.95).fillRoundedRect(gx - 12, gTop - 8, 24, yBottom - gTop + 16, 10);
-  gauge.lineStyle(2, COLORS.cocoa, 1).strokeRoundedRect(gx - 12, gTop - 8, 24, yBottom - gTop + 16, 10);
-  let acc = 0;
-  const band = (amount: number, color: number) => {
-    if (amount <= 0) return;
-    gauge.fillStyle(color, 1).fillRect(gx - 7, toY(acc + amount), 14, toY(acc) - toY(acc + amount));
-    acc += amount;
-  };
-  for (const t of TEA_IDS) band(cup.tea[t], INGREDIENTS[t].color);
-  band(cup.milk, 0xf3e3c8);
-  gauge.lineStyle(3, 0x2f6b2f, 1).lineBetween(gx - 16, toY(1), gx + 16, toY(1));
-  if (order && hints) {
-    const r = RECIPE_BY_ID[order.recipeId];
-    if (r.milkRatio > 0) {
-      gauge.lineStyle(3, INGREDIENTS[r.tea].color, 1);
-      for (let dx = -16; dx < 16; dx += 8) gauge.lineBetween(gx + dx, toY(r.teaRatio), gx + dx + 5, toY(r.teaRatio));
+  private renderToppings(toppings: ToppingId[], surfaceV: number) {
+    const imgs = this.pool(this.toppingLayer, toppings.length * PIECES_PER_SCOOP, "piece_boba");
+    toppings.forEach((t, i) => {
+      const { key, size } = PIECE[t];
+      for (let k = 0; k < PIECES_PER_SCOOP; k++) {
+        const n = i * PIECES_PER_SCOOP + k;
+        const img = imgs[n];
+        const v = BOTTOM_V - 10 - (k % 3) * 10 - i * 18 - hash(n) * 8;
+        const span = halfWidthAt(v) - size / 2 - 4;
+        const x = (((k * 0.37 + hash(n + 50) * 0.25) % 1) * 2 - 1) * span;
+        const fresh = !img.visible || img.texture.key !== key;
+        img.setTexture(key);
+        img.setDisplaySize(size, (size * img.height) / img.width).setAngle(hash(n + 9) * 40 - 20).setVisible(true);
+        if (fresh) {
+          img.setPosition(x, lv(Math.min(surfaceV, v - 40)));
+          this.scene.tweens.add({ targets: img, y: lv(v), duration: 380 + k * 40, ease: "Bounce.easeOut" });
+        } else if (!this.scene.tweens.isTweening(img)) img.setPosition(x, lv(v));
+      }
+    });
+  }
+
+  private renderIce(scoops: number, surfaceV: number | null) {
+    const imgs = this.pool(this.iceLayer, scoops * ICE_PER_SCOOP, "piece_ice");
+    imgs.forEach((img, n) => {
+      // Ice floats just under the surface; in an empty cup it rests on the bottom.
+      const v =
+        surfaceV === null ? BOTTOM_V - 28 - Math.floor(n / 4) * 30 : Math.min(BOTTOM_V - 28, surfaceV + 20 + (n % 3) * 14 + Math.floor(n / 3) * 10);
+      const span = halfWidthAt(v) - 30;
+      const x = (((n * 0.41 + 0.15) % 1) * 2 - 1) * span;
+      img
+        .setDisplaySize(52, (52 * img.height) / img.width)
+        .setAngle(hash(n + 3) * 50 - 25)
+        .setAlpha(0.9)
+        .setPosition(x, lv(v))
+        .setVisible(true);
+    });
+  }
+
+  private drawGauge(cup: CupState, order: Order | undefined, hints: boolean, s: number) {
+    const gauge = this.gauge;
+    const toY = (v: number) => this.base.y + s * lv(BOTTOM_V - FULL_SPAN * Math.min(v, 1.15));
+    const gx = this.base.x + (IMG_W / 2) * s + 24;
+    const gTop = toY(1) - 30;
+    const gBottom = toY(0);
+    gauge.fillStyle(COLORS.paper, 0.95).fillRoundedRect(gx - 12, gTop - 8, 24, gBottom - gTop + 16, 10);
+    gauge.lineStyle(2, COLORS.cocoa, 1).strokeRoundedRect(gx - 12, gTop - 8, 24, gBottom - gTop + 16, 10);
+    let acc = 0;
+    const band = (amount: number, color: number) => {
+      if (amount <= 0) return;
+      gauge.fillStyle(color, 1).fillRect(gx - 7, toY(acc + amount), 14, toY(acc) - toY(acc + amount));
+      acc += amount;
+    };
+    for (const t of TEA_IDS) band(cup.tea[t], INGREDIENTS[t].color);
+    band(cup.milk, 0xf3e3c8);
+    gauge.lineStyle(3, 0x2f6b2f, 1).lineBetween(gx - 16, toY(1), gx + 16, toY(1));
+    if (order && hints) {
+      const r = RECIPE_BY_ID[order.recipeId];
+      if (r.milkRatio > 0) {
+        gauge.lineStyle(3, INGREDIENTS[r.tea].color, 1);
+        for (let dx = -16; dx < 16; dx += 8) gauge.lineBetween(gx + dx, toY(r.teaRatio), gx + dx + 5, toY(r.teaRatio));
+      }
     }
   }
 }

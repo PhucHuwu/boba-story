@@ -9,7 +9,7 @@ import { hasShopCat } from "@/domain/visitors";
 import type { IngredientId, Mood, Size, TeaId, ToppingId } from "@/domain/types";
 import manifest from "./assetManifest.json";
 import { audio } from "./audio";
-import { drawCup } from "./cupRenderer";
+import { CupView } from "./cupRenderer";
 import { COLORS, type Layout, SHORT_RECIPE_NAME, type StationId, slotX } from "./layout";
 import { presentTicket } from "./ticketPresenter";
 
@@ -74,8 +74,7 @@ export class ShopScene extends Phaser.Scene {
   private cats = new Map<number, CatView>();
   private trashViews = new Map<number, Phaser.GameObjects.Image>();
   private stations = new Map<StationId, Station>();
-  private cupGfx!: Phaser.GameObjects.Graphics;
-  private gauge!: Phaser.GameObjects.Graphics;
+  private cupView!: CupView;
   private stream!: Phaser.GameObjects.Graphics;
   private highlight!: Phaser.GameObjects.Graphics;
   private highlightTween?: Phaser.Tweens.Tween;
@@ -117,8 +116,7 @@ export class ShopScene extends Phaser.Scene {
     this.buildRoom();
     this.buildWorktop();
     this.buildStations();
-    this.cupGfx = this.add.graphics().setDepth(CUP);
-    this.gauge = this.add.graphics().setDepth(CUP);
+    this.cupView = new CupView(this, this.L.cup, CUP);
     this.stream = this.add.graphics().setDepth(19);
     this.highlight = this.add.graphics().setDepth(DEPTH.highlight);
     this.buildCupHitArea();
@@ -269,7 +267,7 @@ export class ShopScene extends Phaser.Scene {
     hit.on("pointerdown", (p: Phaser.Input.Pointer) => {
       if (this.session.cup?.sealed && this.ctl.isInteractive()) {
         this.draggingCup = true;
-        this.cupGfx.setDepth(DEPTH.draggedCup);
+        this.cupView.drag({ x: 0, y: 0 }, DEPTH.draggedCup);
         this.dragStart = { x: p.x, y: p.y };
       }
     });
@@ -289,7 +287,7 @@ export class ShopScene extends Phaser.Scene {
     this.input.on("pointermove", (p: Phaser.Input.Pointer) => {
       this.dragGhost?.setPosition(p.x, p.y);
       if (this.draggingCup) {
-        this.cupGfx.setPosition(p.x - this.L.cup.x, p.y - this.L.cup.y);
+        this.cupView.drag({ x: p.x - this.L.cup.x, y: p.y - this.L.cup.y }, DEPTH.draggedCup);
         const target = this.catAt(p);
         for (const c of this.cats.values()) c.sprite.setAlpha(target && c !== target ? 0.75 : 1);
       }
@@ -336,8 +334,7 @@ export class ShopScene extends Phaser.Scene {
     }
     if (this.draggingCup) {
       this.draggingCup = false;
-      this.cupGfx.setPosition(0, 0);
-      this.cupGfx.setDepth(CUP);
+      this.cupView.drag(null);
       for (const c of this.cats.values()) c.sprite.setAlpha(1);
       const target = this.catAt(p);
       if (target) this.session.deliver(target.id);
@@ -412,7 +409,7 @@ export class ShopScene extends Phaser.Scene {
       case "served": {
         const c = this.cats.get(e.id);
         if (!c) break;
-        const flying = this.fit(this.add.image(this.L.cup.x, this.L.cup.y, "cup_stack").setDepth(DEPTH.flyingCup), 60, 90);
+        const flying = this.fit(this.add.image(this.L.cup.x, this.L.cup.y, `drink_${e.info.recipeId}`).setDepth(DEPTH.flyingCup), 80, 120);
         this.tweens.add({ targets: flying, x: c.root.x, y: this.L.counterY - this.L.catHeight / 2, scale: flying.scale * 0.8, duration: 350, ease: "Quad.easeOut", onComplete: () => flying.destroy() });
         const { info } = e;
         audio.play(info.happy ? "happy" : "sad");
@@ -750,6 +747,7 @@ export class ShopScene extends Phaser.Scene {
     }
     for (const c of this.cats.values()) c.root.setDepth(actorDepth(c.root.y, c.id));
     this.syncPourSound();
+    this.cupView.tick(deltaMs);
     this.drawStream();
     if (!this.dirty) return;
     this.dirty = false;
@@ -759,7 +757,7 @@ export class ShopScene extends Phaser.Scene {
   private renderState() {
     const s = this.session;
     const order = s.selectedOrder;
-    drawCup(this.cupGfx, this.gauge, this.L.cup, s.cup, order, this.ctl.save.settings.hints);
+    this.cupView.render(s.cup, order, this.ctl.save.settings.hints);
     const ticket = presentTicket(this.ctl.phase, order, s.cup);
     this.ticketTitle.setText(ticket.title);
     this.ticketLines.setText(ticket.lines);

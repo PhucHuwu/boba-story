@@ -182,3 +182,46 @@ Chỉ gen nhóm này sau khi chốt kế hoạch NPC.
 
 ### Mèo đại lý nguyên liệu
 - [x] `npc_supplier`
+
+## 5. Khâu pha chế (thay hình vẽ bằng code)
+
+### Giai đoạn 1: ly và những gì trong ly
+- [x] `cup_glass`: ly nhựa trong (thân trong suốt, giữ viền và vệt sáng)
+- [x] `liquid_surface`: mặt nước có bọt (tô theo màu trà/sữa đang trộn)
+- [x] `liquid_swirl`: vệt sữa xoáy khi rót sữa
+- [x] `liquid_syrup`: vệt siro đường loang ở đáy ly
+- [x] `piece_boba`: một viên trân châu
+- [x] `piece_jelly`: một miếng thạch dừa
+- [x] `piece_pudding`: một miếng pudding
+- [x] `piece_ice`: một viên đá (trong suốt)
+- [x] `cup_lid`: màng dán nắp in dấu chân mèo
+- [x] `cup_straw`: ống hút
+- [x] `cup_coaster`: lót ly ở chỗ đặt ly
+
+### Giai đoạn 2: máy móc khi đang dùng
+- [x] `tea_black_pour` (ref: tea_black)
+- [x] `tea_green_pour` (ref: tea_green)
+- [x] `tea_oolong_pour` (ref: tea_oolong)
+- [x] `milk_pour` (ref: milk)
+- [x] `sugar_press` (ref: sugar)
+- [x] `ice_scoop` (ref: ice)
+- [x] `sealer_press` (ref: sealer)
+- [x] `scoop_boba`: muỗng xúc trân châu (khi kéo topping)
+- [x] `scoop_jelly`: muỗng xúc thạch dừa
+- [x] `scoop_pudding`: muỗng xúc pudding
+
+### Giai đoạn 3: hiệu ứng rót và phản hồi
+- [x] `pour_stream`: dòng rót (tô theo màu)
+- [x] `fx_splash`: nước bắn khi chạm mặt ly
+- [x] `fx_spill`: vũng nước khi tràn ly
+- [x] `fx_sparkle`: lấp lánh khi rót trúng mức / ly 3 sao
+- [x] `gauge_tube`: ống đo mức rót
+
+### Giai đoạn 4: bước lắc
+- [x] `shaker`: bình lắc
+- [x] `shaker_shake` (ref: shaker)
+
+### Giai đoạn 5: khung UI trong màn chơi
+- [x] `ui_card`: phiếu gọi món trên đầu mèo
+- [x] `ui_bubble`: bóng thoại
+- [x] `ui_ticket`: tờ phiếu đơn đang làm

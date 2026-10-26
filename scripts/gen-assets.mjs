@@ -63,7 +63,7 @@ const MOODS = {
   impatient: "impatient annoyed expression, furrowed brows, one paw tapping or looking at wrist, small frown",
 };
 
-/** @type {{key:string,prompt:string,aspect:string,kind:'bg'|'sprite',max:number,ref?:string}[]} */
+/** @type {{key:string,prompt:string,aspect:string,kind:'bg'|'sprite'|'glass',max:number,ref?:string}[]} */
 const ASSETS = [
   {
     key: "bg_room",
@@ -297,6 +297,65 @@ ASSETS.push(
     npc("npc_supplier", "Sturdy black cat wholesale supplier wearing a denim apron and a cap, pushing a small hand truck stacked with ingredient boxes, salesman grin."),
   ]),
 );
+// Tier 5 (ASSETS.md section 5): brewing art. "glass" assets are unmixed from white everywhere (not only from the
+// border), so a clear cup or ice cube keeps its outline and tint while its body becomes see-through.
+const BREW = "Drawn straight-on from the front (not three-quarter), centered, isolated on a perfectly plain pure white background. No shadow, no table, no text.";
+const piece = (key, desc, max = 96, kind = "sprite") => ({ key, kind, aspect: "1:1", max, prompt: `${STYLE} ${desc} ${BREW}` });
+ASSETS.push(
+  ...tier(5, [
+    piece(
+      "cup_glass",
+      "An empty clear transparent plastic boba tea cup, tall and tapered (wider at the top), open top rim drawn as a thin ellipse, no lid, no straw, no drink inside. Dark-brown outline, very faint light-blue tint on the plastic, two soft pale-blue vertical highlight streaks on the left side.",
+      420,
+      "glass",
+    ),
+    piece("liquid_surface", "The flat top surface of a drink seen from slightly above: a wide thin horizontal ellipse filled with very pale cream foam, a few tiny round bubbles near the edge, thin dark-brown outline.", 300),
+    piece("liquid_swirl", "A soft creamy white milk swirl ribbon curling like a spiral cloud, as when milk is poured into tea, thin dark-brown outline.", 220),
+    piece("liquid_syrup", "A small glossy amber brown sugar syrup blob that spreads and swirls, like syrup sinking in a drink, thin dark-brown outline.", 200),
+    piece("piece_boba", "One single glossy dark brown tapioca pearl ball with a small white shine highlight.", 64),
+    piece("piece_jelly", "One single translucent pale green coconut jelly cube with soft rounded edges and a white shine.", 72),
+    piece("piece_pudding", "One single soft wobbly yellow egg pudding chunk with a caramel brown top.", 80),
+    piece("piece_ice", "One single clear ice cube with rounded edges, light-blue outline and a white shine highlight.", 80),
+    piece("cup_lid", "A sealed boba cup film lid seen from the front and slightly above: a thin flat pastel pink ellipse printed with a small cute white cat paw print, thin dark-brown outline.", 300),
+    piece("cup_straw", "One thick straight boba straw, pastel red with a white stripe, cut at an angle at the top, standing vertical.", 240),
+    piece("cup_coaster", "A round woven bamboo coaster seen from slightly above as a wide flat ellipse.", 300),
+    // Stage 2: stations while in use (edits of the existing sprites, so the drawing stays identical).
+    ...["tea_black", "tea_green", "tea_oolong"].map((t) => ({
+      key: `${t}_pour`,
+      kind: "sprite",
+      aspect: "1:1",
+      max: 360,
+      ref: t,
+      prompt: "Edit this image: keep the exact same tea dispenser, same colors, same art style, same framing and size. Change only the tap: its lever is turned open and a short stream of tea flows down from the spout. Plain white background.",
+    })),
+    { key: "milk_pour", kind: "sprite", aspect: "1:1", max: 340, ref: "milk", prompt: "Edit this image: keep the exact same milk jug, same pattern, same art style and size. Tilt the jug about 40 degrees to the left as if pouring, with a short stream of milk flowing out of the spout. Plain white background." },
+    { key: "sugar_press", kind: "sprite", aspect: "1:1", max: 320, ref: "sugar", prompt: "Edit this image: keep the exact same syrup pump bottle, same colors, same art style and size. The pump head is pressed all the way down and a drop of syrup comes out of the nozzle. Plain white background." },
+    { key: "ice_scoop", kind: "sprite", aspect: "1:1", max: 360, ref: "ice", prompt: "Edit this image: keep the exact same ice bin, same art style and size. The metal scoop is lifted up above the bin, heaped full of ice cubes. Plain white background." },
+    { key: "sealer_press", kind: "sprite", aspect: "1:1", max: 360, ref: "sealer", prompt: "Edit this image: keep the exact same pink cup sealing machine, same art style and size. Its lever handle is pulled all the way down, a small warm glow at the sealing plate and a tiny puff of steam. Plain white background." },
+    ...[["boba", "glossy dark brown tapioca pearls"], ["jelly", "translucent pale green coconut jelly cubes"], ["pudding", "soft yellow egg pudding chunks"]].map(([t, d]) => piece(`scoop_${t}`, `A small round metal ladle spoon with a short wooden handle, heaped full of ${d}, tilted slightly.`, 180)),
+    // Stage 3: pour and feedback effects.
+    piece("pour_stream", "A straight vertical stream of pale cream liquid pouring down, smooth ribbon with a few highlight lines, thin dark-brown outline, tall and narrow.", 260),
+    piece("fx_splash", "A small crown-shaped splash of pale cream liquid with a few flying droplets, thin dark-brown outline.", 160),
+    piece("fx_spill", "A flat spilled puddle of pale cream liquid seen from slightly above, irregular rounded blob shape with a couple of droplets, thin dark-brown outline.", 260),
+    piece("fx_sparkle", "A cluster of three cute golden four-pointed sparkle stars of different sizes.", 160),
+    { ...piece("gauge_tube", "A tall narrow empty clear glass measuring tube with rounded ends and small dark-brown tick marks along the side, standing vertical, no liquid.", 360), aspect: "9:16" },
+    // Stage 4: shake step.
+    piece("shaker", "A cute stainless steel cocktail shaker for tea with a pastel pink cap and a little cat-ear shaped top, standing upright.", 300),
+    {
+      key: "shaker_shake",
+      kind: "sprite",
+      aspect: "1:1",
+      max: 300,
+      ref: "shaker",
+      prompt: "Edit this image: keep the exact same cocktail shaker, same colors, same art style and size. Tilt it about 25 degrees as if being shaken hard, with a few short curved motion lines and two tiny droplets around it. Plain white background.",
+    },
+    // Stage 5: frames for in-scene UI (drawn empty so they can be stretched as nine-slice).
+    { key: "ui_card", kind: "sprite", aspect: "4:3", max: 360, prompt: `${STYLE} An empty blank order note card: a cream paper rectangle with rounded corners, thick dark-brown outline, a subtle paper texture, a small pointed tail at the bottom center like a speech bubble. Completely blank, no text, no icons. Flat front view, isolated on a perfectly plain pure white background. No shadow.` },
+    { key: "ui_bubble", kind: "sprite", aspect: "16:9", max: 360, prompt: `${STYLE} An empty blank speech bubble: wide white rounded rectangle with a thick dark-brown outline and a small tail at the bottom center. Completely blank, no text. Flat front view, isolated on a perfectly plain pure white background. No shadow.` },
+    { key: "ui_ticket", kind: "sprite", aspect: "21:9", max: 720, prompt: `${STYLE} An empty blank wide order ticket: a long cream paper strip with rounded corners, thick dark-brown outline, a small red-and-white washi tape piece at the top left corner. Completely blank, no text. Flat front view, isolated on a perfectly plain pure white background. No shadow.` },
+  ]),
+);
+
 // Tier 2 (ASSETS.md section 2): spots already wired in the UI.
 const TIER2 = /^(icon_discount|icon_wrench|icon_bankrupt|trash_.*|robber|rival_.*)$/;
 for (const a of ASSETS) a.tier ??= TIER2.test(a.key) ? 2 : 1;
@@ -427,6 +486,18 @@ async function removeBackground(buf) {
   return sharp(data, { raw: { width: w, height: h, channels: 4 } }).png().toBuffer();
 }
 
+/** White → alpha over the whole image: a pixel blended from white and colour C keeps C with alpha = blend weight. */
+async function unmixWhite(buf) {
+  const { data, info } = await sharp(buf).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  for (let o = 0; o < data.length; o += 4) {
+    const a = Math.max(255 - data[o], 255 - data[o + 1], 255 - data[o + 2]) / 255;
+    const alpha = a < 0.04 ? 0 : a;
+    if (alpha > 0) for (let c = 0; c < 3; c++) data[o + c] = Math.round(Math.max(0, Math.min(255, (data[o + c] - 255 * (1 - alpha)) / alpha)));
+    data[o + 3] = Math.round(alpha * 255);
+  }
+  return sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } }).png().toBuffer();
+}
+
 async function processAsset(asset, force, reprocess = false) {
   const rawFile = rawPath(asset.key);
   const outFile = outPath(asset.key);
@@ -440,7 +511,9 @@ async function processAsset(asset, force, reprocess = false) {
     await sharp(img).png().toFile(rawFile);
   }
   let pipeline;
-  if (asset.kind === "sprite") {
+  if (asset.kind === "glass") {
+    pipeline = sharp(await sharp(await unmixWhite(fs.readFileSync(rawFile))).trim({ threshold: 1 }).toBuffer());
+  } else if (asset.kind === "sprite") {
     const cut = await removeBackground(fs.readFileSync(rawFile));
     pipeline = sharp(await sharp(cut).trim({ threshold: 1 }).toBuffer());
   } else {

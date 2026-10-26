@@ -53,6 +53,7 @@ export interface ShopCustomer {
 }
 
 export interface ServedInfo {
+  recipeId: string;
   quality: number;
   stars: number;
   label: string;
@@ -578,7 +579,7 @@ export class ShopSession {
     const g = grade(result.quality);
     const happy = result.quality >= 60;
     this.setMood(c, happy ? "happy" : "sad");
-    this.events.emit({ type: "served", id: d.id, info: { quality: result.quality, stars: g.stars, label: g.label, price: pay.price, tip: pay.tip, happy } });
+    this.events.emit({ type: "served", id: d.id, info: { recipeId: d.order.recipeId, quality: result.quality, stars: g.stars, label: g.label, price: pay.price, tip: pay.tip, happy } });
     this.say(c, happy ? "Ngon quá! Cảm ơn nha~ meo!" : result.notes[0] ? `Hmm... ${result.notes[0].toLowerCase()}.` : "Hmm... chưa đúng ý lắm.");
     void this.enrichLine(c, happy ? "happy" : "sad");
     if (d.archetype === "granny" || d.archetype === "tiktoker") this.guestReaction(c, result.quality, result.wrongDrink);
@@ -618,7 +619,7 @@ export class ShopSession {
     const delivery = d.delivery!;
     const g = grade(quality);
     const happy = quality >= 60;
-    this.events.emit({ type: "served", id: d.id, info: { quality, stars: g.stars, label: g.label, price, tip: 0, happy } });
+    this.events.emit({ type: "served", id: d.id, info: { recipeId: d.order.recipeId, quality, stars: g.stars, label: g.label, price, tip: 0, happy } });
     d.order = delivery.orders[delivery.done];
     d.patience = Math.min(100, d.patience + 25);
     this.setMood(c, happy ? "happy" : "sad");
