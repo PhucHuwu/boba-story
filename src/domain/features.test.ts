@@ -201,3 +201,47 @@ describe("delivery apps", () => {
     expect(currentOrder(d).id).toBe(2);
   });
 });
+
+describe("special guests", () => {
+  it("each guest comes at most once a day, only from their start day", async () => {
+    const { pickGuest } = await import("./guests");
+    expect(pickGuest(() => 0, 1, 50, [])).toBe(null);
+    expect(pickGuest(() => 0, 2, 50, [])).toBe("granny");
+    expect(pickGuest(() => 0, 4, 50, [])).toBe("tiktoker");
+    expect(pickGuest(() => 0, 4, 5, [])).toBe("granny");
+    expect(pickGuest(() => 0, 4, 50, ["tiktoker", "granny"])).toBe(null);
+    expect(pickGuest(() => 0.99, 9, 90, [])).toBe(null);
+  });
+
+  it("the TikToker's video goes viral, flops or is ignored", async () => {
+    const { tiktokerVerdict, FLOP_REPUTATION, VIRAL } = await import("./guests");
+    expect(tiktokerVerdict(90, false)).toMatchObject({ kind: "viral", reputation: VIRAL.reputation });
+    expect(tiktokerVerdict(90, true)).toMatchObject({ kind: "flop", reputation: FLOP_REPUTATION });
+    expect(tiktokerVerdict(40, false).kind).toBe("flop");
+    expect(tiktokerVerdict(65, false).kind).toBe("meh");
+  });
+
+  it("the granny's gift never overfills the shelf", async () => {
+    const { receiveGift } = await import("./guests");
+    const save = defaultSave();
+    save.inventory.top_boba = 58;
+    expect(receiveGift(save.inventory, "top_boba", 5)).toBe(2);
+    expect(save.inventory.top_boba).toBe(60);
+    expect(receiveGift(save.inventory, "top_boba", 5)).toBe(0);
+  });
+
+  it("granny orders gently, the TikToker orders big", async () => {
+    const { createOrder } = await import("./customers");
+    const save = defaultSave();
+    save.tutorialDone = true;
+    save.day = 5;
+    for (let i = 0; i < 20; i++) {
+      const rng = () => (i * 0.137) % 1;
+      const g = createOrder({ rng, save, archetype: "granny", id: i, makeable: save.unlockedRecipes });
+      expect(g.size).toBe("M");
+      expect([0, 50]).toContain(g.sugar);
+      expect([0, 50]).toContain(g.ice);
+      expect(createOrder({ rng, save, archetype: "tiktoker", id: i, makeable: save.unlockedRecipes }).size).toBe("L");
+    }
+  });
+});

@@ -233,6 +233,56 @@ describe("ShopSession tutorial order", () => {
     expect(game.dayStats.commission).toBe(Math.round((game.dayStats.revenue + game.dayStats.commission) * 0.2 / 2) * 2);
   });
 
+  it("special guests: granny gives a gift, a great drink makes the TikToker go viral", async () => {
+    const { LEVEL_UNITS, RECIPE_BY_ID } = await import("@/domain/catalog");
+    const { GRANNY_GIFT, VIRAL } = await import("@/domain/guests");
+    // rng 0.05: the first arrival is a shipper (one at a time), then the TikToker, then the granny.
+    const { game } = makeGame({ rng: () => 0.05 });
+    game.newGame();
+    Object.assign(game.save, { day: 4, tutorialDone: true, plan: null, reputation: 40 });
+    game.save.inventory.top_boba = 10;
+    game.openShop();
+    const s = game.session;
+    const brew = (id: number) => {
+      const o = s.customers.find((c) => c.data.id === id)!.data.order;
+      const r = RECIPE_BY_ID[o.recipeId];
+      s.tapCustomer(id);
+      s.takeCup(o.size);
+      s.startPour(r.tea);
+      run(game, () => s.cup!.tea[r.tea] >= r.teaRatio - 0.02);
+      s.stopPour();
+      if (r.milkRatio > 0) {
+        s.startPour("milk");
+        run(game, () => s.cup!.milk + s.cup!.tea[r.tea] >= 0.99);
+        s.stopPour();
+      }
+      for (let i = 0; i < LEVEL_UNITS[o.sugar]; i++) s.pumpSugar();
+      for (let i = 0; i < LEVEL_UNITS[o.ice]; i++) s.scoopIce();
+      if (r.topping) s.addTopping(r.topping);
+      s.sealCup();
+      run(game, () => !!s.cup?.sealed);
+      s.deliver(id);
+    };
+    const seen = new Set<string>();
+    for (let k = 0; k < 2; k++) {
+      run(game, () => s.customers.some((c) => c.data.state === "ordering" && (c.data.archetype === "granny" || c.data.archetype === "tiktoker") && !seen.has(c.data.archetype)), 900);
+      const g = s.customers.find((c) => c.data.state === "ordering" && !seen.has(c.data.archetype) && (c.data.archetype === "granny" || c.data.archetype === "tiktoker"));
+      if (!g) break;
+      seen.add(g.data.archetype);
+      const rep = game.save.reputation;
+      const boba = game.save.inventory.top_boba;
+      brew(g.data.id);
+      if (g.data.archetype === "granny") {
+        expect(game.save.inventory.top_boba).toBeGreaterThanOrEqual(boba + GRANNY_GIFT.amount - 1);
+        expect(game.save.reputation).toBeGreaterThan(rep);
+      } else {
+        expect(s.mod("spawnMul")).toBe(VIRAL.spawnMul);
+        expect(game.save.reputation).toBeGreaterThanOrEqual(rep + VIRAL.reputation);
+      }
+    }
+    expect([...seen].sort()).toEqual(["granny", "tiktoker"]);
+  });
+
   it("rejects actions without a cup and reports them", () => {
     const { game } = makeGame();
     game.newGame();

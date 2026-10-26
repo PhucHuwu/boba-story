@@ -151,6 +151,8 @@ export const ARCHETYPES: Record<ArchetypeId, ArchetypeDef> = {
   regular: { id: "regular", name: "Mèo Mochi (khách quen)", decay: 100 / 90, tolerance: 1, tipMul: 1.3, minReputation: 0 },
   picky: { id: "picky", name: "Mèo tiểu thư khó tính", decay: 100 / 65, tolerance: 0.6, tipMul: 2, minReputation: 25 },
   shipper: { id: "shipper", name: "Mèo shipper", decay: 100 / 110, tolerance: 1.1, tipMul: 0, minReputation: 0 },
+  granny: { id: "granny", name: "Bà cụ hàng xóm", decay: 100 / 160, tolerance: 1.3, tipMul: 0.5, minReputation: 0 },
+  tiktoker: { id: "tiktoker", name: "Mèo TikToker", decay: 100 / 45, tolerance: 0.8, tipMul: 1.5, minReputation: 0 },
 };
 
 export const REGULAR_FAVORITE = "boba";
@@ -170,6 +172,8 @@ export const FALLBACK_LINES: Record<ArchetypeId, string[]> = {
   regular: REGULAR_LINES,
   picky: ["Hy vọng lần này đúng công thức nhé.", "Ta rất kỹ tính về tỷ lệ trà và sữa đấy.", "Đừng làm ta thất vọng, chủ quán nhỏ."],
   shipper: ["Đơn app nè chủ quán, làm giúp em mấy ly nha!", "Khách đặt qua app, em chờ lấy hàng nhé.", "Shipper tới lấy đơn đây, meo!"],
+  granny: ["Bà ở ngay đầu hẻm nè con. Làm cho bà ly ít ngọt nha.", "Chậm chậm thôi con, bà không vội đâu.", "Hồi trẻ bà cũng mở quán nước đó, con làm đi bà coi."],
+  tiktoker: ["Hello cả nhà! Hôm nay mình review quán trà sữa mèo nè!", "Đang live nha chủ quán, làm ly nào thật xịn!", "Quán này có lên xu hướng được không ta? Làm đi mình quay!"],
 };
 
 export interface QuestDef {

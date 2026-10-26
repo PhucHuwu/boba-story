@@ -92,14 +92,14 @@ export function createOrder({ rng, save, archetype, id, makeable, iceLevels }: O
   const pool = makeable.length ? makeable : save.unlockedRecipes;
   let recipeId = pick(rng, pool);
   if (archetype === "regular" && pool.includes(REGULAR_FAVORITE)) recipeId = REGULAR_FAVORITE;
-  if (archetype === "student") {
+  if (archetype === "student" || archetype === "tiktoker") {
     const withTopping = pool.filter((r) => RECIPE_BY_ID[r].topping);
     if (withTopping.length && rng() < 0.7) recipeId = pick(rng, withTopping);
   }
   const easy = save.day <= 1 && !save.tutorialDone;
-  const size: Size = easy ? "M" : rng() < 0.3 ? "L" : "M";
-  const sugar: Level = easy ? 50 : archetype === "picky" ? pick(rng, LEVELS) : pick(rng, [50, 50, 100, 0] as Level[]);
-  const ice: Level = easy ? 50 : archetype === "picky" ? pick(rng, LEVELS) : pick(rng, iceLevels ?? ([50, 100, 100, 0] as Level[]));
+  const size: Size = easy || archetype === "granny" ? "M" : archetype === "tiktoker" || rng() < 0.3 ? "L" : "M";
+  const sugar: Level = easy ? 50 : archetype === "granny" ? pick(rng, [0, 50] as Level[]) : archetype === "picky" ? pick(rng, LEVELS) : pick(rng, [50, 50, 100, 0] as Level[]);
+  const ice: Level = easy ? 50 : archetype === "granny" ? pick(rng, [0, 50] as Level[]) : archetype === "picky" ? pick(rng, LEVELS) : pick(rng, iceLevels ?? ([50, 100, 100, 0] as Level[]));
   return { id, recipeId, size, sugar, ice };
 }
 

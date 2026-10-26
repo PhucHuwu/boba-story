@@ -9,7 +9,8 @@ import {
   unlockRecipe,
   type ShopResult,
 } from "@/domain/economy";
-import { dayProfit, emptyDayStats, recordLost, recordServe, type ServeRecord } from "@/domain/ledger";
+import { receiveGift } from "@/domain/guests";
+import { adjustReputation, dayProfit, emptyDayStats, recordLost, recordServe, type ServeRecord } from "@/domain/ledger";
 import { isBankrupt, loanOffer, repayLoan, resolveNight, takeLoan, withdraw, type NightReport } from "@/domain/night";
 import { addReview, shopRating } from "@/domain/reviews";
 import { FAKE_REVIEW_TEXTS, RIVAL_EVENTS } from "@/domain/rivalEvents";
@@ -246,6 +247,17 @@ export class GameController extends Observable implements ShopHost {
     this.checkQuests();
     this.changed();
     return id;
+  }
+
+  adjustReputation(delta: number) {
+    adjustReputation(this.save, delta);
+    this.changed();
+  }
+
+  gift(id: IngredientId, amount: number): number {
+    const added = receiveGift(this.save.inventory, id, amount);
+    this.changed();
+    return added;
   }
 
   reviseReview(id: number, text: string) {

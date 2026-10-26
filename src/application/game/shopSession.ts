@@ -14,6 +14,7 @@ import {
 } from "@/domain/customers";
 import { COMBO_QUALITY, CRITIC_CHANCE, CRITIC_FROM_DAY, WEATHER, comboTipBonus } from "@/domain/dayPlan";
 import { SHIPPER_BRANDS, SHIPPER_CHANCE, SHIPPER_FROM_DAY, createDelivery, splitCommission } from "@/domain/delivery";
+import { GRANNY_GIFT, GRANNY_HAPPY_QUALITY, TIKTOKER_WALKOUT_REPUTATION, pickGuest, tiktokerVerdict, type GuestId } from "@/domain/guests";
 import { LEAVE_REPUTATION_PENALTY, canMake, payment } from "@/domain/economy";
 import type { ServeRecord } from "@/domain/ledger";
 import { evaluate, grade } from "@/domain/quality";
@@ -106,6 +107,10 @@ export interface ShopHost {
   /** Stores a customer review; returns its id so an AI rewrite can replace the text later. */
   reviewed(review: ReviewDraft): number;
   reviseReview(id: number, text: string): void;
+  /** Special guests: reputation swing outside a normal sale. */
+  adjustReputation(delta: number): void;
+  /** Adds a gift to the stock (capped); returns how much was added. */
+  gift(id: IngredientId, amount: number): number;
   /** The rival strikes: the host shows the choice and later calls `applyEffects`. */
   rivalStrikes(id: RivalEventId): void;
   tutorialCompleted(): void;
@@ -142,6 +147,8 @@ export class ShopSession {
   private spawnTimer = 0;
   private sealTimer = 0;
   private regularServedToday = false;
+  /** Special guests who already came today (each visits at most once a day). */
+  private guestsSeen: GuestId[] = [];
 
   constructor(
     private readonly host: ShopHost,
@@ -166,6 +173,7 @@ export class ShopSession {
     this.closing = false;
     this.hint = null;
     this.regularServedToday = false;
+    this.guestsSeen = [];
     this.combo = 0;
     this.trash = [];
     this.rivalFired = false;
@@ -334,10 +342,14 @@ export class ShopSession {
     const slot = free[Math.floor(rng() * free.length)];
     const id = this.nextId++;
     const shipper = this.wantsShipper();
+    const guest = this.tutorial || shipper ? null : pickGuest(rng, this.save.day, this.save.reputation, this.guestsSeen);
+    if (guest) this.guestsSeen.push(guest);
     const archetype: ArchetypeId = this.tutorial
       ? "regular"
       : shipper
         ? "shipper"
+        : guest
+          ? guest
         : chooseArchetype(rng, this.save, this.regularServedToday, this.customers.map((c) => c.data.archetype));
     const makeable = this.save.unlockedRecipes.filter((r) => canMake(this.save, r));
     const order = this.tutorial ? { id, ...TUTORIAL_ORDER } : createOrder({ rng, save: this.save, archetype, id, makeable, iceLevels: this.weather.ice });
@@ -356,6 +368,10 @@ export class ShopSession {
       customer.data.delivery = createDelivery(brand, orders);
       customer.data.line = `${SHIPPER_BRANDS[brand].name} tới lấy đơn ${count} ly nè chủ quán!`;
       this.host.notify(`Mèo shipper ${SHIPPER_BRANDS[brand].name} đến lấy đơn ${count} ly. App giữ 20% tiền mỗi ly.`, "info");
+    } else if (guest === "granny") {
+      this.host.notify("Bà cụ hàng xóm ghé quán. Bà không vội, làm ít ngọt ít đá nha.", "info");
+    } else if (guest === "tiktoker") {
+      this.host.notify("Mèo TikToker đang livestream! Ly ngon sẽ lên xu hướng, ly dở sẽ bị chê trước cả nghìn người.", "info");
     } else if (!this.tutorial && archetype !== "regular" && this.save.day >= CRITIC_FROM_DAY && rng() < CRITIC_CHANCE) {
       customer.data.critic = true;
       customer.data.line = "Tôi là food reviewer. Hãy cho tôi thấy quán có gì đặc biệt.";
@@ -384,6 +400,10 @@ export class ShopSession {
     this.setMood(c, "sad");
     this.say(c, "Lâu quá... tớ đi đây.");
     this.host.lost(this.save.settings.relaxed ? 0 : LEAVE_REPUTATION_PENALTY);
+    if (c.data.archetype === "tiktoker" && !this.save.settings.relaxed) {
+      this.host.adjustReputation(TIKTOKER_WALKOUT_REPUTATION);
+      this.host.notify("Mèo TikToker bỏ về và đăng video chê quán chậm. Danh tiếng giảm!", "bad");
+    }
     this.host.notify(`${ARCHETYPES[c.data.archetype].name} đã bỏ về vì chờ quá lâu`, "bad");
     this.breakCombo();
     this.review(c, null);
@@ -555,9 +575,35 @@ export class ShopSession {
     this.events.emit({ type: "served", id: d.id, info: { quality: result.quality, stars: g.stars, label: g.label, price: pay.price, tip: pay.tip, happy } });
     this.say(c, happy ? "Ngon quá! Cảm ơn nha~ meo!" : result.notes[0] ? `Hmm... ${result.notes[0].toLowerCase()}.` : "Hmm... chưa đúng ý lắm.");
     void this.enrichLine(c, happy ? "happy" : "sad");
+    if (d.archetype === "granny" || d.archetype === "tiktoker") this.guestReaction(c, result.quality, result.wrongDrink);
     if (!happy && result.notes.length) this.host.notify(`Góp ý: ${result.notes.slice(0, 3).join(", ")}`, "info");
     if (!this.tutorial) this.review(c, delivery ? delivery.qualitySum / delivery.orders.length : result.quality);
     if (this.selectedId === d.id) this.selectNext();
+  }
+
+  /** Granny thanks you with a gift; the TikToker posts a video that helps or hurts. */
+  private guestReaction(c: ShopCustomer, quality: number, wrongDrink: boolean) {
+    if (c.data.archetype === "granny") {
+      if (wrongDrink || quality < GRANNY_HAPPY_QUALITY) return;
+      const added = this.host.gift(GRANNY_GIFT.ingredient, GRANNY_GIFT.amount);
+      this.host.adjustReputation(GRANNY_GIFT.reputation);
+      this.say(c, "Ngon lắm con. Bà có hũ trân châu tự nấu, cho con nè!");
+      this.host.notify(added > 0 ? `Bà cụ tặng ${added} phần trân châu và kể về quán với hàng xóm (+${GRANNY_GIFT.reputation} danh tiếng).` : `Bà cụ khen quán với hàng xóm (+${GRANNY_GIFT.reputation} danh tiếng). Kho trân châu đã đầy nên bà mang quà về.`, "good");
+      return;
+    }
+    const v = tiktokerVerdict(quality, wrongDrink);
+    if (v.kind === "viral") {
+      this.host.adjustReputation(v.reputation);
+      this.applyEffects([{ kind: "spawnMul", value: v.spawnMul, duration: v.duration }]);
+      this.say(c, "Đỉnh nóc kịch trần! Lên xu hướng liền!");
+      this.host.notify(`Video của mèo TikToker lên xu hướng! +${v.reputation} danh tiếng, khách kéo tới đông hơn một lúc.`, "good");
+    } else if (v.kind === "flop") {
+      this.host.adjustReputation(v.reputation);
+      this.say(c, "Ơ... cả nhà ơi, quán này hơi phèn nha.");
+      this.host.notify(`Mèo TikToker đăng video chê quán. ${v.reputation} danh tiếng.`, "bad");
+    } else {
+      this.host.notify("Mèo TikToker đăng video bình thường, không ai để ý lắm.", "info");
+    }
   }
 
   /** A shipper got one cup of several: show it, then switch their ticket to the next cup. */

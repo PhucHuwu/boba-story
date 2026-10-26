@@ -5,7 +5,7 @@ import { REVIEW_KEEP } from "./reviews";
 const WEATHERS: WeatherId[] = ["sunny", "hot", "rainy", "cloudy", "festival"];
 const GOALS: GoalKind[] = ["served", "perfect", "noLost", "avgStars", "combo"];
 const RIVALS: RivalEventId[] = ["discount", "trash", "fakeReviews", "powerCut", "karaoke"];
-const ARCHS = ["student", "office", "regular", "picky", "shipper"] as const;
+const ARCHS = ["student", "office", "regular", "picky", "shipper", "granny", "tiktoker"] as const;
 
 function parseReviews(v: unknown): Review[] {
   if (!Array.isArray(v)) return [];

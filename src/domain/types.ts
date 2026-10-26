@@ -4,7 +4,7 @@ export type IngredientId = TeaId | ToppingId | "milk" | "sugar" | "ice" | "cup" 
 export type Size = "M" | "L";
 /** Sugar / ice level requested by the customer, in percent. */
 export type Level = 0 | 50 | 100;
-export type ArchetypeId = "student" | "office" | "regular" | "picky" | "shipper";
+export type ArchetypeId = "student" | "office" | "regular" | "picky" | "shipper" | "granny" | "tiktoker";
 export type ShipperBrand = "grab" | "bee" | "food";
 export type Mood = "idle" | "happy" | "sad" | "impatient";
 

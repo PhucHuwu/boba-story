@@ -50,6 +50,8 @@ const ARCHETYPE_FLAVOR: Record<ArchetypeId, string[]> = {
   regular: ["Mochi luôn ủng hộ quán nè!", "Như mọi khi, cảm giác như nhà."],
   picky: ["Ta đã thử 47 quán trong thành phố.", "Ly nhựa hơi kém sang, nhưng thôi."],
   shipper: ["Khách trên app khen đóng gói gọn gàng.", "Lấy đơn nhanh, shipper vui."],
+  granny: ["Bà uống vừa miệng, mai bà dắt mấy bà bạn tới.", "Ngọt dịu như hồi xưa, bà thương."],
+  tiktoker: ["Video lên xu hướng rồi nha cả nhà!", "Ly này lên hình đẹp xỉu."],
 };
 
 /** Unfair / petty comments: these happen even when the drink was good. */

@@ -72,3 +72,8 @@ export function dayProfit(day: DayStats): number {
 }
 
 const clampRep = (v: number) => Math.max(0, Math.min(100, v));
+
+/** Reputation change outside a sale (special guests). */
+export function adjustReputation(save: SaveData, delta: number) {
+  save.reputation = clampRep(save.reputation + delta);
+}
