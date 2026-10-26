@@ -4,10 +4,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
+import { assetPath } from "./asset-paths.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const RAW_DIR = path.join(ROOT, "art-src");
 const OUT_DIR = path.join(ROOT, "public", "assets");
+const rawPath = (key) => path.join(RAW_DIR, `${assetPath(key)}.png`);
+const outPath = (key) => path.join(OUT_DIR, `${assetPath(key)}.webp`);
 
 function loadEnv() {
   const file = path.join(ROOT, ".env.local");
@@ -300,7 +303,7 @@ for (const a of ASSETS) a.tier ??= TIER2.test(a.key) ? 2 : 1;
 
 function refDataUrl(asset) {
   if (!asset.ref) return null;
-  const b64 = fs.readFileSync(path.join(RAW_DIR, `${asset.ref}.png`)).toString("base64");
+  const b64 = fs.readFileSync(rawPath(asset.ref)).toString("base64");
   return `data:image/png;base64,${b64}`;
 }
 
@@ -425,8 +428,10 @@ async function removeBackground(buf) {
 }
 
 async function processAsset(asset, force, reprocess = false) {
-  const rawFile = path.join(RAW_DIR, `${asset.key}.png`);
-  const outFile = path.join(OUT_DIR, `${asset.key}.webp`);
+  const rawFile = rawPath(asset.key);
+  const outFile = outPath(asset.key);
+  fs.mkdirSync(path.dirname(rawFile), { recursive: true });
+  fs.mkdirSync(path.dirname(outFile), { recursive: true });
   if (reprocess) {
     if (!fs.existsSync(rawFile)) return "skip";
   } else if (!force && fs.existsSync(outFile)) return "skip";
@@ -461,7 +466,7 @@ async function main() {
     return;
   }
   if (args.includes("--list")) {
-    for (const a of list) if (!fs.existsSync(path.join(OUT_DIR, `${a.key}.webp`))) console.log(`tier${a.tier} ${a.key}`);
+    for (const a of list) if (!fs.existsSync(outPath(a.key))) console.log(`tier${a.tier} ${a.key}`);
     return;
   }
 
@@ -477,7 +482,7 @@ async function main() {
     const workers = Array.from({ length: 3 }, async () => {
       while (queue.length && !outOfQuota) {
         const a = queue.shift();
-        if (a.ref && !fs.existsSync(path.join(RAW_DIR, `${a.ref}.png`))) {
+        if (a.ref && !fs.existsSync(rawPath(a.ref))) {
           console.log(`… ${a.key}: waiting for ${a.ref}`);
           continue;
         }
@@ -498,10 +503,10 @@ async function main() {
   fs.writeFileSync(
     path.join(ROOT, "src", "presentation", "game", "assetManifest.json"),
     JSON.stringify(
-      ASSETS.map((a) => a.key).filter((k) => fs.existsSync(path.join(OUT_DIR, `${k}.webp`))),
+      Object.fromEntries(ASSETS.map((a) => a.key).filter((k) => fs.existsSync(outPath(k))).map((k) => [k, `${assetPath(k)}.webp`])),
       null,
       2,
-    ),
+    ) + "\n",
   );
   if (failed.length) {
     console.error(`Failed: ${failed.join(", ")}`);

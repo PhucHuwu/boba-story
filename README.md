@@ -30,7 +30,7 @@ npm run dev                  # http://localhost:3000
 | `npm run dev` / `build` / `start` | Next.js |
 | `npm run check` | typecheck + lint (kể cả luật phân lớp) + test |
 | `npm test` | Vitest (domain, application, layout) |
-| `npm run gen:assets [-- --force] [key...]` | Sinh ảnh game qua AI proxy → `public/assets/*.webp` (prompt nằm trong `scripts/gen-assets.mjs`) |
+| `npm run gen:assets [-- --force] [key...]` | Sinh ảnh game qua AI proxy → `public/assets/<nhóm>/*.webp` (prompt nằm trong `scripts/gen-assets.mjs`) |
 | `node scripts/asset-status.mjs` | Đếm ảnh đã có so với checklist [`ASSETS.md`](ASSETS.md) |
 
 ## Biến môi trường

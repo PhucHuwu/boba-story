@@ -4,14 +4,14 @@ import { useEffect, type ReactNode } from "react";
 import manifest from "../game/assetManifest.json";
 import { useGame } from "./useGame";
 
-/** Image paths for UI icons (same webp assets the scene uses). */
-export const asset = (key: string) => `/assets/${key}.webp`;
+const PATHS: Record<string, string> = manifest;
 
-const HAVE = new Set(manifest as string[]);
+/** URL of a generated image by key (same webp files the scene uses). */
+export const asset = (key: string) => `/assets/${PATHS[key] ?? `${key}.webp`}`;
 
 /** Game-art icon. Renders the first available asset key, or nothing when none has been generated yet. */
 export function Icon({ name, className = "h-[1.3em] w-[1.3em]", alt = "" }: { name: string | string[]; className?: string; alt?: string }) {
-  const key = (Array.isArray(name) ? name : [name]).find((k) => HAVE.has(k));
+  const key = (Array.isArray(name) ? name : [name]).find((k) => k in PATHS);
   if (!key) return null;
   // eslint-disable-next-line @next/next/no-img-element
   return <img src={asset(key)} alt={alt} draggable={false} className={`inline-block shrink-0 object-contain align-middle ${className}`} />;

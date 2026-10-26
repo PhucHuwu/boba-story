@@ -3,10 +3,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { assetPath } from "./asset-paths.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const FILE = path.join(ROOT, "ASSETS.md");
-const has = (key) => fs.existsSync(path.join(ROOT, "public", "assets", `${key}.webp`));
+const has = (key) => fs.existsSync(path.join(ROOT, "public", "assets", `${assetPath(key)}.webp`));
 
 let section = "";
 const missing = new Map();

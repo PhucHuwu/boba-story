@@ -1,6 +1,23 @@
 # Checklist ảnh AI
 
-Mỗi ảnh là một file `public/assets/<key>.webp`. Cập nhật dấu tick tự động bằng:
+Mỗi ảnh là một file `public/assets/<thư mục>/<key>.webp` (ảnh gốc chưa tách nền ở `art-src/` cùng cấu trúc). Thư mục được chọn theo tên ảnh, quy tắc nằm trong `scripts/asset-paths.mjs`:
+
+| Thư mục | Ảnh |
+| --- | --- |
+| `scene/` | `bg_room`, `counter_front`, `worktop` |
+| `stations/` | trà, sữa, đường, đá, topping, `cup_stack`, `sealer`, `trash` |
+| `characters/customers/` | `cat_*` |
+| `characters/shippers/` | `shipper_*` |
+| `characters/npc/` | `npc_*`, `robber`, `rival_dog` |
+| `drinks/` | `drink_*` |
+| `upgrades/` | `upg_*` |
+| `events/` | `rival_*` (cảnh phá quán), `trash_*` (rác trên sàn) |
+| `icons/` | `icon_*`, `coin`, `star` |
+| `brand/` | `logo`, `app_icon` |
+
+Code luôn gọi ảnh bằng key (không kèm thư mục); `assetManifest.json` ánh xạ key → đường dẫn.
+
+Cập nhật dấu tick tự động bằng:
 
 ```bash
 node scripts/asset-status.mjs
@@ -118,7 +135,7 @@ Hiện các chỗ này đang **trống** hoặc dùng ảnh thay thế. Gen xong
 - [x] `icon_home`: nút về menu chính
 - [x] `icon_pause`: nút tạm dừng
 - [x] `icon_close`: nút đóng cửa sổ
-- [x] `app_icon`: favicon và icon "Thêm vào màn hình chính" (hiện vẫn là logo mặc định của Next.js)
+- [x] `app_icon`: favicon và icon "Thêm vào màn hình chính"
 
 ## 4. NPC mới đã đề xuất (chưa code, chưa có prompt)
 

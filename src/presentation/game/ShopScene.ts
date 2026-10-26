@@ -110,7 +110,7 @@ export class ShopScene extends Phaser.Scene {
 
   preload() {
     this.load.on("progress", (p: number) => this.ctl.setLoadProgress(p * 0.99));
-    for (const key of manifest as string[]) this.load.image(key, `/assets/${key}.webp`);
+    for (const [key, file] of Object.entries(manifest as Record<string, string>)) this.load.image(key, `/assets/${file}`);
   }
 
   create() {

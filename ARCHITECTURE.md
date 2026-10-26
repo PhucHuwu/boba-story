@@ -60,5 +60,6 @@ src/
 - **New morning visitor** → `MorningVisitor` + `pickVisitor` in `domain/visitors.ts`, an action on `GameController`,
   and a branch in `VisitorCard` (`presentation/ui/features.tsx`).
 - **New art** → prompt in `scripts/gen-assets.mjs`, a `- [ ]` line in `ASSETS.md`, then `npm run gen:assets -- <key>`
-  (the manifest `presentation/game/assetManifest.json` is regenerated; `Icon` renders nothing for missing art).
+  (the file lands in the folder chosen by `scripts/asset-paths.mjs`; the manifest `presentation/game/assetManifest.json`,
+  key → path, is regenerated; code refers to art by key only; `Icon` renders nothing for missing art).
 - **New screen size** → add a `Layout` to `LAYOUTS` and extend `pickLayoutKind`; `layout.test.ts` checks bounds.
