@@ -13,6 +13,7 @@ const RULES = [
   [/^(cup_.*|liquid_.*|piece_.*|scoop_.*|pour_.*|fx_.*|gauge_.*)$/, "brewing"],
   [/^ui_/, "ui"],
   [/^(logo|app_icon)$/, "brand"],
+  [/^landing_/, "landing"],
 ];
 
 export function assetFolder(key) {

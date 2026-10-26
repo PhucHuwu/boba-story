@@ -63,7 +63,7 @@ const MOODS = {
   impatient: "impatient annoyed expression, furrowed brows, one paw tapping or looking at wrist, small frown",
 };
 
-/** @type {{key:string,prompt:string,aspect:string,kind:'bg'|'sprite'|'glass',max:number,ref?:string}[]} */
+/** @type {{key:string,prompt:string,aspect:string,kind:'bg'|'sprite'|'glass',max:number,ref?:string,cover?:[number,number]}[]} */
 const ASSETS = [
   {
     key: "bg_room",
@@ -356,6 +356,44 @@ ASSETS.push(
   ]),
 );
 
+// Tier 6 (ASSETS.md section 6): landing page art. Full-bleed illustrations, so no background removal.
+const SHOP_CATS =
+  "two-legged anthropomorphic cat customers standing upright like people: an orange tabby student with a backpack, a grey tabby office worker with glasses, a calico in a pink cardigan and beret, an elegant white Persian with a pearl necklace, a grey cat grandma with spectacles and a cane, a Siamese influencer holding a phone";
+ASSETS.push(
+  ...tier(6, [
+    {
+      key: "landing_hero_wide",
+      kind: "bg",
+      aspect: "16:9",
+      max: 1920,
+      prompt: `${STYLE} Wide cinematic key art illustration for a cozy boba tea shop game. Seen from behind the wooden shop counter: a cheerful little Vietnamese boba milk tea shop at golden afternoon, warm string lights, hanging plants, pastel walls, a big window with a quiet leafy street outside (no people, no humans anywhere). On the counter in the foreground sit several colorful boba milk tea cups with tapioca pearls and straws. On the customer side, a happy queue of ${SHOP_CATS}. Keep the left third of the image calmer and softer (wall and window) so a title can be placed there. No readable text, no letters, no logos.`,
+    },
+    {
+      key: "landing_hero_tall",
+      kind: "bg",
+      aspect: "9:16",
+      max: 1376,
+      prompt: `${STYLE} Vertical key art illustration for a cozy boba tea shop game, phone wallpaper layout. A cheerful little Vietnamese boba milk tea shop with warm string lights, hanging plants and pastel walls, seen from behind the wooden counter. In the lower half, three happy two-legged anthropomorphic cats standing upright like people (an orange tabby student with a backpack, a calico in a pink cardigan and beret, a Siamese holding a phone) lean on the counter next to colorful boba milk tea cups. The top third is calm soft wall and string lights with plenty of empty space for a title. No readable text, no letters, no logos.`,
+    },
+    {
+      key: "landing_og",
+      kind: "bg",
+      aspect: "16:9",
+      max: 1200,
+      cover: [1200, 630],
+      prompt: `${STYLE} Social media banner illustration for a cozy boba tea shop game. Centered composition: a cute orange tabby cat barista in a cream apron standing upright on two legs behind a wooden counter, proudly holding up a big boba milk tea cup with a straw, surrounded by a few colorful drink cups, warm string lights and hanging plants behind, soft warm pastel background. Keep all important content inside the middle area, away from the top and bottom edges. No readable text, no letters, no logos.`,
+    },
+    {
+      key: "landing_group",
+      // Kept on its white background: the cut-out ate the white Persian's fur. The page blends it with multiply.
+      kind: "bg",
+      aspect: "16:9",
+      max: 960,
+      prompt: `${STYLE} A friendly group portrait of ${SHOP_CATS}, all standing side by side and waving happily, each holding a boba milk tea cup, whole bodies including feet visible. Isolated on a perfectly plain pure white background, no shadow, no ground, no text.`,
+    },
+  ]),
+);
+
 // Tier 2 (ASSETS.md section 2): spots already wired in the UI.
 const TIER2 = /^(icon_discount|icon_wrench|icon_bankrupt|trash_.*|robber|rival_.*)$/;
 for (const a of ASSETS) a.tier ??= TIER2.test(a.key) ? 2 : 1;
@@ -520,7 +558,11 @@ async function processAsset(asset, force, reprocess = false) {
     pipeline = sharp(rawFile);
   }
   await pipeline
-    .resize({ width: asset.max, height: asset.max, fit: "inside", withoutEnlargement: true })
+    .resize(
+      asset.cover
+        ? { width: asset.cover[0], height: asset.cover[1], fit: "cover" }
+        : { width: asset.max, height: asset.max, fit: "inside", withoutEnlargement: true },
+    )
     .webp({ quality: asset.kind === "bg" ? 82 : 88, alphaQuality: 90 })
     .toFile(outFile);
   return "ok";

@@ -142,5 +142,9 @@
   "shaker_shake": "stations/shaker_shake.webp",
   "ui_card": "ui/ui_card.webp",
   "ui_bubble": "ui/ui_bubble.webp",
-  "ui_ticket": "ui/ui_ticket.webp"
+  "ui_ticket": "ui/ui_ticket.webp",
+  "landing_hero_wide": "landing/landing_hero_wide.webp",
+  "landing_hero_tall": "landing/landing_hero_tall.webp",
+  "landing_og": "landing/landing_og.webp",
+  "landing_group": "landing/landing_group.webp"
 }

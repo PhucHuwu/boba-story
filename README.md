@@ -22,8 +22,10 @@ Con số chi tiết: [`GDD.md` mục 17](GDD.md).
 ```bash
 npm install
 cp .env.example .env.local   # điền giá trị (tất cả đều tùy chọn)
-npm run dev                  # http://localhost:3000
+npm run dev                  # http://localhost:3000 (trang chủ), /play (game)
 ```
+
+Trang chủ ở `/` giới thiệu game, dàn khách mèo, thông báo mới nhất, form góp ý và câu hỏi thường gặp; game nằm ở `/play`. Ảnh trang chủ (`landing_*`) sinh bằng `npm run gen:assets`; ảnh chia sẻ mạng xã hội là `src/app/opengraph-image.jpg` (cắt 1200x630 từ `art-src/landing/landing_og.png`).
 
 | Lệnh | Mô tả |
 | --- | --- |

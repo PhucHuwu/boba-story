@@ -14,6 +14,7 @@ Mỗi ảnh là một file `public/assets/<thư mục>/<key>.webp` (ảnh gốc 
 | `events/` | `rival_*` (cảnh phá quán), `trash_*` (rác trên sàn) |
 | `icons/` | `icon_*`, `coin`, `star` |
 | `brand/` | `logo`, `app_icon` |
+| `landing/` | `landing_*` (ảnh trang chủ) |
 
 Code luôn gọi ảnh bằng key (không kèm thư mục); `assetManifest.json` ánh xạ key → đường dẫn.
 
@@ -225,3 +226,9 @@ Chỉ gen nhóm này sau khi chốt kế hoạch NPC.
 - [x] `ui_card`: phiếu gọi món trên đầu mèo
 - [x] `ui_bubble`: bóng thoại
 - [x] `ui_ticket`: tờ phiếu đơn đang làm
+
+## 6. Trang chủ (có prompt)
+- [x] `landing_hero_wide`: ảnh bìa ngang cho máy tính / iPad ngang (16:9)
+- [x] `landing_hero_tall`: ảnh bìa dọc cho điện thoại / iPad dọc (9:16)
+- [x] `landing_og`: ảnh chia sẻ mạng xã hội 1200x630
+- [x] `landing_group`: nhóm khách mèo vẫy tay (giữ nền trắng, trang hoà nền bằng multiply), dùng ở chân trang

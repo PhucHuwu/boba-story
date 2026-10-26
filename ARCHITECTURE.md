@@ -26,11 +26,14 @@ src/
     game/            Phaser "humble view": ShopScene renders session state and forwards input as commands.
                      layout.ts holds per-form-factor positions (phone / tabletPortrait / landscape).
     ui/              React overlays (HUD, menus, modals) reading GameController via useGame().
+    landing/         Public home page at `/` (hero, cat cast, latest announcement, feedback form, FAQ).
+                     Server-rendered markup with small client islands (play button, mood toggle, form).
   composition/     Composition roots — the only place concrete adapters are chosen.
-    client.ts        getGame(): GameController wired with browser adapters.
+    client.ts        getGame(): GameController wired with browser adapters; landing helpers
+                     (localSaveSummary(), landingCommunity) so the home page needs no game controller.
     server.ts        serverServices(): server use cases wired with Upstash + AI adapters; isAdminRequest().
     http.ts          Route helpers: small JSON body parsing, ServiceResult → Response, admin-key guard.
-  app/             Next.js App Router: page + thin route handlers (`/api/save`, `/api/dialogue`, `/api/health`,
+  app/             Next.js App Router: `/` landing page, `/play` game, OG/Twitter images, thin route handlers (`/api/save`, `/api/dialogue`, `/api/health`,
                    `/api/feedback`, `/api/telemetry`, `/api/announcement`, `/api/admin/*`).
 admin/             Separate Next.js app (own package.json, own Vercel project `boba-story-admin`).
                    Not part of the layers above: it only calls the game's `/api/admin/*` over HTTP.
@@ -42,11 +45,13 @@ admin/             Separate Next.js app (own package.json, own Vercel project `b
 | `application` | `domain` |
 | `infrastructure` | `application` (ports), `domain`, external SDKs |
 | `presentation/game` | `application`, `domain`, Phaser |
-| `presentation/ui`, `composition`, `app` | anything inward |
+| `presentation/ui`, `presentation/landing`, `composition`, `app` | anything inward |
 
 ## Runtime flow
 
-1. `app/page.tsx` renders `GameApp` (client). It picks a layout from the viewport (`pickLayoutKind`), sizes
+1. `app/page.tsx` is the landing page; its "Chơi ngay" / "Chơi tiếp · Ngày N" button reads the local save
+   and links to `/play`. Both pages share the same origin, so saves in localStorage carry over.
+   `app/play/page.tsx` renders `GameApp` (client). It picks a layout from the viewport (`pickLayoutKind`), sizes
    the stage box to that layout's aspect ratio and mounts Phaser (`Scale.FIT`) plus React overlays in the
    same box, so overlay `%` positions line up with canvas coordinates. Rotating swaps layouts and remounts
    the scene; the session lives in `GameController`, so the day continues (auto-paused).

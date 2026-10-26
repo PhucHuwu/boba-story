@@ -36,6 +36,20 @@ body {
   touch-action: manipulation;
 }
 
+/* The landing page scrolls the document; the game (/play) keeps the locked viewport above. */
+html:has(.landing),
+html:has(.landing) body {
+  height: auto;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: auto;
+  background: var(--cream);
+  -webkit-user-select: text;
+  user-select: text;
+  scroll-behavior: smooth;
+}
+
 canvas {
   display: block;
   touch-action: none;

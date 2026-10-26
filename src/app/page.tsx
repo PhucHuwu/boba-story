@@ -1,5 +1,5 @@
-import GameApp from "@/presentation/ui/GameApp";
+import Landing from "@/presentation/landing/Landing";
 
 export default function Home() {
-  return <GameApp />;
+  return <Landing />;
 }

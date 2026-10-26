@@ -7,9 +7,15 @@ const baloo = Baloo_2({
   subsets: ["latin", "vietnamese"],
 });
 
+const TITLE = "Boba Story — Quán trà sữa của những chú mèo";
+const DESCRIPTION = "Game pha chế trà sữa cozy: tự tay pha từng ly cho những vị khách mèo đáng yêu. Miễn phí, chơi ngay trên điện thoại, iPad và máy tính.";
+
 export const metadata: Metadata = {
-  title: "Boba Story — Quán trà sữa của những chú mèo",
-  description: "Game pha chế trà sữa cozy: tự tay pha từng ly cho những vị khách mèo đáng yêu.",
+  metadataBase: new URL("https://boba-story.vercel.app"),
+  title: { default: TITLE, template: "%s · Boba Story" },
+  description: DESCRIPTION,
+  openGraph: { type: "website", siteName: "Boba Story", locale: "vi_VN", title: TITLE, description: DESCRIPTION, url: "/" },
+  twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION },
   applicationName: "Boba Story",
   appleWebApp: { capable: true, title: "Boba Story", statusBarStyle: "black-translucent" },
 };
