@@ -115,6 +115,9 @@ Hiện các chỗ này đang **trống** hoặc dùng ảnh thay thế. Gen xong
 - [x] `icon_quests`: nút Nhiệm vụ, popup nhiệm vụ
 - [x] `icon_reviews`: nút Đánh giá
 - [x] `icon_rent`: tiền mặt bằng (màn đêm/sáng)
+- [x] `icon_home`: nút về menu chính
+- [x] `icon_pause`: nút tạm dừng
+- [x] `icon_close`: nút đóng cửa sổ
 - [x] `app_icon`: favicon và icon "Thêm vào màn hình chính" (hiện vẫn là logo mặc định của Next.js)
 
 ## 4. NPC mới đã đề xuất (chưa code, chưa có prompt)

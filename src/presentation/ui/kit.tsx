@@ -17,18 +17,9 @@ export function Icon({ name, className = "h-[1.3em] w-[1.3em]", alt = "" }: { na
   return <img src={asset(key)} alt={alt} draggable={false} className={`inline-block shrink-0 object-contain align-middle ${className}`} />;
 }
 
-/** Line icons for small controls (home, pause, close). */
+/** Game-art icons for small controls (home, pause, close). */
 export function Glyph({ name }: { name: "home" | "pause" | "close" }) {
-  const path = {
-    home: "M4 11.5 12 4l8 7.5M6.5 9.5V20h11V9.5M10 20v-5.5h4V20",
-    pause: "M8.5 5v14M15.5 5v14",
-    close: "M6 6l12 12M18 6 6 18",
-  }[name];
-  return (
-    <svg viewBox="0 0 24 24" className="h-[1.1em] w-[1.1em]" fill="none" stroke="currentColor" strokeWidth={name === "pause" ? 3.4 : 2.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d={path} />
-    </svg>
-  );
+  return <Icon name={`icon_${name}`} className="h-[1.6em] w-[1.6em]" />;
 }
 
 export function Coin({ value }: { value: number }) {
