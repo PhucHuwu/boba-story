@@ -64,7 +64,24 @@ interface Station {
   label: Phaser.GameObjects.Text;
   name: string;
   stock?: IngredientId;
+  key: string;
+  /** Art shown while the station is in use (tap open, jug tilted, pump pressed...). */
+  busyKey?: string;
+  busy: boolean;
 }
+
+const BUSY_ART: Partial<Record<StationId, string>> = {
+  tea_black: "tea_black_pour",
+  tea_green: "tea_green_pour",
+  tea_oolong: "tea_oolong_pour",
+  milk: "milk_pour",
+  sugar: "sugar_press",
+  ice: "ice_scoop",
+  sealer: "sealer_press",
+};
+const SCOOP_ART: Record<ToppingId, string> = { top_boba: "scoop_boba", top_jelly: "scoop_jelly", top_pudding: "scoop_pudding" };
+/** How long a tap-to-use station keeps its "in use" art. */
+const BUSY_TAP_MS = 320;
 
 /**
  * Humble view of the shop: renders `ShopSession` state and forwards input as commands.
@@ -82,6 +99,8 @@ export class ShopScene extends Phaser.Scene {
   private ticketTitle!: Phaser.GameObjects.Text;
   private ticketLines!: Phaser.GameObjects.Text;
   private dragGhost: Phaser.GameObjects.Image | null = null;
+  private pouringFrom: PourSource | null = null;
+  private busyTimers = new Map<StationId, Phaser.Time.TimerEvent>();
   private dragTopping: ToppingId | null = null;
   private draggingCup = false;
   private dragStart = { x: 0, y: 0 };
@@ -233,7 +252,8 @@ export class ShopScene extends Phaser.Scene {
       .setDepth(16);
     obj.on("pointerover", () => this.ctl.isInteractive() && this.tweens.add({ targets: obj, scale: obj.getData("baseScale") * 1.06, duration: 100 }));
     obj.on("pointerout", () => this.tweens.add({ targets: obj, scale: obj.getData("baseScale"), duration: 100 }));
-    const st = { obj, label, name, stock };
+    obj.setData("y0", spot.y);
+    const st: Station = { obj, label, name, stock, key, busyKey: BUSY_ART[id], busy: false };
     this.stations.set(id, st);
     return st;
   }
@@ -314,7 +334,7 @@ export class ShopScene extends Phaser.Scene {
     audio.unlock();
     this.dragTopping = t;
     this.dragStart = { x: p.x, y: p.y };
-    this.dragGhost = this.fit(this.add.image(p.x, p.y, t).setDepth(DEPTH.ghost).setAlpha(0.9), 70, 50);
+    this.dragGhost = this.fit(this.add.image(p.x, p.y, SCOOP_ART[t]).setDepth(DEPTH.ghost).setAngle(-12), 120, 90);
   }
 
   private endToppingDrag() {
@@ -372,6 +392,7 @@ export class ShopScene extends Phaser.Scene {
         for (const c of this.cats.values()) this.destroyCat(c);
         this.cats.clear();
         this.syncTrash([]);
+        this.setBusy("sealer", false);
         this.endToppingDrag();
         this.hintStep = -1;
         this.drawHint(null);
@@ -421,9 +442,15 @@ export class ShopScene extends Phaser.Scene {
       case "cup": {
         const sound = { take: "click", sugar: "pump", ice: "ice", topping: "plop", sealStart: "seal", sealed: "click", discard: "plop" } as const;
         audio.play(sound[e.action]);
-        if (e.action === "sugar" || e.action === "ice" || e.action === "sealStart") {
-          this.press(this.stations.get(e.action === "sealStart" ? "sealer" : e.action)!.obj, e.duration);
+        if (e.action === "sugar" || e.action === "ice") {
+          this.flashBusy(e.action);
+          this.press(this.stations.get(e.action)!.obj, e.duration);
         }
+        if (e.action === "sealStart") {
+          this.setBusy("sealer", true);
+          this.press(this.stations.get("sealer")!.obj, e.duration);
+        }
+        if (e.action === "sealed" || e.action === "discard") this.setBusy("sealer", false);
         break;
       }
       case "rejected":
@@ -466,6 +493,36 @@ export class ShopScene extends Phaser.Scene {
   }
 
   /** Quick "pressed" bounce that always returns to the station's original position. */
+  /** Swaps a station to its "in use" art, refitted to the same box and standing on the same baseline. */
+  private setBusy(id: StationId, busy: boolean) {
+    const st = this.stations.get(id);
+    if (!st?.busyKey || st.busy === busy) return;
+    st.busy = busy;
+    const spot = this.L.stations[id];
+    const { obj } = st;
+    const bottom = spot.y + (obj.height * obj.getData("baseScale")) / 2;
+    this.tweens.killTweensOf(obj);
+    obj.setTexture(busy ? st.busyKey : st.key);
+    this.fit(obj, spot.w, spot.h);
+    const y0 = busy ? bottom - obj.displayHeight / 2 : spot.y;
+    obj.setY(y0).setData("y0", y0);
+  }
+
+  private flashBusy(id: StationId) {
+    this.busyTimers.get(id)?.remove();
+    this.setBusy(id, true);
+    this.busyTimers.set(id, this.time.delayedCall(BUSY_TAP_MS, () => this.setBusy(id, false)));
+  }
+
+  /** Taps open while pouring; the jug tilts for milk. */
+  private syncPourArt() {
+    const from = this.ctl.running && this.session.cup ? this.session.pouring : null;
+    if (from === this.pouringFrom) return;
+    if (this.pouringFrom) this.setBusy(this.pouringFrom, false);
+    this.pouringFrom = from;
+    if (from) this.setBusy(from, true);
+  }
+
   private press(obj: Phaser.GameObjects.Image, durationSec = 0.14) {
     const y0: number = obj.getData("y0") ?? obj.y;
     obj.setData("y0", y0);
@@ -747,6 +804,7 @@ export class ShopScene extends Phaser.Scene {
     }
     for (const c of this.cats.values()) c.root.setDepth(actorDepth(c.root.y, c.id));
     this.syncPourSound();
+    this.syncPourArt();
     this.cupView.tick(deltaMs);
     this.drawStream();
     if (!this.dirty) return;
