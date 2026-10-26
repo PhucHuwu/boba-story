@@ -92,9 +92,15 @@ export interface DayGoal {
 
 export type RivalEventId = "discount" | "trash" | "fakeReviews" | "powerCut" | "karaoke";
 
-/** Everything decided for a day before it opens (stored so reloading cannot reroll it). */
-export type MorningVisitor = "lottery" | "stray";
+export type MorningVisitor = "lottery" | "stray" | "supplier";
 
+/** Bulk offer from the supplier cat: `packs` packs of one ingredient at a discount. */
+export interface SupplierDeal {
+  ingredient: IngredientId;
+  packs: number;
+}
+
+/** Everything decided for a day before it opens (stored so reloading cannot reroll it). */
 export interface DayPlan {
   day: number;
   weather: WeatherId;
@@ -105,6 +111,8 @@ export interface DayPlan {
   /** Who drops by the prep screen this morning, and whether the player already dealt with them. */
   visitor: MorningVisitor | null;
   visitorDone: boolean;
+  /** Set when the visitor is the supplier. */
+  deal?: SupplierDeal;
 }
 
 export interface Review {

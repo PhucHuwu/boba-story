@@ -1,4 +1,5 @@
 import { INGREDIENTS, QUESTS, RECIPE_BY_ID, SAVE_VERSION, UPGRADES, defaultSave } from "./catalog";
+import { DEAL_INGREDIENTS } from "./visitors";
 import type { DayPlan, GoalKind, IngredientId, Loan, Review, RivalEventId, SaveData, WeatherId } from "./types";
 import { REVIEW_KEEP } from "./reviews";
 
@@ -31,13 +32,15 @@ function parsePlan(v: unknown): DayPlan | null {
   const kind = v.goal.kind as GoalKind;
   if (!WEATHERS.includes(weather) || !GOALS.includes(kind)) return null;
   const rival = RIVALS.includes(v.rival as RivalEventId) ? (v.rival as RivalEventId) : null;
+  const deal = v.visitor === "supplier" && isObj(v.deal) && DEAL_INGREDIENTS.includes(v.deal.ingredient as IngredientId) ? { ingredient: v.deal.ingredient as IngredientId, packs: Math.floor(num(v.deal.packs, 2, 1, 5)) } : undefined;
   return {
     day: Math.floor(num(v.day, 1, 1)),
     weather,
     goal: { kind, target: num(v.goal.target, 1, 0, 100), reward: Math.floor(num(v.goal.reward, 0, 0, 1000)) },
     rival,
     rivalAt: num(v.rivalAt, 0.4, 0, 1),
-    visitor: v.visitor === "lottery" || v.visitor === "stray" ? v.visitor : null,
+    visitor: v.visitor === "lottery" || v.visitor === "stray" || (v.visitor === "supplier" && deal) ? v.visitor : null,
+    ...(deal ? { deal } : {}),
     visitorDone: v.visitorDone === true,
   };
 }

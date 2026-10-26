@@ -10,7 +10,7 @@ import {
   type ShopResult,
 } from "@/domain/economy";
 import { receiveGift } from "@/domain/guests";
-import { LOTTERY_PRICE, STRAY_FEED_REPUTATION, buyLottery, drawLottery, feedStray, hasShopCat, type LotteryResult } from "@/domain/visitors";
+import { LOTTERY_PRICE, STRAY_FEED_REPUTATION, buyDeal, buyLottery, dealUnits, drawLottery, feedStray, hasShopCat, type LotteryResult } from "@/domain/visitors";
 import { adjustReputation, dayProfit, emptyDayStats, recordLost, recordServe, type ServeRecord } from "@/domain/ledger";
 import { isBankrupt, loanOffer, repayLoan, resolveNight, takeLoan, withdraw, type NightReport } from "@/domain/night";
 import { addReview, shopRating } from "@/domain/reviews";
@@ -414,6 +414,17 @@ export class GameController extends Observable implements ShopHost {
   feedStray() {
     if (this.phase !== "prep" || !feedStray(this.save)) return;
     this.notify(hasShopCat(this.save) ? "Mèo hoang nhỏ quyết định ở lại làm mèo của quán! Khách qua đường thích ghé hơn." : `Mèo hoang nhỏ uống sữa ngon lành (+${STRAY_FEED_REPUTATION} danh tiếng).`, "good");
+    this.persist();
+    this.changed();
+  }
+
+  /** Morning visitor: buy the supplier cat's discounted lot. */
+  buySupplierDeal() {
+    if (this.phase !== "prep") return;
+    const deal = this.save.plan?.deal;
+    const r = buyDeal(this.save);
+    if (!r.ok || !deal) return void (this.notify(r.ok ? "Đại lý đã đi rồi" : r.reason, "bad"), this.changed());
+    this.notify(`Đã nhập ${dealUnits(deal)} ${INGREDIENTS[deal.ingredient].name.toLowerCase()} giá sỉ ${r.price} xu.`, "good");
     this.persist();
     this.changed();
   }

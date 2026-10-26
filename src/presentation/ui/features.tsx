@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ARCHETYPES } from "@/domain/catalog";
+import { ARCHETYPES, INGREDIENTS, INVENTORY_CAP } from "@/domain/catalog";
 import { GOAL_TEXT, WEATHER, goalStatus } from "@/domain/dayPlan";
 import { TAX_PERIOD, TAX_RATE, depositFee, isTaxDay, rentFor, taxFor } from "@/domain/night";
 import { RATING_WINDOW, starDistribution } from "@/domain/reviews";
 import { RIVAL_EVENTS, RIVAL_NAME } from "@/domain/rivalEvents";
 import type { Review } from "@/domain/types";
-import { LOTTERY_PRICE, STRAY_ADOPT, hasShopCat } from "@/domain/visitors";
+import { DEAL_DISCOUNT, LOTTERY_PRICE, STRAY_ADOPT, dealPrice, dealUnits, hasShopCat } from "@/domain/visitors";
+import { packCost } from "@/domain/economy";
 import { audio } from "../game/audio";
 import { Bar, Coin, Icon, Modal } from "./kit";
 import { useGame } from "./useGame";
@@ -461,36 +462,69 @@ export function VisitorCard() {
   const s = game.save;
   const plan = s.plan;
   if (!plan || plan.day !== s.day || !plan.visitor || plan.visitorDone) return null;
-  const lottery = plan.visitor === "lottery";
+  const small = "btn !min-h-0 !px-[0.7em] !py-[0.25em] text-[0.9em]";
+  let art: string, name: string, body: React.ReactNode, action: React.ReactNode, skip: string;
+  if (plan.visitor === "lottery") {
+    art = "npc_lottery";
+    name = "Mèo bán vé số";
+    body = <>&quot;Mua giùm tờ vé số đi chủ quán, tối nay xổ đó!&quot;</>;
+    action = (
+      <button className={`${small} btn-green`} disabled={s.money < LOTTERY_PRICE} onClick={() => game.buyLottery()}>
+        <Icon name="icon_lottery" className="h-[1.3em] w-[1.3em]" />
+        Mua vé <Coin value={LOTTERY_PRICE} />
+      </button>
+    );
+    skip = "Thôi";
+  } else if (plan.visitor === "supplier" && plan.deal) {
+    const d = plan.deal;
+    const units = dealUnits(d);
+    const price = dealPrice(d);
+    const full = packCost(d.ingredient) * d.packs;
+    const fits = s.inventory[d.ingredient] + units <= INVENTORY_CAP;
+    art = "npc_supplier";
+    name = "Mèo đại lý nguyên liệu";
+    body = (
+      <>
+        &quot;Lô {units} {INGREDIENTS[d.ingredient].name.toLowerCase()} giá sỉ nè, rẻ hơn ngoài tiệm {Math.round(DEAL_DISCOUNT * 100)}%!&quot;{" "}
+        <span className="text-cocoa">
+          (giá thường <s>{full}</s> xu{fits ? "" : ", kho không đủ chỗ"})
+        </span>
+      </>
+    );
+    action = (
+      <button className={`${small} btn-green`} disabled={s.money < price || !fits} onClick={() => game.buySupplierDeal()}>
+        Nhập lô <Coin value={price} />
+      </button>
+    );
+    skip = "Không cần";
+  } else {
+    art = "npc_stray_idle";
+    name = "Mèo hoang nhỏ";
+    body = (
+      <>
+        ngồi trước cửa, nhìn quán thèm thuồng. {s.strayFed > 0 && <span className="text-cocoa">(đã cho ăn {s.strayFed}/{STRAY_ADOPT} lần)</span>}
+      </>
+    );
+    action = (
+      <button className={`${small} btn-green`} disabled={s.inventory.milk < 1} onClick={() => game.feedStray()}>
+        Cho 1 phần sữa
+      </button>
+    );
+    skip = "Để sau";
+  }
   return (
     <div className="pop-in mt-[0.5em] flex items-center gap-2 rounded-2xl border-2 border-[#e9d7c3] bg-white/60 p-[0.4em] text-left text-[0.9em]">
-      <Icon name={lottery ? "npc_lottery" : "npc_stray_idle"} className="h-[4.6em] w-[3em] shrink-0" alt={lottery ? "Mèo bán vé số" : "Mèo hoang nhỏ"} />
+      <Icon name={art} className="h-[4.6em] w-[3em] shrink-0" alt={name} />
       <div className="min-w-0 flex-1">
         <p className="leading-snug">
-          {lottery ? (
-            <>
-              <b>Mèo bán vé số</b>: &quot;Mua giùm tờ vé số đi chủ quán, tối nay xổ đó!&quot;
-            </>
-          ) : (
-            <>
-              <b>Mèo hoang nhỏ</b> ngồi trước cửa, nhìn quán thèm thuồng.{" "}
-              {s.strayFed > 0 && <span className="text-cocoa">(đã cho ăn {s.strayFed}/{STRAY_ADOPT} lần)</span>}
-            </>
-          )}
+          <b>{name}</b>
+          {plan.visitor === "stray" ? " " : ": "}
+          {body}
         </p>
         <div className="mt-[0.3em] flex gap-2">
-          {lottery ? (
-            <button className="btn btn-green !min-h-0 !px-[0.7em] !py-[0.25em] text-[0.9em]" disabled={s.money < LOTTERY_PRICE} onClick={() => game.buyLottery()}>
-              <Icon name="icon_lottery" className="h-[1.3em] w-[1.3em]" />
-              Mua vé <Coin value={LOTTERY_PRICE} />
-            </button>
-          ) : (
-            <button className="btn btn-green !min-h-0 !px-[0.7em] !py-[0.25em] text-[0.9em]" disabled={s.inventory.milk < 1} onClick={() => game.feedStray()}>
-              Cho 1 phần sữa
-            </button>
-          )}
-          <button className="btn btn-secondary !min-h-0 !px-[0.7em] !py-[0.25em] text-[0.9em]" onClick={() => game.dismissVisitor()}>
-            {lottery ? "Thôi" : "Để sau"}
+          {action}
+          <button className={`${small} btn-secondary`} onClick={() => game.dismissVisitor()}>
+            {skip}
           </button>
         </div>
       </div>

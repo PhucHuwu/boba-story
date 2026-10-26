@@ -303,3 +303,46 @@ describe("morning visitors", () => {
     expect(s.plan?.visitor).toBe(null);
   });
 });
+
+describe("supplier cat", () => {
+  const plan = (deal: { ingredient: "milk" | "cup"; packs: number }) => ({ day: 6, weather: "sunny" as const, goal: { kind: "served" as const, target: 5, reward: 1 }, rival: null, rivalAt: 0.5, visitor: "supplier" as const, visitorDone: false, deal });
+
+  it("comes from day 5 and always brings a deal", async () => {
+    const { pickVisitor, SUPPLIER_FROM_DAY } = await import("./visitors");
+    const save = defaultSave();
+    save.tutorialDone = true;
+    expect(pickVisitor(save, SUPPLIER_FROM_DAY - 1, () => 0.35)).toBe(null);
+    expect(pickVisitor(save, SUPPLIER_FROM_DAY, () => 0.35)).toBe("supplier");
+    save.day = 6;
+    const p = planDay(save, () => 0.35, null);
+    expect(p.visitor).toBe("supplier");
+    expect(p.deal?.packs).toBeGreaterThanOrEqual(2);
+  });
+
+  it("sells the whole lot below shop price, only if it fits on the shelf", async () => {
+    const { buyDeal, dealPrice } = await import("./visitors");
+    const { packCost } = await import("./economy");
+    const save = defaultSave();
+    save.day = 6;
+    save.money = 500;
+    save.inventory.milk = 31;
+    save.plan = plan({ ingredient: "milk", packs: 3 });
+    expect(buyDeal(save)).toMatchObject({ ok: false });
+    save.inventory.milk = 20;
+    const price = dealPrice(save.plan.deal!);
+    expect(price).toBeLessThan(packCost("milk") * 3);
+    expect(buyDeal(save)).toEqual({ ok: true, price });
+    expect(save.inventory.milk).toBe(50);
+    expect(save.money).toBe(500 - price);
+    expect(buyDeal(save)).toMatchObject({ ok: false });
+  });
+
+  it("the deal survives a save round-trip; a broken one is dropped", () => {
+    const save = defaultSave();
+    save.plan = plan({ ingredient: "cup", packs: 2 });
+    expect(migrate(JSON.parse(JSON.stringify(save)))?.plan?.deal).toEqual({ ingredient: "cup", packs: 2 });
+    const bad = JSON.parse(JSON.stringify(save));
+    bad.plan.deal = { ingredient: "gold", packs: 2 };
+    expect(migrate(bad)?.plan?.visitor).toBe(null);
+  });
+});
