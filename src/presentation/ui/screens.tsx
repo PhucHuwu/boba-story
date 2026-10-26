@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { QUESTS } from "@/domain/catalog";
 import { audio } from "../game/audio";
-import { DayCard, ReviewItem, Stars } from "./features";
+import { DayCard, ReviewItem, ShopCatNote, Stars, VisitorCard } from "./features";
 import { Coin, Glyph, Icon, asset } from "./kit";
 import { useGame } from "./useGame";
 
@@ -108,6 +108,14 @@ export function PrepScreen() {
         </p>
         {s.loan && <p className="text-[0.85em] font-bold text-berry">Nợ ngân hàng {s.loan.remaining} xu · trả góp {Math.min(s.loan.installment, s.loan.remaining)} xu mỗi sáng</p>}
         <DayCard />
+        <VisitorCard />
+        <ShopCatNote />
+        {s.lotteryDay === s.day && (
+          <p className="mt-1 text-[0.85em] text-cocoa">
+            <Icon name="icon_lottery" className="mr-1 h-[1.4em] w-[1.4em]" />
+            Đã mua vé số hôm nay, đóng cửa sẽ dò kết quả.
+          </p>
+        )}
         {low.length > 0 && <p className="mt-1 font-bold text-berry">Sắp hết: {low.map((id) => ({ cup: "ly", lid: "nắp", milk: "sữa", tea_black: "trà đen" })[id]).join(", ")}</p>}
         <div className="mt-[0.6em] grid grid-cols-3 gap-2">
           <button className="btn btn-secondary !px-2" onClick={() => game.openModal("bank")}>
@@ -199,6 +207,13 @@ export function SummaryScreen() {
           <p className={`mt-2 rounded-2xl border-2 p-2 text-center font-bold ${sum.goal.met ? "border-matcha bg-[#e3f4dc]" : "border-[#e9d7c3] bg-white/60 text-cocoa"}`}>
             <Icon name="icon_goal" className="mr-1 h-[1.4em] w-[1.4em]" />
             {sum.goal.label}: {sum.goal.met ? `Hoàn thành! +${sum.goalReward} xu` : "Chưa đạt"}
+          </p>
+        )}
+        {sum.lottery && (
+          <p className={`mt-2 flex items-center justify-center gap-2 rounded-2xl border-2 p-2 text-center font-bold ${sum.lottery.amount > 0 ? "border-matcha bg-[#e3f4dc]" : "border-[#e9d7c3] bg-white/60 text-cocoa"}`}>
+            <Icon name="icon_lottery" className="h-[1.8em] w-[1.8em]" />
+            Dò vé số: {sum.lottery.label}
+            {sum.lottery.amount > 0 && <Coin value={sum.lottery.amount} />}
           </p>
         )}
         {st.rivalOutcome && <p className="mt-2 rounded-2xl border-2 border-[#e2b4ae] bg-[#fdf0ee] p-2 text-center text-[0.9em]">

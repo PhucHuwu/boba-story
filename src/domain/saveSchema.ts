@@ -37,6 +37,8 @@ function parsePlan(v: unknown): DayPlan | null {
     goal: { kind, target: num(v.goal.target, 1, 0, 100), reward: Math.floor(num(v.goal.reward, 0, 0, 1000)) },
     rival,
     rivalAt: num(v.rivalAt, 0.4, 0, 1),
+    visitor: v.visitor === "lottery" || v.visitor === "stray" ? v.visitor : null,
+    visitorDone: v.visitorDone === true,
   };
 }
 
@@ -101,6 +103,8 @@ export function migrate(raw: unknown): SaveData | null {
     nightPending: raw.nightPending === true,
     overdue: Math.floor(num(raw.overdue, 0, 0, 1e6)),
     taxBase: Math.floor(num(raw.taxBase, 0, 0, 1e7)),
+    lotteryDay: Math.floor(num(raw.lotteryDay, 0, 0, 9999)),
+    strayFed: Math.floor(num(raw.strayFed, 0, 0, 99)),
     updatedAt: num(raw.updatedAt, Date.now()),
   };
 }

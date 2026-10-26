@@ -5,6 +5,7 @@ import type { HintTarget } from "@/application/game/tutorial";
 import { INGREDIENTS, RECIPE_BY_ID, TEA_IDS } from "@/domain/catalog";
 import { liquidTotal } from "@/domain/cup";
 import { maxCustomers, type Customer } from "@/domain/customers";
+import { hasShopCat } from "@/domain/visitors";
 import type { IngredientId, Mood, Size, TeaId, ToppingId } from "@/domain/types";
 import manifest from "./assetManifest.json";
 import { audio } from "./audio";
@@ -89,6 +90,7 @@ export class ShopScene extends Phaser.Scene {
   private hintStep = -1;
   private wasPaused = false;
   private dirty = true;
+  private shopCat: Phaser.GameObjects.Image | null = null;
   private unsubscribe: (() => void)[] = [];
 
   constructor(
@@ -127,10 +129,12 @@ export class ShopScene extends Phaser.Scene {
       this.ctl.subscribe(() => {
         this.dirty = true;
         this.syncPause();
+        this.syncShopCat();
       }),
     );
     this.restoreCustomers();
     this.syncTrash(this.session.trash);
+    this.syncShopCat();
     const detach = () => {
       this.unsubscribe.forEach((u) => u());
       this.unsubscribe = [];
@@ -691,6 +695,16 @@ export class ShopScene extends Phaser.Scene {
         this.time.delayedCall(200, () => audio.play("trash"));
       }
     }
+  }
+
+  /** The adopted stray naps on the end of the counter. */
+  private syncShopCat() {
+    if (this.shopCat || !hasShopCat(this.ctl.save) || !this.textures.exists("npc_stray_happy")) return;
+    const h = this.L.catHeight * 0.34;
+    const img = this.add.image(this.L.room.w - h * 0.38, this.L.counterY - 14, "npc_stray_happy").setOrigin(0.5, 1);
+    img.setScale(h / img.height).setDepth(DEPTH.counter + 0.5);
+    this.shopCat = img;
+    if (!this.reduced) this.tweens.add({ targets: img, scaleY: img.scaleY * 1.03, duration: 1400, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
   }
 
   /** Crumpled paper ball drawn once, used until the trash art exists. */

@@ -92,7 +92,7 @@ describe("GameController flow", () => {
     const { game } = makeGame({ rng: () => 0 });
     game.newGame();
     Object.assign(game.save, { day: 5, tutorialDone: true, money: 500 });
-    game.save.plan = { day: 5, weather: "sunny", goal: { kind: "served", target: 99, reward: 1 }, rival: "trash", rivalAt: 0.05 };
+    game.save.plan = { day: 5, weather: "sunny", goal: { kind: "served", target: 99, reward: 1 }, rival: "trash", rivalAt: 0.05, visitor: null, visitorDone: false };
     game.openShop();
     run(game, () => game.modal === "rival");
     expect(game.rivalEvent).toBe("trash");
@@ -109,7 +109,7 @@ describe("GameController flow", () => {
     const { game } = makeGame({ rng: () => 0 });
     game.newGame();
     Object.assign(game.save, { day: 5, tutorialDone: true });
-    game.save.plan = { day: 5, weather: "sunny", goal: { kind: "served", target: 99, reward: 1 }, rival: "trash", rivalAt: 0.05 };
+    game.save.plan = { day: 5, weather: "sunny", goal: { kind: "served", target: 99, reward: 1 }, rival: "trash", rivalAt: 0.05, visitor: null, visitorDone: false };
     game.openShop();
     run(game, () => game.modal === "rival");
     game.chooseRival(0);
@@ -281,6 +281,35 @@ describe("ShopSession tutorial order", () => {
       }
     }
     expect([...seen].sort()).toEqual(["granny", "tiktoker"]);
+  });
+
+  it("morning visitors: a lottery ticket bought at prep is drawn when the shop closes", async () => {
+    const { LOTTERY_PRICE, LOTTERY_PRIZES } = await import("@/domain/visitors");
+    const { game } = makeGame({ rng: () => 0 });
+    game.newGame();
+    Object.assign(game.save, { day: 5, tutorialDone: true, money: 200 });
+    game.save.plan = { day: 5, weather: "sunny", goal: { kind: "served", target: 99, reward: 1 }, rival: null, rivalAt: 0.5, visitor: "lottery", visitorDone: false };
+    game.buyLottery();
+    game.buyLottery();
+    expect(game.save.money).toBe(200 - LOTTERY_PRICE);
+    game.openShop();
+    game.requestEndDay();
+    run(game, () => game.phase === "summary");
+    expect(game.lastSummary?.lottery?.amount).toBe(LOTTERY_PRIZES[0].amount);
+    expect(game.save.lotteryDay).toBe(0);
+    expect(game.save.money).toBeGreaterThanOrEqual(200 - LOTTERY_PRICE + LOTTERY_PRIZES[0].amount);
+  });
+
+  it("morning visitors: the stray kitten is fed only from the prep screen", () => {
+    const { game } = makeGame();
+    game.newGame();
+    Object.assign(game.save, { day: 3, tutorialDone: true });
+    game.save.plan = { day: 3, weather: "sunny", goal: { kind: "served", target: 9, reward: 1 }, rival: null, rivalAt: 0.5, visitor: "stray", visitorDone: false };
+    const milk = game.save.inventory.milk;
+    game.feedStray();
+    expect(game.save.strayFed).toBe(1);
+    expect(game.save.inventory.milk).toBe(milk - 1);
+    expect(game.save.plan.visitorDone).toBe(true);
   });
 
   it("rejects actions without a cup and reports them", () => {

@@ -14,6 +14,7 @@ import {
 } from "@/domain/customers";
 import { COMBO_QUALITY, CRITIC_CHANCE, CRITIC_FROM_DAY, WEATHER, comboTipBonus } from "@/domain/dayPlan";
 import { SHIPPER_BRANDS, SHIPPER_CHANCE, SHIPPER_FROM_DAY, createDelivery, splitCommission } from "@/domain/delivery";
+import { SHOP_CAT_SPAWN_MUL, hasShopCat } from "@/domain/visitors";
 import { GRANNY_GIFT, GRANNY_HAPPY_QUALITY, TIKTOKER_WALKOUT_REPUTATION, pickGuest, tiktokerVerdict, type GuestId } from "@/domain/guests";
 import { LEAVE_REPUTATION_PENALTY, canMake, payment } from "@/domain/economy";
 import type { ServeRecord } from "@/domain/ledger";
@@ -211,7 +212,12 @@ export class ShopSession {
   /** Seconds between arrivals right now: time of day, reputation, weather, rating, rival and rubbish. */
   get spawnEvery(): number {
     const base = spawnInterval(this.hour, this.save.reputation, this.save.day);
-    return base * this.weather.spawnMul * ratingSpawnFactor(shopRating(this.save.reviews)) * this.mod("spawnMul") * (1 + this.trash.length * 0.05);
+    return base * this.weather.spawnMul * ratingSpawnFactor(shopRating(this.save.reviews)) * this.mod("spawnMul") * this.shopCatMul * (1 + this.trash.length * 0.05);
+  }
+
+  /** The adopted shop cat makes passers-by stop a little more often. */
+  private get shopCatMul() {
+    return hasShopCat(this.save) ? SHOP_CAT_SPAWN_MUL : 1;
   }
 
   get decayMul(): number {

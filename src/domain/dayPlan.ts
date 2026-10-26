@@ -1,4 +1,5 @@
 import { pick, type Rng } from "./customers";
+import { pickVisitor } from "./visitors";
 import type { DayGoal, DayPlan, DayStats, GoalKind, Level, RivalEventId, SaveData, WeatherId } from "./types";
 
 export interface WeatherDef {
@@ -97,7 +98,8 @@ export function planDay(save: SaveData, rng: Rng, rating: number | null): DayPla
   const goal = pickGoal(day, rng);
   const jealousy = rating !== null && rating >= 4 ? 0.15 : 0;
   const rival = save.tutorialDone && day >= RIVAL_FROM_DAY && rng() < RIVAL_BASE_CHANCE + jealousy ? pick(rng, RIVALS) : null;
-  return { day, weather, goal, rival, rivalAt: 0.22 + rng() * 0.45 };
+  const rivalAt = 0.22 + rng() * 0.45;
+  return { day, weather, goal, rival, rivalAt, visitor: pickVisitor(save, day, rng), visitorDone: false };
 }
 
 export interface GoalStatus {

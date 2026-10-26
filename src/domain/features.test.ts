@@ -245,3 +245,61 @@ describe("special guests", () => {
     }
   });
 });
+
+describe("morning visitors", () => {
+  it("lottery seller and stray kitten only after the tutorial and their start day", async () => {
+    const { pickVisitor } = await import("./visitors");
+    const save = defaultSave();
+    expect(pickVisitor(save, 5, () => 0)).toBe(null);
+    save.tutorialDone = true;
+    expect(pickVisitor(save, 2, () => 0)).toBe(null);
+    expect(pickVisitor(save, 3, () => 0)).toBe("lottery");
+    expect(pickVisitor(save, 2, () => 0.99)).toBe("stray");
+    expect(pickVisitor(save, 5, () => 0.5)).toBe(null);
+    save.strayFed = 5;
+    expect(pickVisitor(save, 5, () => 0.99)).toBe(null);
+  });
+
+  it("a lottery ticket is bought once and the draw pays out by tier", async () => {
+    const { buyLottery, drawLottery, LOTTERY_PRICE, LOTTERY_PRIZES } = await import("./visitors");
+    const save = defaultSave();
+    save.day = 4;
+    save.money = 100;
+    save.plan = { day: 4, weather: "sunny", goal: { kind: "served", target: 5, reward: 1 }, rival: null, rivalAt: 0.5, visitor: "lottery", visitorDone: false };
+    expect(buyLottery(save)).toBe(true);
+    expect(save.money).toBe(100 - LOTTERY_PRICE);
+    expect(save.lotteryDay).toBe(4);
+    expect(buyLottery(save)).toBe(false);
+    expect(drawLottery(() => 0).amount).toBe(LOTTERY_PRIZES[0].amount);
+    expect(drawLottery(() => 0.01).amount).toBe(LOTTERY_PRIZES[1].amount);
+    expect(drawLottery(() => 0.05).amount).toBe(LOTTERY_PRIZES[2].amount);
+    expect(drawLottery(() => 0.5).amount).toBe(0);
+    const ev = LOTTERY_PRIZES.reduce((a, p) => a + p.chance * p.amount, 0);
+    expect(ev).toBeLessThan(LOTTERY_PRICE);
+  });
+
+  it("feeding the stray costs milk and it stays after enough meals", async () => {
+    const { feedStray, hasShopCat, STRAY_ADOPT } = await import("./visitors");
+    const save = defaultSave();
+    save.day = 3;
+    const milk = save.inventory.milk;
+    for (let i = 0; i < STRAY_ADOPT; i++) {
+      save.plan = { day: 3, weather: "sunny", goal: { kind: "served", target: 5, reward: 1 }, rival: null, rivalAt: 0.5, visitor: "stray", visitorDone: false };
+      expect(feedStray(save)).toBe(true);
+      expect(feedStray(save)).toBe(false);
+    }
+    expect(save.inventory.milk).toBe(milk - STRAY_ADOPT);
+    expect(hasShopCat(save)).toBe(true);
+  });
+
+  it("old saves without visitor fields still load", () => {
+    const old = { ...defaultSave() } as Record<string, unknown>;
+    delete old.lotteryDay;
+    delete old.strayFed;
+    old.plan = { day: 1, weather: "sunny", goal: { kind: "served", target: 5, reward: 1 }, rival: null, rivalAt: 0.5 };
+    const s = migrate(old)!;
+    expect(s.strayFed).toBe(0);
+    expect(s.lotteryDay).toBe(0);
+    expect(s.plan?.visitor).toBe(null);
+  });
+});

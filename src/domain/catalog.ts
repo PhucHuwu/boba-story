@@ -265,6 +265,8 @@ export function defaultSave(): SaveData {
     nightPending: false,
     overdue: 0,
     taxBase: 0,
+    lotteryDay: 0,
+    strayFed: 0,
     updatedAt: Date.now(),
   };
 }

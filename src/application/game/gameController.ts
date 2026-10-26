@@ -10,6 +10,7 @@ import {
   type ShopResult,
 } from "@/domain/economy";
 import { receiveGift } from "@/domain/guests";
+import { LOTTERY_PRICE, STRAY_FEED_REPUTATION, buyLottery, drawLottery, feedStray, hasShopCat, type LotteryResult } from "@/domain/visitors";
 import { adjustReputation, dayProfit, emptyDayStats, recordLost, recordServe, type ServeRecord } from "@/domain/ledger";
 import { isBankrupt, loanOffer, repayLoan, resolveNight, takeLoan, withdraw, type NightReport } from "@/domain/night";
 import { addReview, shopRating } from "@/domain/reviews";
@@ -31,6 +32,8 @@ export interface DaySummary {
   goal: GoalStatus | null;
   goalReward: number;
   reviews: Review[];
+  /** Lottery ticket drawn at closing (prize already added to cash, not to the day profit). */
+  lottery: LotteryResult | null;
 }
 
 export interface GameDeps {
@@ -327,6 +330,12 @@ export class GameController extends Observable implements ShopHost {
       this.save.money += plan.goal.reward;
       this.save.stats.goalsMet++;
     }
+    let lottery: LotteryResult | null = null;
+    if (this.save.lotteryDay === this.save.day) {
+      lottery = drawLottery(this.deps.rng);
+      this.save.money += lottery.amount;
+      this.save.lotteryDay = 0;
+    }
     this.lastSummary = {
       day: this.save.day,
       stats: this.dayStats,
@@ -334,6 +343,7 @@ export class GameController extends Observable implements ShopHost {
       goal,
       goalReward: this.dayStats.goalReward,
       reviews: this.save.reviews.filter((r) => r.day === this.save.day),
+      lottery,
     };
     this.rivalEvent = null;
     this.save.nightPending = true;
@@ -388,6 +398,31 @@ export class GameController extends Observable implements ShopHost {
   repayLoan(amount: number) {
     const paid = repayLoan(this.save, amount);
     if (paid > 0) this.notify(this.save.loan ? `Đã trả ${paid} xu nợ` : "Đã trả hết nợ ngân hàng!", "good");
+    this.persist();
+    this.changed();
+  }
+
+  /** Morning visitor: buy one lottery ticket, drawn when the shop closes tonight. */
+  buyLottery() {
+    if (this.phase !== "prep" || !buyLottery(this.save)) return;
+    this.notify(`Đã mua vé số ${LOTTERY_PRICE} xu. Tối nay đóng cửa sẽ dò kết quả!`, "info");
+    this.persist();
+    this.changed();
+  }
+
+  /** Morning visitor: give the stray kitten a saucer of milk. */
+  feedStray() {
+    if (this.phase !== "prep" || !feedStray(this.save)) return;
+    this.notify(hasShopCat(this.save) ? "Mèo hoang nhỏ quyết định ở lại làm mèo của quán! Khách qua đường thích ghé hơn." : `Mèo hoang nhỏ uống sữa ngon lành (+${STRAY_FEED_REPUTATION} danh tiếng).`, "good");
+    this.persist();
+    this.changed();
+  }
+
+  /** Morning visitor: send them away (nothing happens). */
+  dismissVisitor() {
+    const plan = this.save.plan;
+    if (this.phase !== "prep" || !plan?.visitor || plan.visitorDone) return;
+    plan.visitorDone = true;
     this.persist();
     this.changed();
   }

@@ -93,6 +93,8 @@ export interface DayGoal {
 export type RivalEventId = "discount" | "trash" | "fakeReviews" | "powerCut" | "karaoke";
 
 /** Everything decided for a day before it opens (stored so reloading cannot reroll it). */
+export type MorningVisitor = "lottery" | "stray";
+
 export interface DayPlan {
   day: number;
   weather: WeatherId;
@@ -100,6 +102,9 @@ export interface DayPlan {
   rival: RivalEventId | null;
   /** Fraction of the business day (0..1) when the rival strikes. */
   rivalAt: number;
+  /** Who drops by the prep screen this morning, and whether the player already dealt with them. */
+  visitor: MorningVisitor | null;
+  visitorDone: boolean;
 }
 
 export interface Review {
@@ -147,6 +152,10 @@ export interface SaveData {
   overdue: number;
   /** Takings (price + tips) since the last tax collection; taxed every TAX_PERIOD days. */
   taxBase: number;
+  /** Day the current lottery ticket is for (drawn when that day closes); 0 = none. */
+  lotteryDay: number;
+  /** Meals given to the stray kitten; at STRAY_ADOPT it stays as the shop cat. */
+  strayFed: number;
   updatedAt: number;
 }
 

@@ -7,6 +7,7 @@ import { TAX_PERIOD, TAX_RATE, depositFee, isTaxDay, rentFor, taxFor } from "@/d
 import { RATING_WINDOW, starDistribution } from "@/domain/reviews";
 import { RIVAL_EVENTS, RIVAL_NAME } from "@/domain/rivalEvents";
 import type { Review } from "@/domain/types";
+import { LOTTERY_PRICE, STRAY_ADOPT, hasShopCat } from "@/domain/visitors";
 import { audio } from "../game/audio";
 import { Bar, Coin, Icon, Modal } from "./kit";
 import { useGame } from "./useGame";
@@ -157,6 +158,12 @@ export function DayStatus() {
           {goal.met ? "Xong: " : ""}
           {goal.label}
           {plan && plan.goal.kind !== "noLost" && !goal.met ? ` (${goal.value})` : ""}
+        </span>
+      )}
+      {game.save.lotteryDay === game.save.day && (
+        <span className="chip !min-h-0 !cursor-default !py-[0.1em]" title="Vé số, dò kết quả lúc đóng cửa">
+          <Icon name="icon_lottery" />
+          Vé số
         </span>
       )}
       {s.combo >= 2 && <span className="chip pop-in !min-h-0 !cursor-default !bg-caramel !py-[0.1em] text-white">
@@ -445,5 +452,60 @@ export function BankruptScreen() {
         </button>
       </section>
     </div>
+  );
+}
+
+/** Morning visitor on the prep screen: the lottery seller or the stray kitten. */
+export function VisitorCard() {
+  const game = useGame();
+  const s = game.save;
+  const plan = s.plan;
+  if (!plan || plan.day !== s.day || !plan.visitor || plan.visitorDone) return null;
+  const lottery = plan.visitor === "lottery";
+  return (
+    <div className="pop-in mt-[0.5em] flex items-center gap-2 rounded-2xl border-2 border-[#e9d7c3] bg-white/60 p-[0.4em] text-left text-[0.9em]">
+      <Icon name={lottery ? "npc_lottery" : "npc_stray_idle"} className="h-[4.6em] w-[3em] shrink-0" alt={lottery ? "Mèo bán vé số" : "Mèo hoang nhỏ"} />
+      <div className="min-w-0 flex-1">
+        <p className="leading-snug">
+          {lottery ? (
+            <>
+              <b>Mèo bán vé số</b>: &quot;Mua giùm tờ vé số đi chủ quán, tối nay xổ đó!&quot;
+            </>
+          ) : (
+            <>
+              <b>Mèo hoang nhỏ</b> ngồi trước cửa, nhìn quán thèm thuồng.{" "}
+              {s.strayFed > 0 && <span className="text-cocoa">(đã cho ăn {s.strayFed}/{STRAY_ADOPT} lần)</span>}
+            </>
+          )}
+        </p>
+        <div className="mt-[0.3em] flex gap-2">
+          {lottery ? (
+            <button className="btn btn-green !min-h-0 !px-[0.7em] !py-[0.25em] text-[0.9em]" disabled={s.money < LOTTERY_PRICE} onClick={() => game.buyLottery()}>
+              <Icon name="icon_lottery" className="h-[1.3em] w-[1.3em]" />
+              Mua vé <Coin value={LOTTERY_PRICE} />
+            </button>
+          ) : (
+            <button className="btn btn-green !min-h-0 !px-[0.7em] !py-[0.25em] text-[0.9em]" disabled={s.inventory.milk < 1} onClick={() => game.feedStray()}>
+              Cho 1 phần sữa
+            </button>
+          )}
+          <button className="btn btn-secondary !min-h-0 !px-[0.7em] !py-[0.25em] text-[0.9em]" onClick={() => game.dismissVisitor()}>
+            {lottery ? "Thôi" : "Để sau"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** The adopted stray, shown on the prep screen once it lives in the shop. */
+export function ShopCatNote() {
+  const game = useGame();
+  if (!hasShopCat(game.save)) return null;
+  return (
+    <p className="mt-1 flex items-center justify-center gap-1 text-[0.85em] text-cocoa">
+      <Icon name="npc_stray_happy" className="h-[2.2em] w-[1.4em]" alt="Mèo của quán" />
+      Mèo của quán đang ngủ trên bậu cửa, khách qua đường ghé nhiều hơn.
+    </p>
   );
 }
