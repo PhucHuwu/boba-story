@@ -144,13 +144,13 @@ Chỉ gen nhóm này sau khi chốt kế hoạch NPC.
 - [x] `cat_granny_idle`
 - [x] `cat_granny_happy` (ref: cat_granny_idle)
 - [x] `cat_granny_sad` (ref: cat_granny_idle)
-- [ ] `cat_granny_impatient` (ref: cat_granny_idle)
+- [x] `cat_granny_impatient` (ref: cat_granny_idle)
 
 ### Mèo TikToker
 - [x] `cat_tiktoker_idle`
 - [x] `cat_tiktoker_happy` (ref: cat_tiktoker_idle)
 - [x] `cat_tiktoker_sad` (ref: cat_tiktoker_idle)
-- [ ] `cat_tiktoker_impatient` (ref: cat_tiktoker_idle)
+- [x] `cat_tiktoker_impatient` (ref: cat_tiktoker_idle)
 
 ### Mèo bán vé số
 - [x] `npc_lottery`
