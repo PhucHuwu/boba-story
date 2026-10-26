@@ -17,6 +17,7 @@ export type Sfx =
   | "pump"
   | "star"
   | "ting"
+  | "shake"
   | "bad"
   | "alarm"
   | "crash"
@@ -335,6 +336,13 @@ class AudioManager {
       case "star":
         this.tone(midi(91), 0.25, "sine", 0.18);
         this.tone(midi(96), 0.4, "sine", 0.14, 0.06);
+        break;
+      case "shake":
+        // Ice rattling inside the shaker: short bright noise bursts in a rhythm.
+        for (let i = 0; i < 6; i++) {
+          this.noise(0.07, 0.3, 3200 + (i % 2) * 900, "bandpass", 3, undefined, now + i * 0.14);
+          this.tone(2600 + (i % 3) * 500, 0.05, "sine", 0.08, i * 0.14 + 0.02);
+        }
         break;
       case "ting":
         // Small glassy chime when a pour hits its mark.

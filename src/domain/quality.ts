@@ -2,6 +2,9 @@ import { LEVEL_UNITS, RECIPE_BY_ID, TEA_IDS } from "./catalog";
 import { liquidTotal, mainTea } from "./cup";
 import type { CupState, Order, QualityResult } from "./types";
 
+/** Process points lost when a shaken recipe is served without shaking. */
+export const SKIPPED_SHAKE = 30;
+
 const clamp = (v: number, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, v));
 
 /** Score 100 inside tolerance, then falls off linearly to 0 at `zeroAt`. */
@@ -66,8 +69,12 @@ export function evaluate({ cup, order, patience, tolerance = 1 }: EvaluateInput)
   if (iceDiff > 0) notes.push("Lượng đá chưa đúng");
   if (cup.size !== order.size) notes.push("Sai size ly");
 
-  // Process: sealed, no spill.
+  // Process: shaken when the recipe asks for it, sealed, no spill.
   let process = 100;
+  if (recipe.shake && !cup.shaken) {
+    process -= SKIPPED_SHAKE;
+    notes.push("Chưa lắc đều");
+  }
   if (!cup.sealed) {
     process -= 60;
     notes.push("Chưa dán nắp");

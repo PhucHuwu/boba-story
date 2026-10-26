@@ -22,6 +22,7 @@ export function presentTicket(phase: string, order: Order | undefined, cup: CupS
     `${check(!!cup && cup.sugarPumps === LEVEL_UNITS[order.sugar])} Đường ${order.sugar}% (${LEVEL_UNITS[order.sugar]} bơm)`,
     `${check(!!cup && cup.iceScoops === LEVEL_UNITS[order.ice])} Đá ${order.ice}% (${LEVEL_UNITS[order.ice]} muỗng)`,
     r.topping ? `${check(!!cup && cup.toppings.includes(r.topping))} ${INGREDIENTS[r.topping].name}` : "Không topping",
+    ...(r.shake ? [`${check(!!cup?.shaken)} Lắc đều`] : []),
     `${check(!!cup?.sealed)} Dán nắp`,
   ];
   return { title: `Đơn #${order.id}: ${r.name}`, lines: parts.join("   ") };

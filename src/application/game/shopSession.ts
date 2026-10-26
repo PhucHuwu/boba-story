@@ -1,5 +1,5 @@
 import { ARCHETYPES, DAY, FALLBACK_LINES, REGULAR_LINES } from "@/domain/catalog";
-import { addIce, addSugar, addTopping, liquidTotal, newCup, pour, seal, type ActionResult } from "@/domain/cup";
+import { addIce, addSugar, addTopping, liquidTotal, newCup, pour, seal, shake, type ActionResult } from "@/domain/cup";
 import {
   chooseArchetype,
   createCustomer,
@@ -38,6 +38,7 @@ export const TIMING = {
   receive: 1.7,
   giveUp: 0.9,
   seal: 0.45,
+  shake: 0.9,
   sealFast: 0.12,
 } as const;
 
@@ -72,7 +73,7 @@ export type ShopEvent =
   | { type: "say"; id: number; text: string }
   | { type: "selected"; id: number | null }
   | { type: "served"; id: number; info: ServedInfo }
-  | { type: "cup"; action: "take" | "sugar" | "ice" | "topping" | "sealStart" | "sealed" | "discard"; duration?: number }
+  | { type: "cup"; action: "take" | "sugar" | "ice" | "topping" | "shakeStart" | "shaken" | "sealStart" | "sealed" | "discard"; duration?: number }
   | { type: "rejected" }
   | { type: "closing" }
   | { type: "review"; id: number; stars: number; text: string }
@@ -134,6 +135,7 @@ export class ShopSession {
   selectedId: number | null = null;
   pouring: PourSource | null = null;
   sealing = false;
+  shaking = false;
   clock = 0;
   closing = false;
   hint: Hint | null = null;
@@ -148,6 +150,7 @@ export class ShopSession {
   private nextId = 1;
   private spawnTimer = 0;
   private sealTimer = 0;
+  private shakeTimer = 0;
   private regularServedToday = false;
   /** Special guests who already came today (each visits at most once a day). */
   private guestsSeen: GuestId[] = [];
@@ -171,6 +174,7 @@ export class ShopSession {
     this.selectedId = null;
     this.pouring = null;
     this.sealing = false;
+    this.shaking = false;
     this.clock = 0;
     this.closing = false;
     this.hint = null;
@@ -244,6 +248,7 @@ export class ShopSession {
     this.tickEffects(dt);
     this.tickRival();
     this.tickPour(dt);
+    this.tickShake(dt);
     this.tickSeal(dt);
     if (this.tutorial) this.updateHint();
     if (this.closing && this.customers.length === 0) {
@@ -326,6 +331,15 @@ export class ShopSession {
       this.pouring = null;
       this.reject(r, source);
     }
+  }
+
+  private tickShake(dt: number) {
+    if (!this.shaking) return;
+    this.shakeTimer -= dt;
+    if (this.shakeTimer > 0) return;
+    this.shaking = false;
+    if (!this.cup || !shake(this.cup).ok) return;
+    this.events.emit({ type: "cup", action: "shaken" });
   }
 
   private tickSeal(dt: number) {
@@ -481,7 +495,7 @@ export class ShopSession {
   }
 
   startPour(source: PourSource) {
-    if (!this.canAct() || !this.requireCup()) return;
+    if (!this.canAct() || !this.requireCup() || this.shaking) return;
     this.pouring = source;
   }
 
@@ -508,8 +522,20 @@ export class ShopSession {
     this.events.emit({ type: "cup", action });
   }
 
+  /** Shaking takes a moment, like sealing; recipes marked `shake` lose process points without it. */
+  shakeCup() {
+    if (!this.canAct() || !this.requireCup() || !this.cup || this.shaking || this.sealing) return;
+    if (this.cup.sealed) return this.reject({ ok: false, reason: "sealed" }, "lid");
+    if (this.cup.shaken) return this.fail("Ly đã lắc rồi");
+    if (liquidTotal(this.cup) < 0.2) return this.fail("Ly còn trống — hãy rót trà trước khi lắc");
+    this.stopPour();
+    this.shaking = true;
+    this.shakeTimer = TIMING.shake;
+    this.events.emit({ type: "cup", action: "shakeStart", duration: this.shakeTimer });
+  }
+
   sealCup() {
-    if (!this.canAct() || !this.requireCup() || !this.cup || this.sealing) return;
+    if (!this.canAct() || !this.requireCup() || !this.cup || this.sealing || this.shaking) return;
     if (this.cup.sealed) return this.reject({ ok: false, reason: "sealed" }, "lid");
     if (liquidTotal(this.cup) < 0.2) return this.fail("Ly còn trống — hãy rót trà trước khi dán nắp");
     if (this.cup.overflow) this.host.notify("Ly bị tràn — khách sẽ không hài lòng lắm", "info");
@@ -523,6 +549,7 @@ export class ShopSession {
     this.cup = null;
     this.pouring = null;
     this.sealing = false;
+    this.shaking = false;
     this.host.notify("Đã bỏ ly. Lấy ly mới để làm lại.", "info");
     this.events.emit({ type: "cup", action: "discard" });
   }

@@ -190,8 +190,10 @@ Công thức là dữ liệu cấu hình, không hard-code riêng cho từng mó
 2. Rót nền trà.
 3. Thêm sữa/chất tạo ngọt.
 4. Thêm đá và topping.
-5. Hoàn thiện ly.
+5. Hoàn thiện ly: lắc (chỉ với món có `shake`) rồi dán nắp.
 6. Giao đồ uống.
+
+Bước lắc: các món trà không sữa (Trà xanh nhài, Hồng trà thạch dừa) cần chạm máy lắc trước khi dán nắp. Lắc mất khoảng 0,9 giây, trong lúc lắc không rót được, mỗi ly chỉ lắc một lần và không lắc được sau khi đã dán nắp. Giao món cần lắc mà chưa lắc sẽ bị trừ 30 điểm quy trình kèm ghi chú "Chưa lắc đều". Lắc món không cần lắc thì không bị phạt. Phiếu món hiển thị mục "Lắc đều" cho các món này.
 
 Người chơi tương tác trực tiếp với các đối tượng. Ví dụ, nhấp máy trà để chọn nền trà, kéo thanh đo để rót lượng mong muốn và kéo topping vào ly. Có thể dùng minigame ngắn cho một vài thao tác nhưng không để mọi bước trở thành minigame riêng gây chậm nhịp.
 

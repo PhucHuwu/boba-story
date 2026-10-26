@@ -1,6 +1,6 @@
 import type { TeaId, ToppingId } from "@/domain/types";
 
-export type StationId = TeaId | "milk" | "sugar" | "ice" | "cup_M" | "cup_L" | "sealer" | "trash" | ToppingId;
+export type StationId = TeaId | "milk" | "sugar" | "ice" | "cup_M" | "cup_L" | "shaker" | "sealer" | "trash" | ToppingId;
 
 export interface Point {
   x: number;
@@ -77,6 +77,7 @@ const PHONE: Layout = {
     top_boba: { x: 130, y: 1197, w: 130, h: 80, labelY: 1239 },
     top_jelly: { x: 320, y: 1197, w: 130, h: 80, labelY: 1239 },
     top_pudding: { x: 510, y: 1197, w: 130, h: 80, labelY: 1239 },
+    shaker: { x: 650, y: 1206, w: 56, h: 66, labelY: 1239 },
   },
   hint: { x: 22, y: 563, w: 676 },
 };
@@ -111,6 +112,7 @@ const TABLET_PORTRAIT: Layout = {
     top_boba: { x: 190, y: 1270, w: 140, h: 72, labelY: 1302 },
     top_jelly: { x: 450, y: 1270, w: 140, h: 72, labelY: 1302 },
     top_pudding: { x: 710, y: 1270, w: 140, h: 72, labelY: 1302 },
+    shaker: { x: 880, y: 1255, w: 60, h: 90, labelY: 1302 },
   },
   hint: { x: 40, y: 570, w: 880 },
 };
@@ -150,6 +152,7 @@ const LANDSCAPE: Layout = {
     top_boba: { x: 960, y: 975, w: 190, h: 115, labelY: 1040 },
     top_jelly: { x: 1185, y: 975, w: 190, h: 115, labelY: 1040 },
     top_pudding: { x: 1410, y: 975, w: 190, h: 115, labelY: 1040 },
+    shaker: { x: 1555, y: 965, w: 66, h: 120, labelY: 1040 },
   },
   hint: { x: 30, y: 700, w: 760 },
 };

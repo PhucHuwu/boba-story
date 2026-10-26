@@ -16,6 +16,8 @@ export interface Recipe {
   teaRatio: number;
   milkRatio: number;
   topping: ToppingId | null;
+  /** Shaken with ice in the shaker before sealing. */
+  shake?: boolean;
   price: number;
   unlockCost: number;
   description: string;
@@ -37,6 +39,7 @@ export interface CupState {
   sugarPumps: number;
   iceScoops: number;
   toppings: ToppingId[];
+  shaken: boolean;
   sealed: boolean;
   overflow: boolean;
   /** Ingredients already deducted from inventory for this cup (deduct exactly once). */

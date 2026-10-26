@@ -136,6 +136,22 @@ export class CupView {
     this.root.setPosition(this.base.x + (offset?.x ?? 0), this.base.y + (offset?.y ?? 0)).setDepth(offset ? depth : this.depth);
   }
 
+  /** Rattles the cup while it is being shaken, then leaves a frothier surface. */
+  shake(durationSec: number) {
+    const tweens = this.scene.tweens;
+    tweens.killTweensOf(this.root);
+    const beats = Math.max(2, Math.round(durationSec / 0.12));
+    tweens.add({
+      targets: this.root,
+      angle: { from: -6, to: 6 },
+      duration: (durationSec * 1000) / beats,
+      yoyo: true,
+      repeat: Math.floor(beats / 2) - 1,
+      onComplete: () => this.root.setAngle(0),
+    });
+    this.swirlLevel = 1.2;
+  }
+
   /** Fades the milk swirl after the milk stops flowing. */
   tick(deltaMs: number) {
     if (this.swirlLevel <= 0) return;

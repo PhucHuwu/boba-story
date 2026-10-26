@@ -312,6 +312,33 @@ describe("ShopSession tutorial order", () => {
     expect(game.save.plan.visitorDone).toBe(true);
   });
 
+  it("shakes the cup over time, blocks pouring meanwhile, and refuses after sealing", () => {
+    const { game } = makeGame();
+    game.newGame();
+    game.save.tutorialDone = true;
+    game.openShop();
+    const s = game.session;
+    const actions: string[] = [];
+    s.events.on((e) => e.type === "cup" && actions.push(e.action));
+    s.takeCup("L");
+    s.shakeCup();
+    expect(s.shaking).toBe(false);
+    s.startPour("tea_green");
+    run(game, () => s.cup!.tea.tea_green >= 0.5);
+    s.stopPour();
+    s.shakeCup();
+    expect(s.shaking).toBe(true);
+    s.startPour("tea_green");
+    expect(s.pouring).toBe(null);
+    run(game, () => !!s.cup?.shaken, 5);
+    expect(s.shaking).toBe(false);
+    expect(actions).toEqual(expect.arrayContaining(["shakeStart", "shaken"]));
+    s.sealCup();
+    run(game, () => !!s.cup?.sealed, 5);
+    s.shakeCup();
+    expect(s.shaking).toBe(false);
+  });
+
   it("rejects actions without a cup and reports them", () => {
     const { game } = makeGame();
     game.newGame();

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { addIce, addSugar, addTopping, newCup, pour, seal } from "./cup";
+import { addIce, addSugar, addTopping, newCup, pour, seal, shake } from "./cup";
 import { createCustomer, tickPatience, transition } from "./customers";
 import { RECIPES, defaultSave } from "./catalog";
 import { buyIngredient, buyUpgrade, canMake, claimQuest, needsRecovery, payment, refreshQuests } from "./economy";
-import { evaluate } from "./quality";
+import { SKIPPED_SHAKE, evaluate } from "./quality";
 import { migrate } from "./saveSchema";
 import type { IngredientId, Order, SaveData } from "./types";
 
@@ -92,6 +92,42 @@ describe("quality", () => {
     for (let i = 0; i < 30; i++) pour(cup, "tea_black", 0.05, consume);
     const r = evaluate({ cup, order: { ...bobaOrder, recipeId: "classic" }, patience: 100 });
     expect(r.process).toBe(0);
+  });
+});
+
+describe("shake step", () => {
+  const jasmineOrder: Order = { id: 2, recipeId: "jasmine", size: "M", sugar: 0, ice: 0 };
+  const brewJasmine = (shaken: boolean) => {
+    const { consume } = consumer(defaultSave());
+    const cup = newCup("M");
+    for (let i = 0; i < 20; i++) pour(cup, "tea_green", 0.05, consume);
+    if (shaken) expect(shake(cup).ok).toBe(true);
+    seal(cup, consume);
+    return cup;
+  };
+
+  it("only the no-milk teas ask for shaking", () => {
+    expect(RECIPES.filter((r) => r.shake).map((r) => r.id).sort()).toEqual(["black_jelly", "jasmine"]);
+  });
+
+  it("skipping the shake costs process points; shaking a recipe that does not need it is free", () => {
+    const skipped = evaluate({ cup: brewJasmine(false), order: jasmineOrder, patience: 100 });
+    const shaken = evaluate({ cup: brewJasmine(true), order: jasmineOrder, patience: 100 });
+    expect(shaken.process).toBe(100);
+    expect(skipped.process).toBe(100 - SKIPPED_SHAKE);
+    expect(skipped.notes).toContain("Chưa lắc đều");
+    expect(shaken.quality).toBeGreaterThan(skipped.quality);
+    const save = defaultSave();
+    const { cup } = makePerfectBoba(save);
+    expect(evaluate({ cup, order: bobaOrder, patience: 100 }).process).toBe(100);
+  });
+
+  it("can shake once, and never after sealing", () => {
+    const cup = brewJasmine(false);
+    expect(shake(cup)).toEqual({ ok: false, reason: "sealed" });
+    const open = newCup("L");
+    expect(shake(open).ok).toBe(true);
+    expect(shake(open)).toEqual({ ok: false, reason: "limit" });
   });
 });
 

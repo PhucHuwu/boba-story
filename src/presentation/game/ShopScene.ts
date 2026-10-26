@@ -78,6 +78,7 @@ const BUSY_ART: Partial<Record<StationId, string>> = {
   sugar: "sugar_press",
   ice: "ice_scoop",
   sealer: "sealer_press",
+  shaker: "shaker_shake",
 };
 /** Vertices along the pour stream rope. */
 const STREAM_POINTS = 14;
@@ -274,6 +275,7 @@ export class ShopScene extends Phaser.Scene {
     this.addStation("cup_M", "cup_stack", "Ly M", "cup").obj.on("pointerdown", take("M"));
     this.addStation("cup_L", "cup_stack", "Ly L", "cup").obj.on("pointerdown", take("L"));
     this.addStation("sealer", "sealer", "Dán nắp", "lid").obj.on("pointerdown", () => this.command(() => this.session.sealCup()));
+    this.addStation("shaker", "shaker", "Lắc").obj.on("pointerdown", () => this.command(() => this.session.shakeCup()));
     this.addStation("trash", "trash", "Bỏ ly").obj.on("pointerdown", () => this.command(() => this.session.discardCup()));
 
     const tops: [ToppingId, string][] = [
@@ -445,7 +447,7 @@ export class ShopScene extends Phaser.Scene {
         break;
       }
       case "cup": {
-        const sound = { take: "click", sugar: "pump", ice: "ice", topping: "plop", sealStart: "seal", sealed: "click", discard: "plop" } as const;
+        const sound = { take: "click", sugar: "pump", ice: "ice", topping: "plop", shakeStart: "shake", shaken: "ting", sealStart: "seal", sealed: "click", discard: "plop" } as const;
         audio.play(sound[e.action]);
         if (e.action === "sugar" || e.action === "ice") {
           this.flashBusy(e.action);
@@ -455,6 +457,13 @@ export class ShopScene extends Phaser.Scene {
           this.setBusy("sealer", true);
           this.press(this.stations.get("sealer")!.obj, e.duration);
         }
+        if (e.action === "shakeStart") {
+          this.setBusy("shaker", true);
+          const shaker = this.stations.get("shaker")!.obj;
+          this.wobble(shaker, e.duration ?? 0.9, 14);
+          this.cupView.shake(e.duration ?? 0.9);
+        }
+        if (e.action === "shaken" || e.action === "discard") this.setBusy("shaker", false);
         if (e.action === "sealed" || e.action === "discard") this.setBusy("sealer", false);
         break;
       }
@@ -526,6 +535,13 @@ export class ShopScene extends Phaser.Scene {
     if (this.pouringFrom) this.setBusy(this.pouringFrom, false);
     this.pouringFrom = from;
     if (from) this.setBusy(from, true);
+  }
+
+  /** Rocks a sprite side to side for `durationSec` (the shaker while shaking). */
+  private wobble(obj: Phaser.GameObjects.Image, durationSec: number, degrees: number) {
+    if (this.reduced) return;
+    const beats = Math.max(2, Math.round(durationSec / 0.15));
+    this.tweens.add({ targets: obj, angle: { from: -degrees, to: degrees }, duration: (durationSec * 1000) / beats, yoyo: true, repeat: Math.floor(beats / 2) - 1, onComplete: () => obj.setAngle(0) });
   }
 
   private press(obj: Phaser.GameObjects.Image, durationSec = 0.14) {

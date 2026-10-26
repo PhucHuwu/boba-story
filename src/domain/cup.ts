@@ -15,6 +15,7 @@ export function newCup(size: Size): CupState {
     sugarPumps: 0,
     iceScoops: 0,
     toppings: [],
+    shaken: false,
     sealed: false,
     overflow: false,
     charged: ["cup"],
@@ -72,6 +73,14 @@ export function addTopping(cup: CupState, topping: ToppingId, consume: Consume):
   if (cup.toppings.length >= MAX_TOPPINGS) return { ok: false, reason: "limit" };
   if (!consume(topping)) return { ok: false, reason: "empty_stock" };
   cup.toppings.push(topping);
+  return { ok: true };
+}
+
+/** Shaking mixes the drink with its ice; it has to happen before the lid goes on. */
+export function shake(cup: CupState): ActionResult {
+  if (cup.sealed) return { ok: false, reason: "sealed" };
+  if (cup.shaken) return { ok: false, reason: "limit" };
+  cup.shaken = true;
   return { ok: true };
 }
 

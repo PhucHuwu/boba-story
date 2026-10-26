@@ -61,9 +61,10 @@ export const RECIPES: Recipe[] = [
     teaRatio: 1,
     milkRatio: 0,
     topping: null,
+    shake: true,
     price: 22,
     unlockCost: 0,
-    description: "Trà xanh thơm hương nhài, rót đầy ly và không thêm sữa.",
+    description: "Trà xanh thơm hương nhài, rót đầy ly, không thêm sữa, lắc đều với đá trước khi dán nắp.",
   },
   {
     id: "oolong_milk",
@@ -105,9 +106,10 @@ export const RECIPES: Recipe[] = [
     teaRatio: 1,
     milkRatio: 0,
     topping: "top_jelly",
+    shake: true,
     price: 26,
     unlockCost: 150,
-    description: "Hồng trà nguyên chất rót đầy ly, thêm thạch dừa.",
+    description: "Hồng trà nguyên chất rót đầy ly, lắc đều với đá rồi thêm thạch dừa.",
   },
 ];
 
