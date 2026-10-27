@@ -6,6 +6,7 @@ import { FEEDBACK_CATEGORIES, FEEDBACK_LABEL, FEEDBACK_MAX_CHARS, FEEDBACK_MIN_C
 import { packCost } from "@/domain/economy";
 import type { IngredientId } from "@/domain/types";
 import { audio } from "../game/audio";
+import { SHORTCUT_HELP } from "../game/keymap";
 import { BankModal, ReviewsModal, RivalModal } from "./features";
 import { Bar, Coin, Icon, Modal, Toggle, asset } from "./kit";
 import { useGame } from "./useGame";
@@ -370,6 +371,19 @@ function PauseModal() {
           Góp ý cho quán
         </button>
       </div>
+      <details className="mt-3 rounded-2xl border-2 border-[#e9d7c3] bg-white/60 px-3 py-2">
+        <summary className="cursor-pointer font-extrabold">Phím tắt (bàn phím)</summary>
+        <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[0.9em]">
+          {SHORTCUT_HELP.map(([keys, text]) => (
+            <div key={keys} className="contents">
+              <dt>
+                <kbd className="rounded-md border-2 border-bean bg-cream px-1.5 font-extrabold whitespace-nowrap">{keys}</kbd>
+              </dt>
+              <dd className="text-cocoa">{text}</dd>
+            </div>
+          ))}
+        </dl>
+      </details>
       <div className="mt-3 flex flex-col gap-2 border-t-2 border-[#efe1cf] pt-3">
         <button
           className="btn btn-danger"

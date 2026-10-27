@@ -11,6 +11,7 @@ import manifest from "./assetManifest.json";
 import { audio } from "./audio";
 import { CupView } from "./cupRenderer";
 import { COLORS, type Layout, SHORT_RECIPE_NAME, type StationId, slotX } from "./layout";
+import { KEY_BY_STATION, STATION_KEYS } from "./keymap";
 import { presentTicket } from "./ticketPresenter";
 
 /** Canvas text cannot resolve CSS variables, so read the real family next/font generated. */
@@ -36,7 +37,10 @@ interface CatView {
   detail: Phaser.GameObjects.Text;
   bubble?: Phaser.GameObjects.Container;
   baseScale: number;
-  idleTween?: Phaser.Tweens.Tween;
+  idleTweens: Phaser.Tweens.Tween[];
+  /** The drink the cat carries out after `receive_drink`. */
+  held?: Phaser.GameObjects.Image;
+  blinkTimer?: Phaser.Time.TimerEvent;
 }
 
 /**
@@ -70,6 +74,8 @@ interface Station {
   /** Art shown while the station is in use (tap open, jug tilted, pump pressed...). */
   busyKey?: string;
   busy: boolean;
+  /** Keyboard shortcut shown at the station's corner once the player uses the keyboard. */
+  keyBadge?: Phaser.GameObjects.Text;
 }
 
 const BUSY_ART: Partial<Record<StationId, string>> = {
@@ -90,6 +96,8 @@ const STREAM_SCALE = 0.36;
 const TICKET_ART_SCALE = 0.45;
 const TICKET_TAPE_W = 34;
 const SCOOP_ART: Record<ToppingId, string> = { top_boba: "scoop_boba", top_jelly: "scoop_jelly", top_pudding: "scoop_pudding" };
+/** Where a cat holds a received drink, as fractions of the cat height from the feet (container origin). */
+const HOLD = { x: 0.04, y: -0.4 };
 /** How long a tap-to-use station keeps its "in use" art. */
 const BUSY_TAP_MS = 320;
 
@@ -118,6 +126,9 @@ export class ShopScene extends Phaser.Scene {
   private wasPaused = false;
   private dirty = true;
   private shopCat: Phaser.GameObjects.Image | null = null;
+  /** Set on the first shortcut key: station labels then show their key. */
+  private keyboardUsed = false;
+  private keyPouring: string | null = null;
   private unsubscribe: (() => void)[] = [];
 
   constructor(
@@ -273,7 +284,22 @@ export class ShopScene extends Phaser.Scene {
     obj.on("pointerover", () => this.ctl.isInteractive() && this.tweens.add({ targets: obj, scale: obj.getData("baseScale") * 1.06, duration: 100 }));
     obj.on("pointerout", () => this.tweens.add({ targets: obj, scale: obj.getData("baseScale"), duration: 100 }));
     obj.setData("y0", spot.y);
-    const st: Station = { obj, label, name, stock, key, busyKey: BUSY_ART[id], busy: false };
+    const shortcut = id === "trash" ? "Del" : KEY_BY_STATION[id];
+    const keyBadge = shortcut
+      ? this.add
+          .text(spot.x - spot.w / 2 + 4, spot.y - spot.h / 2 + 4, shortcut, {
+            fontFamily: FONT,
+            fontSize: "17px",
+            color: "#fff8ec",
+            fontStyle: "800",
+            backgroundColor: "#4a2c1d",
+            padding: { x: 6, y: 1 },
+          })
+          .setOrigin(0, 0)
+          .setDepth(16)
+          .setVisible(false)
+      : undefined;
+    const st: Station = { obj, label, name, stock, key, busyKey: BUSY_ART[id], busy: false, keyBadge };
     this.stations.set(id, st);
     return st;
   }
@@ -342,12 +368,101 @@ export class ShopScene extends Phaser.Scene {
     this.input.on("pointerup", (p: Phaser.Input.Pointer) => this.onPointerUp(p));
     this.input.on("pointerupoutside", (p: Phaser.Input.Pointer) => this.onPointerUp(p));
     this.input.on("gameout", () => this.session.stopPour());
-    this.input.keyboard?.on("keydown-ESC", () => {
-      if (this.ctl.phase !== "open") return;
-      if (this.ctl.modal) this.ctl.closeModal();
-      else this.ctl.openModal("pause");
+    this.input.keyboard?.on("keydown", (e: KeyboardEvent) => this.onKeyDown(e));
+    this.input.keyboard?.on("keyup", (e: KeyboardEvent) => {
+      if (e.code !== this.keyPouring) return;
+      this.keyPouring = null;
+      this.session.stopPour();
     });
-    this.input.keyboard?.on("keydown-SPACE", () => this.session.deliverToSelected());
+  }
+
+  /** Keyboard play (GDD §5.3): Esc cancels the action in progress before it pauses; see keymap.ts. */
+  private onKeyDown(e: KeyboardEvent) {
+    if (this.ctl.phase !== "open" || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.code === "Escape") {
+      if (this.ctl.modal) this.ctl.closeModal();
+      else if (!this.cancelAction()) this.ctl.openModal("pause");
+      return;
+    }
+    if (e.target instanceof HTMLElement && e.target.closest("input, textarea, select, button")) return;
+    if (!this.ctl.isInteractive() || e.repeat) return;
+    const slot = /^Digit([1-4])$/.exec(e.code)?.[1];
+    if (slot) {
+      const target = this.session.customers.find((c) => c.data.slot === Number(slot) - 1 && (c.data.state === "ordering" || c.data.state === "waiting"));
+      if (target) this.command(() => this.session.tapCustomer(target.data.id));
+      return this.markKeyboard(e);
+    }
+    if (e.code === "Space") {
+      this.command(() => this.session.deliverToSelected());
+      return this.markKeyboard(e);
+    }
+    if (e.code === "Delete" || e.code === "Backspace") {
+      this.command(() => this.session.discardCup());
+      return this.markKeyboard(e);
+    }
+    const key = STATION_KEYS.find((k) => k.code === e.code);
+    if (!key) return;
+    this.useStation(key.station, e.code);
+    this.markKeyboard(e);
+  }
+
+  private markKeyboard(e: KeyboardEvent) {
+    e.preventDefault();
+    if (!this.keyboardUsed) {
+      this.keyboardUsed = true;
+      this.dirty = true;
+    }
+  }
+
+  /** Same command a tap on the station sends; pours run until the key is released. */
+  private useStation(id: StationId, code: string) {
+    const s = this.session;
+    switch (id) {
+      case "tea_black":
+      case "tea_green":
+      case "tea_oolong":
+      case "milk":
+        this.keyPouring = code;
+        return this.pour(id);
+      case "sugar":
+        return this.command(() => s.pumpSugar());
+      case "ice":
+        return this.command(() => s.scoopIce());
+      case "cup_M":
+      case "cup_L":
+        return this.command(() => s.takeCup(id === "cup_M" ? "M" : "L"));
+      case "sealer":
+        return this.command(() => s.sealCup());
+      case "shaker":
+        return this.command(() => s.shakeCup());
+      case "trash":
+        return this.command(() => s.discardCup());
+      default: {
+        const st = this.stations.get(id);
+        if (st && !this.reduced) this.press(st.obj);
+        return this.command(() => s.addTopping(id));
+      }
+    }
+  }
+
+  /** Esc: drops a topping or cup being dragged, or stops a pour. Returns false when nothing was in progress. */
+  private cancelAction(): boolean {
+    if (this.dragTopping) {
+      this.endToppingDrag();
+      return true;
+    }
+    if (this.draggingCup) {
+      this.draggingCup = false;
+      this.cupView.drag(null);
+      for (const c of this.cats.values()) c.sprite.setAlpha(1);
+      return true;
+    }
+    if (this.session.pouring) {
+      this.keyPouring = null;
+      this.session.stopPour();
+      return true;
+    }
+    return false;
   }
 
   private startToppingDrag(t: ToppingId, p: Phaser.Input.Pointer) {
@@ -426,7 +541,8 @@ export class ShopScene extends Phaser.Scene {
         const c = this.cats.get(e.id);
         if (!c) break;
         this.tweens.add({ targets: c.card, alpha: 1, y: this.L.cardY, duration: 250 });
-        this.setIdle(c, true);
+        this.setIdle(c, true, "idle");
+        this.orderGesture(c);
         audio.play("bell");
         break;
       }
@@ -451,8 +567,21 @@ export class ShopScene extends Phaser.Scene {
       case "served": {
         const c = this.cats.get(e.id);
         if (!c) break;
+        const keeps = this.session.customers.find((x) => x.data.id === e.id)?.data.state === "receiving";
         const flying = this.fit(this.add.image(this.L.cup.x, this.L.cup.y, `drink_${e.info.recipeId}`).setDepth(DEPTH.flyingCup), 80, 120);
-        this.tweens.add({ targets: flying, x: c.root.x, y: this.L.counterY - this.L.catHeight / 2, scale: flying.scale * 0.8, duration: 350, ease: "Quad.easeOut", onComplete: () => flying.destroy() });
+        const hand = { x: c.root.x + HOLD.x * this.L.catHeight, y: c.root.y + HOLD.y * this.L.catHeight };
+        this.tweens.add({
+          targets: flying,
+          x: hand.x,
+          y: hand.y,
+          scale: flying.scale * 0.8,
+          duration: 350,
+          ease: "Quad.easeOut",
+          onComplete: () => {
+            flying.destroy();
+            if (keeps && this.cats.get(e.id) === c) this.receiveDrink(c, `drink_${e.info.recipeId}`);
+          },
+        });
         const { info } = e;
         audio.play(info.happy ? "happy" : "sad");
         if (info.price + info.tip > 0) this.time.delayedCall(250, () => audio.play("coin"));
@@ -599,7 +728,7 @@ export class ShopScene extends Phaser.Scene {
     ]);
 
     if (d.critic && this.textures.exists("icon_critic")) card.add(this.add.image(80, -66, "icon_critic").setDisplaySize(48, 48));
-    const view: CatView = { id: d.id, slot: d.slot, root, sprite, card, cardArt, cardBg, bar, status, title, detail, baseScale };
+    const view: CatView = { id: d.id, slot: d.slot, root, sprite, card, cardArt, cardBg, bar, status, title, detail, baseScale, idleTweens: [] };
     this.fillCard(view, d);
     if (d.delivery && this.textures.exists("icon_delivery")) card.add(this.add.image(-80, -66, "icon_delivery").setDisplaySize(48, 48));
     this.cats.set(d.id, view);
@@ -616,20 +745,69 @@ export class ShopScene extends Phaser.Scene {
     this.tweens.add({ targets: c.sprite, angle: 3, duration: 260, yoyo: true, repeat: Math.floor(steps / 2), ease: "Sine.easeInOut", onComplete: () => c.sprite.setAngle(0) });
   }
 
-  private setIdle(c: CatView, on: boolean) {
-    c.idleTween?.remove();
-    c.idleTween = undefined;
-    c.sprite.setScale(c.baseScale);
+  /**
+   * Standing animation (GDD §3.3), all tweened so it works on single-frame art:
+   * idle breathes and shifts its weight, impatient taps a foot, disappointed slumps.
+   */
+  private setIdle(c: CatView, on: boolean, mood: Mood = "idle") {
+    for (const t of c.idleTweens) t.remove();
+    c.idleTweens = [];
+    c.blinkTimer?.remove();
+    c.blinkTimer = undefined;
+    c.sprite.setScale(c.baseScale).setAngle(0).setY(0);
     if (!on || this.reduced) return;
-    c.idleTween = this.tweens.add({
-      targets: c.sprite,
-      scaleY: c.baseScale * 1.015,
-      scaleX: c.baseScale * 0.995,
-      duration: 1400 + Math.random() * 400,
-      yoyo: true,
-      repeat: -1,
-      ease: "Sine.easeInOut",
+    const s = c.baseScale;
+    const add = (cfg: Phaser.Types.Tweens.TweenBuilderConfig) => c.idleTweens.push(this.tweens.add(cfg));
+    if (mood === "impatient") {
+      add({ targets: c.sprite, y: -5, duration: 110, yoyo: true, repeat: -1, repeatDelay: 380, ease: "Quad.easeOut" });
+      add({ targets: c.sprite, angle: { from: -1.5, to: 1.5 }, duration: 900, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+      return;
+    }
+    if (mood === "sad") {
+      c.sprite.setScale(s * 1.01, s * 0.965).setAngle(-2);
+      add({ targets: c.sprite, scaleY: s * 0.955, duration: 1800, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+      return;
+    }
+    add({ targets: c.sprite, scaleY: s * 1.015, scaleX: s * 0.995, duration: 1400 + Math.random() * 400, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    add({ targets: c.sprite, angle: { from: -1.2, to: 1.2 }, duration: 2400 + Math.random() * 800, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    if (mood === "idle") this.scheduleBlink(c);
+  }
+
+  /** Swaps in the eyes-closed frame for a moment every few seconds (only when that art exists). */
+  private scheduleBlink(c: CatView) {
+    const open = c.sprite.texture.key;
+    const closed = open.endsWith("_idle") ? `${open.slice(0, -5)}_blink` : "";
+    if (!closed || !this.textures.exists(closed)) return;
+    c.blinkTimer = this.time.delayedCall(2500 + Math.random() * 3500, () => {
+      if (c.sprite.texture.key !== open) return;
+      c.sprite.setTexture(closed);
+      this.time.delayedCall(140, () => {
+        if (c.sprite.texture.key === closed) c.sprite.setTexture(open);
+        if (c.blinkTimer) this.scheduleBlink(c);
+      });
     });
+  }
+
+  /** `order`: a little hop and lean toward the ticket as the order pops up. */
+  private orderGesture(c: CatView) {
+    if (this.reduced) return;
+    this.tweens.add({ targets: c.root, y: c.root.y - 14, duration: 120, yoyo: true, repeat: 1, ease: "Quad.easeOut" });
+    this.tweens.add({ targets: c.root, angle: { from: 0, to: c.root.x < this.L.room.w / 2 ? 4 : -4 }, duration: 200, yoyo: true, ease: "Sine.easeInOut" });
+    this.tweens.add({ targets: c.card, scale: { from: 0.7, to: 1 }, duration: 320, ease: "Back.easeOut" });
+  }
+
+  /** `receive_drink`: the cup lands in the cat's front paws and leaves the shop with them. */
+  private receiveDrink(c: CatView, key: string) {
+    if (!this.textures.exists(key)) return;
+    c.held?.destroy();
+    const h = this.L.catHeight;
+    const cup = this.add.image(HOLD.x * h, HOLD.y * h, key).setOrigin(0.5, 0.5);
+    cup.setScale((h * 0.2) / cup.height);
+    c.root.add(cup);
+    c.held = cup;
+    if (this.reduced) return;
+    this.tweens.add({ targets: c.root, y: c.root.y - 10, duration: 140, yoyo: true, ease: "Quad.easeOut" });
+    this.tweens.add({ targets: cup, angle: { from: -10, to: 0 }, duration: 260, ease: "Back.easeOut" });
   }
 
   private walkOut(id: number, delaySec: number, durationSec: number) {
@@ -640,7 +818,7 @@ export class ShopScene extends Phaser.Scene {
       this.tweens.killTweensOf(c.root);
       this.tweens.killTweensOf(c.sprite);
       c.sprite.setAngle(0).setY(0);
-      c.root.setAlpha(1);
+      c.root.setAlpha(1).setAngle(0);
       this.setIdle(c, false);
       c.sprite.setFlipX(c.root.x < this.L.door.x);
       const ms = durationSec * 1000;
@@ -651,7 +829,8 @@ export class ShopScene extends Phaser.Scene {
   }
 
   private destroyCat(c: CatView) {
-    c.idleTween?.remove();
+    for (const t of c.idleTweens) t.remove();
+    c.blinkTimer?.remove();
     c.root.destroy();
     c.card.destroy();
     c.bubble?.destroy();
@@ -665,7 +844,7 @@ export class ShopScene extends Phaser.Scene {
     c.sprite.setTexture(this.catTexture(data, mood));
     c.baseScale = this.L.catHeight / c.sprite.height;
     const state = this.session.customers.find((x) => x.data.id === id)?.data.state;
-    this.setIdle(c, state === "ordering" || state === "waiting" || state === "receiving");
+    this.setIdle(c, state === "ordering" || state === "waiting" || state === "receiving", mood);
   }
 
   /** Sprite for a customer and mood; shippers use their app brand and fall back to the idle pose. */
@@ -861,6 +1040,7 @@ export class ShopScene extends Phaser.Scene {
 
     const inv = this.ctl.save.inventory;
     for (const st of this.stations.values()) {
+      st.keyBadge?.setVisible(this.keyboardUsed);
       if (!st.stock) continue;
       const n = inv[st.stock];
       st.label.setText(`${st.name} ×${n}`).setColor(n <= 0 ? "#b23a3a" : n <= 3 ? "#b86a1d" : "#4a2c1d");
