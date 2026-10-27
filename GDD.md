@@ -73,6 +73,8 @@ Các kiểu dưới đây là archetype về hành vi, không phải các loài 
 
 Đã triển khai thêm: mèo shipper, bà cụ hàng xóm, mèo TikToker và các NPC buổi sáng. Xem mục 17.
 
+Ngoại hình: học sinh, văn phòng và khó tính có 3 bộ ngoại hình (gốc + 2 biến thể đổi màu lông và trang phục) và 40% cơ hội đeo 1 phụ kiện. Xem mục 17.7.
+
 MVP chỉ cần 2–3 archetype có khác biệt hành vi rõ ràng. Có thể tái sử dụng rig/animation cơ bản và thay đổi màu lông, trang phục, phụ kiện để tiết kiệm công sức, nhưng không nên chỉ đổi màu cho tất cả nhân vật nếu điều đó làm chúng thiếu cá tính.
 
 ### 3.3. Animation tối thiểu cho khách mèo
@@ -88,6 +90,8 @@ MVP nên có các trạng thái hình ảnh cơ bản:
 - `receive_drink`: dùng hai chân trước nhận ly.
 
 Nếu ngân sách animation hạn chế, có thể dùng sprite sheet đơn giản hoặc animation theo từng bộ phận. Không cần hệ thống xương phức tạp ở MVP.
+
+Đã triển khai (tween trên ảnh tĩnh, `ShopScene`): `walk` nhún và lắc người; `order` nhảy nhẹ và nghiêng về phía phiếu; `idle` thở và dồn trọng tâm, chớp mắt bằng ảnh `_blink`; `wait` khi sốt ruột thì gõ chân; `disappointed` thì xệ người; `receive_drink` thì ly bay vào hai chân trước và mèo cầm ly ra cửa. Chế độ giảm chuyển động tắt hết các tween này.
 
 ### 3.4. Art direction
 
@@ -163,6 +167,22 @@ Không triển khai di chuyển nhân vật tự do bằng WASD trong MVP. Dùng
 | Hủy thao tác chưa xác nhận | `Esc` hoặc nút quay lại |
 | Tạm dừng | `Esc` hoặc nút Pause |
 | Âm thanh | Điều khiển trong Settings |
+
+Phím tắt (đã triển khai, `presentation/game/keymap.ts`, có danh sách trong menu tạm dừng):
+
+| Phím | Tác dụng |
+|---|---|
+| `1`–`4` | Chọn mèo khách theo chỗ đứng |
+| `Q` / `W` / `E` / `R` | Giữ để rót trà đen / trà xanh / ô long / sữa |
+| `S` / `D` | Đường / đá |
+| `M` / `L` | Lấy ly M / L |
+| `Z` / `X` / `C` | Trân châu / thạch dừa / pudding |
+| `A` / `F` | Lắc / dán nắp |
+| `Space` | Giao ly cho khách đang chọn |
+| `Delete` / `Backspace` | Bỏ ly |
+| `Esc` | Hủy kéo/rót đang làm, nếu không thì đóng hộp thoại, nếu không thì tạm dừng |
+
+Nhãn phím hiện trên từng thiết bị sau lần đầu người chơi dùng bàn phím.
 
 Các vùng nhấn phải đủ lớn, có phản hồi hover/selected và báo rõ khi thao tác không hợp lệ. Không phạt tiền cho thao tác sai chưa xác nhận.
 
@@ -568,4 +588,27 @@ Tiền trúng vé số cộng thẳng vào quỹ, không tính vào lợi nhuậ
 
 ### 17.5. Lưu trữ
 
-Save phiên bản 3 có thêm `taxBase`, `lotteryDay`, `strayFed` và các trường `visitor`, `visitorDone`, `deal` trong kế hoạch ngày. `migrate` điền giá trị mặc định cho save cũ và bỏ dữ liệu NPC không hợp lệ.
+Save phiên bản 3 có thêm `taxBase`, `lotteryDay`, `strayFed` và các trường `visitor`, `visitorDone`, `deal` trong kế hoạch ngày. Phiên bản 4 thêm `decor` (danh sách đồ trang trí đã mua). `migrate` điền giá trị mặc định cho save cũ và bỏ dữ liệu NPC hoặc đồ trang trí không hợp lệ.
+
+### 17.6. Trang trí quán (`domain/decor.ts`)
+
+Mua ở tab "Trang trí" trong cửa hàng, mỗi món một lần, đặt cố định trong phòng (`presentation/game/decorSpots.ts`). Hiệu ứng cộng dồn: tip nhân `(1 + tổng)`, tốc độ giảm kiên nhẫn chia `(1 + tổng)`, khoảng cách giữa hai khách chia `(1 + tổng)`.
+
+| Món | Giá | Hiệu ứng | Điều kiện |
+|---|---|---|---|
+| Đèn lồng giấy | 140 | Tip +4% | — |
+| Thảm hình mèo | 120 | Kiên nhẫn +5% | — |
+| Cây monstera | 180 | Kiên nhẫn +5% | — |
+| Tranh Mochi vẽ | 80 | Tip +3% | Phục vụ Mochi 3 lần |
+| Kệ thú bông | 220 | Khách đến nhanh hơn 4% | 30 danh tiếng |
+| Bảng menu phấn | 250 | Tip +5% | 40 danh tiếng |
+
+Nhiệm vụ "Trang trí 3 món" thưởng 90 xu.
+
+### 17.7. Ngoại hình khách (`domain/customers.ts` `rollLook`, `presentation/game/catLooks.ts`)
+
+- Chỉ học sinh, văn phòng và khó tính. Mochi, bà cụ, TikToker và shipper giữ ngoại hình cố định để dễ nhận ra.
+- Biến thể 0–2 chọn đều; ảnh `cat_<id>_v<n>_<mood>`, thiếu ảnh thì dùng ảnh gốc.
+- 40% đeo 1 trong 6 phụ kiện: mũ len, mũ lưỡi trai, vòng hoa (đỉnh đầu); nơ, kẹp hoa, kẹp sao (cạnh tai). Không dùng món che mặt hay cổ (tai nghe, khăn đã bỏ vì đè lên mặt).
+- Vị trí đầu đo riêng cho từng tư thế; phụ kiện đi theo mọi tween và lật hướng của mèo.
+- Ngoại hình chỉ là hình ảnh, không ảnh hưởng hành vi hay điểm.

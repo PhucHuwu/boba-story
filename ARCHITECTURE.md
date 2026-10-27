@@ -12,6 +12,8 @@ src/
     delivery.ts      Delivery-app shippers (multi-cup orders, commission).
     guests.ts        Special guests during the day (granny, TikToker).
     visitors.ts      Morning visitors on the prep screen (lottery seller, supplier, stray kitten).
+    decor.ts         Shop decor catalog, unlocks and summed bonuses (tips, patience, arrivals).
+    customers.ts     Customer lifecycle, patience, order rules and `rollLook` (look variant + accessory).
     community.ts     Feedback, anonymous day telemetry and menu announcement: shapes + validation.
   application/     Use cases + ports. Depends on domain only.
     ports.ts         Interfaces the outside world must implement (saves, cloud, AI text, cache, rate limit…).
@@ -25,6 +27,8 @@ src/
   presentation/    Delivery to the player.
     game/            Phaser "humble view": ShopScene renders session state and forwards input as commands.
                      layout.ts holds per-form-factor positions (phone / tabletPortrait / landscape).
+                     keymap.ts: keyboard shortcuts. decorSpots.ts: decor positions in bg_room pixels.
+                     catLooks.ts: per-mood head poses and accessory fits (fractions of sprite height).
     ui/              React overlays (HUD, menus, modals) reading GameController via useGame().
     landing/         Public home page at `/` (hero, cat cast, latest announcement, feedback form, FAQ).
                      Server-rendered markup with small client islands (play button, mood toggle, form).
@@ -87,4 +91,10 @@ admin/             Separate Next.js app (own package.json, own Vercel project `b
 - **New art** → prompt in `scripts/gen-assets.mjs`, a `- [ ]` line in `ASSETS.md`, then `npm run gen:assets -- <key>`
   (the file lands in the folder chosen by `scripts/asset-paths.mjs`; the manifest `presentation/game/assetManifest.json`,
   key → path, is regenerated; code refers to art by key only; `Icon` renders nothing for missing art).
+- **New decor item** → `DecorId` + entry in `DECOR` (`domain/decor.ts`), a spot in `presentation/game/decorSpots.ts`
+  (bg_room pixels; rows ~490–745 are clear on every layout), art `decor_<name>`.
+- **New accessory** → add the key to `ACCESSORIES` (`domain/customers.ts`) and a fit in `ACCESSORY_FIT`
+  (`presentation/game/catLooks.ts`); only crown/side anchors, nothing over the face.
+- **New look variant** → raise `LOOK_VARIANTS` and add a `VARIANTS` description in `scripts/gen-assets.mjs`
+  (ref-edited from the base idle, so the head poses still match).
 - **New screen size** → add a `Layout` to `LAYOUTS` and extend `pickLayoutKind`; `layout.test.ts` checks bounds.
