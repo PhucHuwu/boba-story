@@ -261,3 +261,9 @@ Mỗi khách thường có 2 biến thể đổi màu lông + trang phục (cùn
 - [x] `cat_office_v2_{idle,happy,sad,impatient}`: mèo cam, áo blazer nâu
 - [x] `cat_picky_v1_{idle,happy,sad,impatient}`: Ba Tư xám bạc, áo khoác bạc hà
 - [x] `cat_picky_v2_{idle,happy,sad,impatient}`: lông kem colourpoint, áo khoác hồng
+
+## 10. Chớp mắt (có prompt, sửa từ ảnh idle)
+Game tự đổi sang ảnh `_blink` một lúc mỗi vài giây khi khách đứng yên (tắt khi bật giảm chuyển động). Chỉ khác phần mắt so với ảnh idle.
+- [x] `cat_regular_blink`, `cat_student_blink`, `cat_office_blink`, `cat_picky_blink`
+- [x] `cat_granny_blink`, `cat_tiktoker_blink`
+- [x] `cat_student_v1_blink`, `cat_student_v2_blink`, `cat_office_v1_blink`, `cat_office_v2_blink`, `cat_picky_v1_blink`, `cat_picky_v2_blink`

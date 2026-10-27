@@ -463,6 +463,20 @@ for (const [id, list] of Object.entries(VARIANTS)) {
   });
 }
 
+// Tier 10 (ASSETS.md section 10): blink frames, edited from each idle so only the eyelids change.
+const BLINK_BASES = ["cat_regular", "cat_student", "cat_office", "cat_picky", "cat_granny", "cat_tiktoker"];
+for (const base of [...BLINK_BASES, ...Object.entries(VARIANTS).flatMap(([id, l]) => l.map((_, n) => `cat_${id}_v${n + 1}`))]) {
+  ASSETS.push({
+    key: `${base}_blink`,
+    kind: "sprite",
+    aspect: "3:4",
+    max: 640,
+    tier: 10,
+    ref: `${base}_idle`,
+    prompt: "Edit this image: keep absolutely everything identical (same character, pose, outfit, colours, framing, size, art style, mouth and whiskers). Change only the eyes: both eyes gently closed in a relaxed blink, drawn as soft curved lines. Keep the perfectly plain pure white background, no shadow, no ground.",
+  });
+}
+
 // Tier 2 (ASSETS.md section 2): spots already wired in the UI.
 const TIER2 = /^(icon_discount|icon_wrench|icon_bankrupt|trash_.*|robber|rival_.*)$/;
 for (const a of ASSETS) a.tier ??= TIER2.test(a.key) ? 2 : 1;

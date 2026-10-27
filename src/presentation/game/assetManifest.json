@@ -182,5 +182,17 @@
   "cat_picky_v2_idle": "characters/customers/cat_picky_v2_idle.webp",
   "cat_picky_v2_happy": "characters/customers/cat_picky_v2_happy.webp",
   "cat_picky_v2_sad": "characters/customers/cat_picky_v2_sad.webp",
-  "cat_picky_v2_impatient": "characters/customers/cat_picky_v2_impatient.webp"
+  "cat_picky_v2_impatient": "characters/customers/cat_picky_v2_impatient.webp",
+  "cat_regular_blink": "characters/customers/cat_regular_blink.webp",
+  "cat_student_blink": "characters/customers/cat_student_blink.webp",
+  "cat_office_blink": "characters/customers/cat_office_blink.webp",
+  "cat_picky_blink": "characters/customers/cat_picky_blink.webp",
+  "cat_granny_blink": "characters/customers/cat_granny_blink.webp",
+  "cat_tiktoker_blink": "characters/customers/cat_tiktoker_blink.webp",
+  "cat_student_v1_blink": "characters/customers/cat_student_v1_blink.webp",
+  "cat_student_v2_blink": "characters/customers/cat_student_v2_blink.webp",
+  "cat_office_v1_blink": "characters/customers/cat_office_v1_blink.webp",
+  "cat_office_v2_blink": "characters/customers/cat_office_v2_blink.webp",
+  "cat_picky_v1_blink": "characters/customers/cat_picky_v1_blink.webp",
+  "cat_picky_v2_blink": "characters/customers/cat_picky_v2_blink.webp"
 }
