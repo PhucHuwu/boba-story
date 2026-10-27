@@ -9,6 +9,7 @@ import { isDecorId } from "@/domain/decor";
 import { hasShopCat } from "@/domain/visitors";
 import type { IngredientId, Mood, Size, TeaId, ToppingId } from "@/domain/types";
 import manifest from "./assetManifest.json";
+import { planAssets } from "./assetPlan";
 import { audio } from "./audio";
 import { CupView } from "./cupRenderer";
 import { COLORS, type Layout, SHORT_RECIPE_NAME, type StationId, slotX } from "./layout";
@@ -46,6 +47,8 @@ interface CatView {
   blinkTimer?: Phaser.Time.TimerEvent;
   /** Head accessory; follows the sprite every frame (see syncAccessory). */
   acc?: Phaser.GameObjects.Image;
+  /** Sprite key prefix fixed at spawn, so a look variant that streams in later never swaps fur mid-visit. */
+  look: string;
   arch: string;
   mood: Mood;
 }
@@ -157,9 +160,41 @@ export class ShopScene extends Phaser.Scene {
     return this.ctl.save.settings.reducedMotion;
   }
 
+  private static readonly PATHS: Record<string, string> = manifest;
+  private deferredArt: string[] = [];
+
+  /** Only what the first minutes need; the rest streams in after create() (see assetPlan.ts). */
   preload() {
+    const plan = planAssets(Object.keys(ShopScene.PATHS), this.ctl.save.decor);
+    this.deferredArt = plan.deferred;
     this.load.on("progress", (p: number) => this.ctl.setLoadProgress(p * 0.99));
-    for (const [key, file] of Object.entries(manifest as Record<string, string>)) this.load.image(key, `/assets/${file}`);
+    for (const key of plan.critical) this.load.image(key, `/assets/${ShopScene.PATHS[key]}`);
+  }
+
+  private streamDeferredArt() {
+    this.load.off("progress");
+    const pending = this.deferredArt.filter((k) => !this.textures.exists(k));
+    if (!pending.length) return;
+    for (const key of pending) this.load.image(key, `/assets/${ShopScene.PATHS[key]}`);
+    this.load.on(Phaser.Loader.Events.FILE_COMPLETE, (key: string) => this.onLateArt(key));
+    this.load.start();
+  }
+
+  /** Picks up art that arrived after the shop opened: hidden special guests, accessories, decor. */
+  private onLateArt(key: string) {
+    if (key.startsWith("decor_")) this.dirty = true;
+    if (!/^(cat_|shipper_|acc_)/.test(key)) return;
+    for (const c of this.cats.values()) {
+      const d = this.session.customers.find((x) => x.data.id === c.id)?.data;
+      if (!d) continue;
+      if (!c.sprite.visible && this.textures.exists(`${c.look}_idle`)) {
+        c.sprite.setTexture(this.catTexture(c, c.mood)).setVisible(true);
+        c.baseScale = this.L.catHeight / c.sprite.height;
+        c.sprite.setScale(c.baseScale);
+        if (d.state === "ordering" || d.state === "waiting" || d.state === "receiving") this.setIdle(c, true, c.mood);
+      }
+      if (key === d.accessory && !c.acc) this.addAccessory(c, d);
+    }
   }
 
   create() {
@@ -198,6 +233,7 @@ export class ShopScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, detach);
     this.events.once(Phaser.Scenes.Events.DESTROY, detach);
     this.ctl.setLoadProgress(1);
+    this.streamDeferredArt();
   }
 
   /** Rebuilds cat views for a session already in progress (e.g. after rotating the device remounts the scene). */
@@ -711,7 +747,9 @@ export class ShopScene extends Phaser.Scene {
     const d = customer.data;
     const slots = maxCustomers(this.ctl.save);
     const x = slotX(this.L, d.slot, slots);
-    const sprite = this.add.image(0, 0, this.catTexture(d, "idle")).setOrigin(0.5, 1);
+    const look = this.pickLook(d);
+    const missing = !this.textures.exists(`${look}_idle`);
+    const sprite = this.add.image(0, 0, missing ? "cat_regular_idle" : `${look}_idle`).setOrigin(0.5, 1).setVisible(!missing);
     const baseScale = this.L.catHeight / sprite.height;
     sprite.setScale(baseScale);
     const root = this.add.container(this.L.door.x, this.L.door.y, [sprite]).setDepth(actorDepth(this.L.door.y, d.id)).setScale(0.45).setAlpha(0);
@@ -740,18 +778,21 @@ export class ShopScene extends Phaser.Scene {
     ]);
 
     if (d.critic && this.textures.exists("icon_critic")) card.add(this.add.image(80, -66, "icon_critic").setDisplaySize(48, 48));
-    const view: CatView = { id: d.id, slot: d.slot, root, sprite, card, cardArt, cardBg, bar, status, title, detail, baseScale, idleTweens: [], arch: d.archetype, mood: "idle" };
-    if (d.accessory && this.textures.exists(d.accessory) && accessoryPlacement(d.archetype, "idle", d.accessory, 1)) {
-      view.acc = this.add.image(0, 0, d.accessory);
-      root.add(view.acc);
-      this.syncAccessory(view);
-    }
+    const view: CatView = { id: d.id, slot: d.slot, root, sprite, card, cardArt, cardBg, bar, status, title, detail, baseScale, idleTweens: [], look, arch: d.archetype, mood: "idle" };
+    this.addAccessory(view, d);
     this.fillCard(view, d);
     if (d.delivery && this.textures.exists("icon_delivery")) card.add(this.add.image(-80, -66, "icon_delivery").setDisplaySize(48, 48));
     this.cats.set(d.id, view);
     this.tweens.add({ targets: root, alpha: 1, duration: 300 });
     this.tweens.add({ targets: root, x, y: this.L.counterY + 30, scale: 1, duration: duration * 1000, ease: "Sine.easeInOut" });
     if (!this.reduced) this.waddle(view, duration * 1000);
+  }
+
+  private addAccessory(c: CatView, d: Customer) {
+    if (!d.accessory || !this.textures.exists(d.accessory) || !accessoryPlacement(d.archetype, "idle", d.accessory, 1)) return;
+    c.acc = this.add.image(0, 0, d.accessory);
+    c.root.addAt(c.acc, 1);
+    this.syncAccessory(c);
   }
 
   /** Two-legged walk: bounce + side-to-side sway. */
@@ -858,25 +899,23 @@ export class ShopScene extends Phaser.Scene {
     if (!c) return;
     const data = this.session.customers.find((x) => x.data.id === id)?.data;
     if (!data) return;
-    c.sprite.setTexture(this.catTexture(data, mood));
+    if (c.sprite.visible) c.sprite.setTexture(this.catTexture(c, mood));
     c.baseScale = this.L.catHeight / c.sprite.height;
     c.mood = mood;
     const state = this.session.customers.find((x) => x.data.id === id)?.data.state;
     this.setIdle(c, state === "ordering" || state === "waiting" || state === "receiving", mood);
   }
 
-  /**
-   * Sprite for a customer and mood; shippers use their app brand. Falls back to the idle pose, and a look
-   * variant falls back to the base art until its images exist.
-   */
-  private catTexture(d: Customer, mood: Mood): string {
+  /** Sprite prefix for a customer; shippers use their app brand, and a look variant falls back to the base art until it has loaded. */
+  private pickLook(d: Customer): string {
     const base = d.delivery ? `shipper_${d.delivery.brand}` : `cat_${d.archetype}`;
-    const bases = d.variant ? [`${base}_v${d.variant}`, base] : [base];
-    for (const b of bases) {
-      if (this.textures.exists(`${b}_${mood}`)) return `${b}_${mood}`;
-      if (this.textures.exists(`${b}_idle`)) return `${b}_idle`;
-    }
-    return `${base}_idle`;
+    const variant = d.variant ? `${base}_v${d.variant}` : "";
+    return variant && this.textures.exists(`${variant}_idle`) ? variant : base;
+  }
+
+  /** Sprite for a mood within the cat's look, falling back to its idle pose. */
+  private catTexture(c: CatView, mood: Mood): string {
+    return this.textures.exists(`${c.look}_${mood}`) ? `${c.look}_${mood}` : `${c.look}_idle`;
   }
 
   /** Keeps the accessory on the head through the sprite's bob, tilt, squash and mirror tweens. */
@@ -885,7 +924,7 @@ export class ShopScene extends Phaser.Scene {
     if (!acc) return;
     const sp = c.sprite;
     const p = accessoryPlacement(c.arch, c.mood, acc.texture.key, sp.height);
-    if (!p) return acc.setVisible(false);
+    if (!p || !sp.visible) return acc.setVisible(false);
     const flip = sp.flipX ? -1 : 1;
     const lx = p.x * flip * sp.scaleX;
     const ly = p.y * sp.scaleY;

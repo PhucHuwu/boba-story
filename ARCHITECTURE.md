@@ -29,6 +29,7 @@ src/
                      layout.ts holds per-form-factor positions (phone / tabletPortrait / landscape).
                      keymap.ts: keyboard shortcuts. decorSpots.ts: decor positions in bg_room pixels.
                      catLooks.ts: per-mood head poses and accessory fits (fractions of sprite height).
+                     assetPlan.ts: which art preloads and which streams in after the shop opens.
     ui/              React overlays (HUD, menus, modals) reading GameController via useGame().
     landing/         Public home page at `/` (hero, cat cast, latest announcement, feedback form, FAQ).
                      Server-rendered markup with small client islands (play button, mood toggle, form).
@@ -97,4 +98,6 @@ admin/             Separate Next.js app (own package.json, own Vercel project `b
   (`presentation/game/catLooks.ts`); only crown/side anchors, nothing over the face.
 - **New look variant** → raise `LOOK_VARIANTS` and add a `VARIANTS` description in `scripts/gen-assets.mjs`
   (ref-edited from the base idle, so the head poses still match).
+- **New art key** → loads before the shop opens unless it matches a `DEFERRED` pattern in
+  `presentation/game/assetPlan.ts`; deferred art must be looked up with `textures.exists` (or only used by React UI).
 - **New screen size** → add a `Layout` to `LAYOUTS` and extend `pickLayoutKind`; `layout.test.ts` checks bounds.
