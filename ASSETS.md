@@ -286,5 +286,6 @@ Giai đoạn 0, ảnh mẫu (chưa vào game, chỉ để duyệt phong cách):
 Giai đoạn 1, phòng isometric (gpt-image-2.5 Flare medium trên fal, nền trong suốt thật, ref `iso_ref_room`). Lưu ở `public/assets/iso/`:
 - [x] `iso_room`: phòng trống (sàn gỗ + 2 tường sau)
 - [x] `iso_counter`: quầy gỗ chéo (đã tạo, chưa dùng)
+- [x] `iso_counter_front`: mặt trước quầy chạy ngang, khách đứng phía sau
 - [x] `iso_table`, `iso_shelf`
 - [x] `iso_decor_rug`, `iso_decor_lanterns`, `iso_decor_painting`, `iso_decor_plushies`, `iso_decor_monstera`, `iso_decor_chalkboard`
