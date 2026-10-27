@@ -605,6 +605,12 @@ Mua ở tab "Trang trí" trong cửa hàng, mỗi món một lần, đặt cố 
 
 Nhiệm vụ "Trang trí 3 món" thưởng 90 xu.
 
+Cân bằng (mô phỏng `.sim/balance.sim.test.ts`, 14 ngày × 12 lượt chơi × 3 mức tay nghề, so sánh không trang trí / mua dần / có đủ 6 món từ ngày 1):
+
+- Đủ 6 món chỉ tăng lợi nhuận mỗi ngày khoảng 2–8% (chủ yếu từ tip, tip tăng ~10–20%), mức chênh nằm trong dao động giữa các ngày; không lượt chơi nào phá sản ở cả 3 cách chơi.
+- Mua dần: người chơi trung bình có khoảng 3 món ở ngày 10 và gần đủ 6 món ở ngày 14; người chơi mới chỉ mua 1–2 món rẻ vì ưu tiên công thức và nâng cấp. Mốc mở công thức không đổi; nâng cấp của người chơi mới chậm hơn một chút (2.7 so với 3.3 món ở ngày 14).
+- Tổng giá 990 xu hoàn vốn chậm (vài chục ngày), nên trang trí chủ yếu là mục tiêu trang trí quán, không phải lối tắt kiếm tiền.
+
 ### 17.7. Ngoại hình khách (`domain/customers.ts` `rollLook`, `presentation/game/catLooks.ts`)
 
 - Chỉ học sinh, văn phòng và khó tính. Mochi, bà cụ, TikToker và shipper giữ ngoại hình cố định để dễ nhận ra.
