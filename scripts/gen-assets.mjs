@@ -477,14 +477,54 @@ for (const base of [...BLINK_BASES, ...Object.entries(VARIANTS).flatMap(([id, l]
   });
 }
 
+// Tier 11 (ASSETS.md section 11): 2.5D isometric room. Every piece is drawn from the approved mockup
+// (iso_ref_room) so the angle, palette and outline match. Run with FAL_IMAGE_MODEL=openai/gpt-image-2.5/flare.
+const ISO_STYLE =
+  "Match the reference image exactly in art style: cozy cartoon mobile game art, soft warm pastel colours, clean dark-brown outlines, simple cel shading, the same true 2:1 isometric angle and the same soft light from the upper left.";
+const ISO_SPRITE = "Single object only, drawn in that isometric view, on a fully transparent background. No floor, no walls, no characters, no text, no letters.";
+const isoSprite = (key, desc, aspect = "1:1", max = 512) => ({
+  key,
+  kind: "sprite",
+  aspect,
+  max,
+  tier: 11,
+  transparent: true,
+  ref: "iso_ref_room",
+  prompt: `${ISO_STYLE} ${desc} ${ISO_SPRITE}`,
+});
+ASSETS.push(
+  {
+    key: "iso_room",
+    kind: "bg",
+    aspect: "1:1",
+    max: 1280,
+    tier: 11,
+    ref: "iso_ref_room",
+    prompt: `${ISO_STYLE} The same boba tea shop room as the reference, but completely EMPTY: only the warm wooden plank floor and the two back walls (cream back-left wall with a large window, peach back-right wall with the entrance door). No furniture, no counter, no shelves, no plants, no lanterns, no posters, no characters. Fill the whole square frame edge to edge: the corner where the two walls meet is at the horizontal centre near the top, the walls run diagonally down to the left and right edges of the image, and the floor fills the entire lower part of the image all the way to the bottom and side edges. No outer cut-away block edges, no background colour visible. No text.`,
+  },
+  isoSprite("iso_counter", "A long straight wooden serving counter with vertical plank front panels and a smooth light wood top, running diagonally from the upper left down to the lower right (parallel to the back-right wall), with a small cash register at one end. Nothing else on the counter.", "3:2", 900),
+  isoSprite("iso_counter_front", "The front of a long straight wooden serving counter, running perfectly horizontally from the left edge to the right edge of the image, seen from the front and slightly above: a light smooth wood top surface visible as a narrow strip along the top, a thick rounded top edge, vertical warm-brown plank front panels and a darker skirting board at the bottom. Nothing on the counter. The counter fills the whole width of the image.", "21:9", 1536),
+  isoSprite("iso_table", "A small round wooden cafe table with a tiny potted succulent on it and two round wooden stools beside it."),
+  isoSprite("iso_shelf", "Two wooden wall shelves stacked one above the other, holding glass jars of tea leaves and tapioca pearls, mounted flat against a back-left wall so the shelves follow that wall's isometric slant."),
+  isoSprite("iso_decor_rug", "A round soft pink rug with a cute cat face pattern lying flat on the floor, seen in isometric view so it looks like a flattened ellipse."),
+  isoSprite("iso_decor_lanterns", "A string of four Vietnamese paper lanterns in pastel pink, yellow, mint and lilac hanging from a gently sagging cord, with tassels.", "3:2"),
+  isoSprite("iso_decor_painting", "A small framed painting of a happy cat holding a boba tea, hanging flat on a back-left wall, so the frame is skewed to follow that wall's isometric slant.", "3:4", 320),
+  isoSprite("iso_decor_plushies", "A small wooden open shelf unit standing on the floor holding cute plush toys: a grey cat, a white bunny and a brown teddy bear.", "3:4"),
+  isoSprite("iso_decor_monstera", "A big leafy monstera plant in a round terracotta pot standing on the floor.", "3:4"),
+  isoSprite("iso_decor_chalkboard", "A small wooden A-frame sidewalk chalkboard sign standing on the floor, its black board decorated only with chalk doodles of a cat face and a boba cup, no writing.", "3:4", 320),
+);
+
 // Tier 2 (ASSETS.md section 2): spots already wired in the UI.
 const TIER2 = /^(icon_discount|icon_wrench|icon_bankrupt|trash_.*|robber|rival_.*)$/;
 for (const a of ASSETS) a.tier ??= TIER2.test(a.key) ? 2 : 1;
 
+function refDataUrls(asset) {
+  if (!asset.ref) return [];
+  return [asset.ref].flat().map((r) => `data:image/png;base64,${fs.readFileSync(rawPath(r)).toString("base64")}`);
+}
+
 function refDataUrl(asset) {
-  if (!asset.ref) return null;
-  const b64 = fs.readFileSync(rawPath(asset.ref)).toString("base64");
-  return `data:image/png;base64,${b64}`;
+  return refDataUrls(asset)[0] ?? null;
 }
 
 async function callProxy(asset) {
@@ -510,7 +550,45 @@ async function callProxy(asset) {
   return Buffer.from(url.split(",")[1], "base64");
 }
 
+/** gpt-image sizes: both edges multiples of 16, 655,360+ pixels. */
+const GPT_SIZES = {
+  "1:1": { width: 1024, height: 1024 },
+  "3:4": { width: 768, height: 1024 },
+  "4:3": { width: 1024, height: 768 },
+  "2:3": { width: 1024, height: 1536 },
+  "3:2": { width: 1536, height: 1024 },
+  "9:16": { width: 720, height: 1280 },
+  "16:9": { width: 1280, height: 720 },
+  "21:9": { width: 1536, height: 656 },
+};
+
+async function callFalGpt(asset) {
+  const refs = refDataUrls(asset);
+  const endpoint = `${FAL_MODEL}/${refs.length ? "edit" : "text-to-image"}`;
+  const body = {
+    prompt: asset.prompt,
+    image_size: GPT_SIZES[asset.aspect] ?? "auto",
+    quality: process.env.FAL_QUALITY || "medium",
+    background: asset.transparent ? "transparent" : "opaque",
+    output_format: "png",
+    num_images: 1,
+    sync_mode: true,
+    ...(refs.length ? { image_urls: refs } : {}),
+  };
+  const res = await fetch(`https://fal.run/${endpoint}`, {
+    method: "POST",
+    headers: { Authorization: `Key ${FAL_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const json = await res.json();
+  const url = json?.images?.[0]?.url;
+  if (!url) throw new Error(`No image (fal ${res.status}): ${JSON.stringify(json).slice(0, 200)}`);
+  if (url.startsWith("data:")) return Buffer.from(url.split(",")[1], "base64");
+  return Buffer.from(await (await fetch(url)).arrayBuffer());
+}
+
 async function callFal(asset) {
+  if (FAL_MODEL.startsWith("openai/")) return callFalGpt(asset);
   const ref = refDataUrl(asset);
   const endpoint = ref ? `${FAL_MODEL}/edit` : FAL_MODEL;
   const body = {
@@ -659,6 +737,9 @@ async function processAsset(asset, force, reprocess = false) {
   let pipeline;
   if (asset.kind === "glass") {
     pipeline = sharp(await sharp(await unmixWhite(fs.readFileSync(rawFile))).trim({ threshold: 1 }).toBuffer());
+  } else if (asset.kind === "sprite" && asset.transparent) {
+    // Model returned a real alpha channel: only trim.
+    pipeline = sharp(await sharp(rawFile).ensureAlpha().trim({ threshold: 1 }).toBuffer());
   } else if (asset.kind === "sprite") {
     const cut = await removeBackground(fs.readFileSync(rawFile), asset.holes);
     pipeline = sharp(await sharp(cut).trim({ threshold: 1 }).toBuffer());

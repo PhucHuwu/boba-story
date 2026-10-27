@@ -267,3 +267,24 @@ Game tự đổi sang ảnh `_blink` một lúc mỗi vài giây khi khách đ�
 - [x] `cat_regular_blink`, `cat_student_blink`, `cat_office_blink`, `cat_picky_blink`
 - [x] `cat_granny_blink`, `cat_tiktoker_blink`
 - [x] `cat_student_v1_blink`, `cat_student_v2_blink`, `cat_office_v1_blink`, `cat_office_v2_blink`, `cat_picky_v1_blink`, `cat_picky_v2_blink`
+
+## 11. Thiết kế lại 2.5D (hướng B: phòng isometric + quầy pha chế liền khối)
+Ngân sách fal.ai tối đa $5. Giai đoạn 0 dùng Nano Banana 2 ($0.08/ảnh 1K); từ giai đoạn 1 dùng `openai/gpt-image-2.5/flare` mức medium (~$0.01–0.013/ảnh tạo, ~$0.022/ảnh sửa, cộng phí token). Chỉ dùng fal sau khi proxy lỗi 3 lần liên tiếp.
+
+Sổ chi tiêu:
+| Ngày giờ | Proxy (3 lần) | fal | Ảnh | Chi | Cộng dồn |
+|---|---|---|---|---|---|
+| 2026-10-28 01:19–01:22 | 500 INTERNAL ×3 | dùng | 3 ảnh mẫu phong cách | $0.24 | $0.24 |
+| 2026-10-28 01:36–01:37 | gpt-image-2.5: auth_not_found ×3 | dùng | 10 ảnh phòng iso (gpt-image-2.5 medium) | ~$0.25 | ~$0.49 |
+| 2026-10-28 02:39 | gpt-image-2.5: auth_not_found ×3 | dùng | `iso_counter_front` | ~$0.013 | ~$0.50 |
+
+Giai đoạn 0, ảnh mẫu (chưa vào game, chỉ để duyệt phong cách):
+- [x] `mock_phone`: điện thoại dọc, phòng ở trên và quầy ở dưới
+- [x] `mock_landscape`: iPad ngang, phòng bên trái và quầy bên phải
+- [x] `mock_room`: riêng phòng dạng khối diorama
+
+Giai đoạn 1, phòng isometric (gpt-image-2.5 Flare medium trên fal, nền trong suốt thật, ref `iso_ref_room`). Lưu ở `public/assets/iso/`:
+- [x] `iso_room`: phòng trống (sàn gỗ + 2 tường sau)
+- [x] `iso_counter`: quầy gỗ chéo (đã tạo, chưa dùng)
+- [x] `iso_table`, `iso_shelf`
+- [x] `iso_decor_rug`, `iso_decor_lanterns`, `iso_decor_painting`, `iso_decor_plushies`, `iso_decor_monstera`, `iso_decor_chalkboard`

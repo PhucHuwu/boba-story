@@ -4,6 +4,7 @@ import * as Phaser from "phaser";
 import { useEffect, useRef } from "react";
 import type { GameController } from "@/application/game/gameController";
 import type { Layout } from "./layout";
+import { roomStyle } from "./roomStyle";
 import { ShopScene } from "./ShopScene";
 
 function createGame(parent: HTMLElement, controller: GameController, layout: Layout) {
@@ -14,7 +15,7 @@ function createGame(parent: HTMLElement, controller: GameController, layout: Lay
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: layout.width, height: layout.height },
     render: { antialias: true, roundPixels: false },
     input: { activePointers: 2 },
-    scene: [new ShopScene(controller, layout)],
+    scene: [new ShopScene(controller, layout, roomStyle())],
     banner: false,
   });
 }

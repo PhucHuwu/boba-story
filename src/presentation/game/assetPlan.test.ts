@@ -11,7 +11,18 @@ describe("planAssets", () => {
     const all = [...plan.critical, ...plan.deferred];
     expect(new Set(all).size).toBe(all.length);
     expect(all.some((k) => k.startsWith("landing_"))).toBe(false);
-    expect(all.length).toBe(keys.filter((k) => !k.startsWith("landing_") && k !== "app_icon").length);
+    expect(all.length).toBe(keys.filter((k) => !k.startsWith("landing_") && !k.startsWith("iso_") && k !== "app_icon").length);
+  });
+
+  it("loads only the art of the chosen room style", () => {
+    const iso = planAssets(keys, ["decor_rug"], "iso");
+    const all = [...iso.critical, ...iso.deferred];
+    expect(all).not.toContain("bg_room");
+    expect(all).not.toContain("decor_rug");
+    expect(iso.critical).toContain("iso_room");
+    expect(iso.critical).toContain("iso_decor_rug");
+    expect(iso.deferred).toContain("iso_decor_lanterns");
+    expect(all.some((k) => k.startsWith("iso_ref"))).toBe(false);
   });
 
   it("loads the room, stations, base cats and drinks up front", () => {

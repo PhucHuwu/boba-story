@@ -2,6 +2,7 @@
 // only the file location is grouped. First matching rule wins.
 const RULES = [
   [/^(bg_room|counter_front|worktop)$/, "scene"],
+  [/^iso_/, "iso"],
   [/^(tea_.*|milk.*|sugar.*|ice.*|top_.*|cup_stack|sealer.*|trash|shaker.*)$/, "stations"],
   [/^cat_/, "characters/customers"],
   [/^shipper_/, "characters/shippers"],

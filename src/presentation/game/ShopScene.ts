@@ -15,6 +15,8 @@ import { CupView } from "./cupRenderer";
 import { COLORS, type Layout, SHORT_RECIPE_NAME, type StationId, slotX } from "./layout";
 import { accessoryPlacement } from "./catLooks";
 import { DECOR_SPOTS } from "./decorSpots";
+import { fitRoom, ISO_COUNTER_H, ISO_DECOR, ISO_FOOT_OFFSET, isoLayout, PROP_ORIGIN, type Prop, ROOM_PROPS, type RoomFit, toCanvas } from "./isoGrid";
+import type { RoomStyle } from "./roomStyle";
 import { KEY_BY_STATION, STATION_KEYS } from "./keymap";
 import { presentTicket } from "./ticketPresenter";
 
@@ -143,13 +145,17 @@ export class ShopScene extends Phaser.Scene {
   /** False until the first sync, so decor already owned at load appears without a pop-in. */
   private decorShown = false;
   private bgScale = 1;
+  private roomFit: RoomFit | null = null;
   private unsubscribe: (() => void)[] = [];
+  private readonly L: Layout;
 
   constructor(
     private readonly ctl: GameController,
-    private readonly L: Layout,
+    layout: Layout,
+    private readonly style: RoomStyle = "flat",
   ) {
     super("shop");
+    this.L = style === "iso" ? isoLayout(layout) : layout;
   }
 
   private get session() {
@@ -165,7 +171,7 @@ export class ShopScene extends Phaser.Scene {
 
   /** Only what the first minutes need; the rest streams in after create() (see assetPlan.ts). */
   preload() {
-    const plan = planAssets(Object.keys(ShopScene.PATHS), this.ctl.save.decor);
+    const plan = planAssets(Object.keys(ShopScene.PATHS), this.ctl.save.decor, this.style);
     this.deferredArt = plan.deferred;
     this.load.on("progress", (p: number) => this.ctl.setLoadProgress(p * 0.99));
     for (const key of plan.critical) this.load.image(key, `/assets/${ShopScene.PATHS[key]}`);
@@ -182,7 +188,7 @@ export class ShopScene extends Phaser.Scene {
 
   /** Picks up art that arrived after the shop opened: hidden special guests, accessories, decor. */
   private onLateArt(key: string) {
-    if (key.startsWith("decor_")) this.dirty = true;
+    if (/^(iso_)?decor_/.test(key)) this.dirty = true;
     if (!/^(cat_|shipper_|acc_)/.test(key)) return;
     for (const c of this.cats.values()) {
       const d = this.session.customers.find((x) => x.data.id === c.id)?.data;
@@ -250,7 +256,52 @@ export class ShopScene extends Phaser.Scene {
   }
 
   // ---------------------------------------------------------------- static layout
+  /** 2.5D room: empty iso_room art plus furniture props, with the counter in front of the queue. */
+  private buildIsoRoom() {
+    const { room, counterY } = this.L;
+    const fit = fitRoom(this.L);
+    this.roomFit = fit;
+    this.add.image(fit.x, fit.y, "iso_room").setOrigin(0, 0).setDisplaySize(fit.size, fit.size);
+    if (fit.x < 0 || fit.size > room.w) this.cameras.main.setBackgroundColor("#2a1810");
+    for (const p of ROOM_PROPS) this.addProp(p);
+    const shade = this.add.graphics().setDepth(DEPTH.actors - 0.5);
+    shade.fillGradientStyle(0x3b2416, 0x3b2416, 0x3b2416, 0x3b2416, 0.3, 0.3, 0, 0);
+    shade.fillRect(0, 0, room.w, 170);
+    if (this.textures.exists("iso_counter_front")) {
+      // Bottom tucks under the worktop edge; the cats stand behind it with their feet hidden.
+      this.add
+        .image(room.w / 2, counterY + 12, "iso_counter_front")
+        .setOrigin(0.5, 1)
+        .setDisplaySize(room.w + 24, ISO_COUNTER_H)
+        .setDepth(DEPTH.counter);
+      return;
+    }
+    const g = this.add.graphics().setDepth(DEPTH.counter);
+    g.fillStyle(0x9c6440, 1).fillRect(0, counterY - 6, room.w, 40);
+    if (this.textures.exists("counter_front")) {
+      const rail = this.add.image(-10, counterY - 26, "counter_front").setOrigin(0, 0).setDepth(DEPTH.counter);
+      rail.setDisplaySize(room.w + 20, Math.max(34, ((room.w + 20) / rail.width) * rail.height));
+    }
+  }
+
+  /** Where a customer's feet rest while at the counter: in the 2.5D room they stand on the floor behind it. */
+  private get footY(): number {
+    return this.L.counterY + (this.roomFit ? ISO_FOOT_OFFSET : 30);
+  }
+
+  /** Puts a room prop at its spot; floor props share the actors band so cats walk in front of or behind them. */
+  private addProp(p: Prop): Phaser.GameObjects.Image | null {
+    const fit = this.roomFit;
+    if (!fit || !this.textures.exists(p.key)) return null;
+    const at = toCanvas(fit, p.at);
+    const img = this.add.image(at.x, at.y, p.key).setOrigin(...PROP_ORIGIN[p.kind]);
+    img.setScale((p.w * fit.k) / img.width);
+    img.setDepth(p.kind === "floor" ? actorDepth(at.y) : p.kind === "hanging" ? DEPTH.actors + 1.5 : DEPTH.actors - 1 + (p.kind === "wall" ? 0.1 : 0.2));
+    return img;
+  }
+
   private buildRoom() {
+    if (this.style === "iso" && this.textures.exists("iso_room")) return this.buildIsoRoom();
     const { room, counterY } = this.L;
     const bg = this.add.image(0, room.bgY, "bg_room").setOrigin(0, 0);
     bg.setDisplaySize(room.w, (room.w / bg.width) * bg.height);
@@ -784,7 +835,7 @@ export class ShopScene extends Phaser.Scene {
     if (d.delivery && this.textures.exists("icon_delivery")) card.add(this.add.image(-80, -66, "icon_delivery").setDisplaySize(48, 48));
     this.cats.set(d.id, view);
     this.tweens.add({ targets: root, alpha: 1, duration: 300 });
-    this.tweens.add({ targets: root, x, y: this.L.counterY + 30, scale: 1, duration: duration * 1000, ease: "Sine.easeInOut" });
+    this.tweens.add({ targets: root, x, y: this.footY, scale: 1, duration: duration * 1000, ease: "Sine.easeInOut" });
     if (!this.reduced) this.waddle(view, duration * 1000);
   }
 
@@ -1119,11 +1170,18 @@ export class ShopScene extends Phaser.Scene {
   /** Owned decor at its fixed spot in the room (positions are bg_room pixels, see decorSpots.ts). */
   private syncDecor() {
     for (const id of this.ctl.save.decor) {
-      if (this.decorViews.has(id) || !isDecorId(id) || !this.textures.exists(id)) continue;
-      const spot = DECOR_SPOTS[id];
-      const k = this.bgScale;
-      const img = this.add.image(spot.x * k, this.L.room.bgY + spot.y * k, id).setOrigin(...spot.origin).setDepth(spot.depth);
-      img.setScale((spot.w * k) / img.width);
+      if (this.decorViews.has(id) || !isDecorId(id)) continue;
+      let img: Phaser.GameObjects.Image | null;
+      if (this.roomFit) {
+        img = this.addProp(ISO_DECOR[id]);
+      } else {
+        if (!this.textures.exists(id)) continue;
+        const spot = DECOR_SPOTS[id];
+        const k = this.bgScale;
+        img = this.add.image(spot.x * k, this.L.room.bgY + spot.y * k, id).setOrigin(...spot.origin).setDepth(spot.depth);
+        img.setScale((spot.w * k) / img.width);
+      }
+      if (!img) continue;
       this.decorViews.set(id, img);
       if (this.decorShown && !this.reduced) {
         const sc = img.scale;
@@ -1227,6 +1285,6 @@ export class ShopScene extends Phaser.Scene {
     const c = this.cats.get(target.customerId);
     if (!c) return null;
     const x = slotX(this.L, c.slot, maxCustomers(this.ctl.save));
-    return target.kind === "card" ? { x, y: this.L.cardY, w: 190, h: 130 } : { x, y: this.L.counterY + 30 - this.L.catHeight / 2, w: this.L.catHeight * 0.62, h: this.L.catHeight * 0.8 };
+    return target.kind === "card" ? { x, y: this.L.cardY, w: 190, h: 130 } : { x, y: this.footY - this.L.catHeight / 2, w: this.L.catHeight * 0.62, h: this.L.catHeight * 0.8 };
   }
 }

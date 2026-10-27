@@ -1,10 +1,11 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getGame } from "@/composition/client";
 import { audio } from "../game/audio";
-import { LAYOUTS } from "../game/layout";
+import { LAYOUTS, stretchPhone } from "../game/layout";
+import { roomStyle } from "../game/roomStyle";
 import { BankruptScreen, NightScreen } from "./features";
 import { HintBar, Hud, Toasts, unlockAudioOnce } from "./hud";
 import { Modals } from "./modals";
@@ -53,7 +54,11 @@ export default function GameApp() {
   useEffect(() => game.init(), [game]);
 
   const kind = useViewportLayoutKind();
-  const L = LAYOUTS[kind ?? "phone"];
+  // Measured once per layout kind, so a mobile address bar showing/hiding doesn't remount the canvas.
+  const L = useMemo(() => {
+    const base = LAYOUTS[kind ?? "phone"];
+    return kind && roomStyle() === "iso" ? stretchPhone(base, window.innerWidth, window.innerHeight) : base;
+  }, [kind]);
 
   // Rotating mid-day remounts the scene; pause so the player doesn't lose time while re-orienting.
   const prevKind = useRef(kind);

@@ -167,6 +167,36 @@ export function pickLayoutKind(viewportW: number, viewportH: number): LayoutKind
   return "phone";
 }
 
+const shiftY = <T extends { y: number; labelY?: number }>(r: T, dy: number): T => ({
+  ...r,
+  y: r.y + dy,
+  ...(r.labelY === undefined ? {} : { labelY: r.labelY + dy }),
+});
+
+/**
+ * A taller phone layout for screens longer than 9:16: the extra height goes to the room, everything from the counter
+ * down moves with it. Up to `max` extra canvas px (720×1560 ≈ 9:19.5).
+ */
+export function stretchPhone(L: Layout, viewportW: number, viewportH: number, max = 280): Layout {
+  if (L.kind !== "phone" || viewportW <= 0) return L;
+  const extra = Math.round(Math.min(max, Math.max(0, (L.width * viewportH) / viewportW - L.height)));
+  if (extra < 8) return L;
+  const stations = Object.fromEntries(Object.entries(L.stations).map(([k, s]) => [k, shiftY(s, extra)])) as Layout["stations"];
+  return {
+    ...L,
+    height: L.height + extra,
+    counterY: L.counterY + extra,
+    door: shiftY(L.door, extra),
+    cardY: L.cardY + extra / 2,
+    bubbleY: L.bubbleY + extra / 2,
+    worktop: shiftY(L.worktop, extra),
+    ticket: shiftY(L.ticket, extra),
+    cup: shiftY(L.cup, extra),
+    stations,
+    hint: shiftY(L.hint, extra),
+  };
+}
+
 export function slotX(L: Layout, slot: number, slots: number): number {
   return (slots === 4 ? L.slots[4] : L.slots[3])[slot] ?? L.room.w / 2;
 }

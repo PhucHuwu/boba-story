@@ -4,6 +4,8 @@
  * by React `<img>` tags (UI-only art), so a late arrival just means the fallback is used for a moment.
  */
 const SKIP = [/^landing_/, /^app_icon$/];
+/** Art of the other room style (2D close-up vs 2.5D isometric), never shown in this session. */
+const SKIP_STYLE = { iso: [/^bg_room$/, /^decor_/], flat: [/^iso_/] };
 
 /** Background order: guests that can walk in on day one first, then looks, then UI-only art. */
 const DEFERRED: RegExp[] = [
@@ -11,7 +13,7 @@ const DEFERRED: RegExp[] = [
   /^cat_[a-z]+_v\d+_(?!blink)/,
   /^acc_/,
   /_blink$/,
-  /^decor_/,
+  /^(iso_)?decor_/,
   /^(rival_|robber$|npc_(?!stray_happy$)|upg_|logo$|icon_(?!combo$|critic$|delivery$))/,
 ];
 
@@ -21,12 +23,13 @@ export interface AssetPlan {
   deferred: string[];
 }
 
-export function planAssets(keys: string[], owned: readonly string[] = []): AssetPlan {
+export function planAssets(keys: string[], owned: readonly string[] = [], style: "iso" | "flat" = "flat"): AssetPlan {
   const critical: string[] = [];
   const tiers: string[][] = DEFERRED.map(() => []);
+  const skip = [...SKIP, ...SKIP_STYLE[style]];
   for (const key of keys) {
-    if (SKIP.some((r) => r.test(key))) continue;
-    const tier = owned.includes(key) ? -1 : DEFERRED.findIndex((r) => r.test(key));
+    if (skip.some((r) => r.test(key))) continue;
+    const tier = owned.includes(key.replace(/^iso_/, "")) ? -1 : DEFERRED.findIndex((r) => r.test(key));
     (tier < 0 ? critical : tiers[tier]).push(key);
   }
   return { critical, deferred: tiers.flat() };
