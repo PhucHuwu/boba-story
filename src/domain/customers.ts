@@ -37,7 +37,7 @@ export interface Customer {
 /** Archetypes whose look varies; story and special visitors keep a fixed look. */
 export const VARIED_ARCHETYPES: readonly ArchetypeId[] = ["student", "office", "picky"];
 export const LOOK_VARIANTS = 2;
-export const ACCESSORIES = ["acc_beanie", "acc_bow", "acc_flower", "acc_cap", "acc_headphones", "acc_scarf"] as const;
+export const ACCESSORIES = ["acc_beanie", "acc_bow", "acc_flower", "acc_cap", "acc_wreath", "acc_star"] as const;
 export const ACCESSORY_CHANCE = 0.4;
 
 /** Random look so the same archetype does not walk in as identical twins. */

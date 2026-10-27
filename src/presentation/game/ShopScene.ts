@@ -895,7 +895,7 @@ export class ShopScene extends Phaser.Scene {
       .setOrigin(...p.origin)
       .setFlipX(sp.flipX)
       .setAngle(sp.angle + p.angle * flip)
-      .setScale((p.width * sp.scaleX) / acc.width);
+      .setScale((p.width * sp.scaleX) / acc.width, (p.width * sp.scaleY) / acc.width);
   }
 
   /** Order ticket text; shippers also show which cup of the delivery this is. */

@@ -416,8 +416,8 @@ ASSETS.push(
     acc("acc_bow", "A big cute pink satin hair ribbon bow."),
     acc("acc_flower", "A hair clip made of one big pastel yellow flower with two small green leaves."),
     acc("acc_cap", "A small red baseball cap seen from the front, short brim facing the viewer, no logo."),
-    acc("acc_headphones", "A pair of chunky pastel lilac over-ear headphones with a curved headband, seen from the front, ear cups at the bottom left and right."),
-    acc("acc_scarf", "A short cozy knitted scarf in warm red and cream stripes, wrapped like a collar with a short hanging end, seen from the front.", 360),
+    { ...acc("acc_wreath", "A small flower crown wreath of tiny pastel pink, white and peach flowers with little green leaves, seen from the front, short and wide like it rests on top of a head."), holes: true },
+    acc("acc_star", "A hair clip shaped like one chunky pastel yellow star with a tiny sparkle, cute and simple."),
   ]),
 );
 

@@ -245,19 +245,19 @@ Chỉ gen nhóm này sau khi chốt kế hoạch NPC.
 - [x] `decor_chalkboard`: bảng menu phấn chữ A (không chữ)
 
 ## 8. Phụ kiện khách (có prompt)
-Khách thường (học sinh, dân văn phòng, khó tính) có 40% cơ hội đeo 1 phụ kiện. Vị trí đầu theo từng tư thế nằm trong `src/presentation/game/catLooks.ts`. Ảnh nào chưa có thì game tự bỏ qua.
+Khách thường (học sinh, dân văn phòng, khó tính) có 40% cơ hội đeo 1 phụ kiện. Chỉ đặt trên đỉnh đầu hoặc cạnh tai, không che mặt (bỏ tai nghe và khăn quàng vì đè lên mặt). Vị trí đầu theo từng tư thế nằm trong `src/presentation/game/catLooks.ts`. Ảnh nào chưa có thì game tự bỏ qua.
 - [x] `acc_beanie`: mũ len xanh bạc hà
 - [x] `acc_bow`: nơ hồng
 - [x] `acc_flower`: kẹp hoa vàng
-- [ ] `acc_cap`: mũ lưỡi trai đỏ
-- [ ] `acc_headphones`: tai nghe chụp tai tím nhạt
-- [ ] `acc_scarf`: khăn len sọc đỏ kem
+- [x] `acc_cap`: mũ lưỡi trai đỏ
+- [x] `acc_wreath`: vòng hoa nhỏ trên đỉnh đầu (`holes: true`)
+- [x] `acc_star`: kẹp tóc ngôi sao vàng
 
 ## 9. Biến thể ngoại hình (có prompt, sửa từ ảnh gốc)
 Mỗi khách thường có 2 biến thể đổi màu lông + trang phục (cùng tư thế với ảnh gốc). Chưa có ảnh thì game dùng ảnh gốc. Mochi, bà cụ, TikToker, shipper giữ nguyên.
-- [ ] `cat_student_v1_{idle,happy,sad,impatient}`: mèo mun trắng, áo hoodie vàng
-- [ ] `cat_student_v2_{idle,happy,sad,impatient}`: lông kem, áo len tím nhạt
-- [ ] `cat_office_v1_{idle,happy,sad,impatient}`: mèo đen, sơ mi xanh, cà vạt đỏ
-- [ ] `cat_office_v2_{idle,happy,sad,impatient}`: mèo cam, áo blazer nâu
-- [ ] `cat_picky_v1_{idle,happy,sad,impatient}`: Ba Tư xám bạc, áo khoác bạc hà
-- [ ] `cat_picky_v2_{idle,happy,sad,impatient}`: lông kem colourpoint, áo khoác hồng
+- [x] `cat_student_v1_{idle,happy,sad,impatient}`: mèo mun trắng, áo hoodie vàng
+- [x] `cat_student_v2_{idle,happy,sad,impatient}`: lông kem, áo len tím nhạt
+- [x] `cat_office_v1_{idle,happy,sad,impatient}`: mèo đen, sơ mi xanh, cà vạt đỏ
+- [x] `cat_office_v2_{idle,happy,sad,impatient}`: mèo cam, áo blazer nâu
+- [x] `cat_picky_v1_{idle,happy,sad,impatient}`: Ba Tư xám bạc, áo khoác bạc hà
+- [x] `cat_picky_v2_{idle,happy,sad,impatient}`: lông kem colourpoint, áo khoác hồng
