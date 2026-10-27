@@ -407,6 +407,62 @@ ASSETS.push(
   ]),
 );
 
+// Tier 8 (ASSETS.md section 8): head accessories worn by everyday customers (0-1 each, placed at a head anchor).
+const ACC = "Front view, flat and symmetrical, as worn by a cartoon cat seen from the front. Single item only, no cat, no head, no mannequin.";
+const acc = (key, desc, max = 320) => ({ key, kind: "sprite", aspect: "1:1", max, prompt: `${STYLE} ${ACC} ${desc} ${SPRITE}` });
+ASSETS.push(
+  ...tier(8, [
+    acc("acc_beanie", "A small pastel mint knitted beanie hat with a cream pom-pom, short and round so it sits between two cat ears."),
+    acc("acc_bow", "A big cute pink satin hair ribbon bow."),
+    acc("acc_flower", "A hair clip made of one big pastel yellow flower with two small green leaves."),
+    acc("acc_cap", "A small red baseball cap seen from the front, short brim facing the viewer, no logo."),
+    acc("acc_headphones", "A pair of chunky pastel lilac over-ear headphones with a curved headband, seen from the front, ear cups at the bottom left and right."),
+    acc("acc_scarf", "A short cozy knitted scarf in warm red and cream stripes, wrapped like a collar with a short hanging end, seen from the front.", 360),
+  ]),
+);
+
+// Tier 9 (ASSETS.md section 9): look variants of everyday customers. Ref-edited from the base idle so the pose and
+// framing match; the moods are then edited from the variant idle.
+const VARIANTS = {
+  student: [
+    "black and white tuxedo fur, a sunny yellow hoodie, a red backpack and white sneakers",
+    "cream and light ginger fur, a lilac knitted sweater, a green backpack and pink rain boots",
+  ],
+  office: [
+    "solid black fur with green eyes, a light blue shirt, a red tie, beige trousers and square glasses, still holding a smartphone",
+    "ginger tabby fur, a cream blouse under a brown blazer, a work badge on a lanyard, dark trousers, still holding a smartphone, no glasses",
+  ],
+  picky: [
+    "fluffy silver-grey Persian fur, a mint green coat, a pearl necklace and a tiny handbag",
+    "fluffy cream colourpoint fur with blue eyes, a rose pink coat, a gold necklace and a tiny handbag",
+  ],
+};
+for (const [id, list] of Object.entries(VARIANTS)) {
+  list.forEach((desc, n) => {
+    const key = `cat_${id}_v${n + 1}`;
+    ASSETS.push({
+      key: `${key}_idle`,
+      kind: "sprite",
+      aspect: "3:4",
+      max: 640,
+      tier: 9,
+      ref: `cat_${id}_idle`,
+      prompt: `Edit this image: keep the exact same pose, body shape, proportions, framing, size and art style, still standing upright on two legs with the whole body visible and the same calm expression. Change only the fur colour and the outfit to: ${desc}. Keep the perfectly plain pure white background, no shadow, no ground.`,
+    });
+    for (const [mood, moodDesc] of Object.entries(MOODS)) {
+      ASSETS.push({
+        key: `${key}_${mood}`,
+        kind: "sprite",
+        aspect: "3:4",
+        max: 640,
+        tier: 9,
+        ref: `${key}_idle`,
+        prompt: `Edit this image: keep the exact same cat character, same fur pattern, same outfit and accessories, same art style, same framing and size, still standing upright on two legs with the whole body visible. Change only the expression and pose to: ${moodDesc}. Keep the perfectly plain pure white background, no shadow, no ground.`,
+      });
+    }
+  });
+}
+
 // Tier 2 (ASSETS.md section 2): spots already wired in the UI.
 const TIER2 = /^(icon_discount|icon_wrench|icon_bankrupt|trash_.*|robber|rival_.*)$/;
 for (const a of ASSETS) a.tier ??= TIER2.test(a.key) ? 2 : 1;

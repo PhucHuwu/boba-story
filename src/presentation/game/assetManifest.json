@@ -152,5 +152,8 @@
   "decor_monstera": "decor/decor_monstera.webp",
   "decor_painting": "decor/decor_painting.webp",
   "decor_plushies": "decor/decor_plushies.webp",
-  "decor_chalkboard": "decor/decor_chalkboard.webp"
+  "decor_chalkboard": "decor/decor_chalkboard.webp",
+  "acc_beanie": "characters/accessories/acc_beanie.webp",
+  "acc_bow": "characters/accessories/acc_bow.webp",
+  "acc_flower": "characters/accessories/acc_flower.webp"
 }

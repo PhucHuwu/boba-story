@@ -15,6 +15,7 @@ const RULES = [
   [/^(logo|app_icon)$/, "brand"],
   [/^landing_/, "landing"],
   [/^decor_/, "decor"],
+  [/^acc_/, "characters/accessories"],
 ];
 
 export function assetFolder(key) {

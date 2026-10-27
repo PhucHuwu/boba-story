@@ -12,6 +12,7 @@ import manifest from "./assetManifest.json";
 import { audio } from "./audio";
 import { CupView } from "./cupRenderer";
 import { COLORS, type Layout, SHORT_RECIPE_NAME, type StationId, slotX } from "./layout";
+import { accessoryPlacement } from "./catLooks";
 import { DECOR_SPOTS } from "./decorSpots";
 import { KEY_BY_STATION, STATION_KEYS } from "./keymap";
 import { presentTicket } from "./ticketPresenter";
@@ -43,6 +44,10 @@ interface CatView {
   /** The drink the cat carries out after `receive_drink`. */
   held?: Phaser.GameObjects.Image;
   blinkTimer?: Phaser.Time.TimerEvent;
+  /** Head accessory; follows the sprite every frame (see syncAccessory). */
+  acc?: Phaser.GameObjects.Image;
+  arch: string;
+  mood: Mood;
 }
 
 /**
@@ -735,7 +740,12 @@ export class ShopScene extends Phaser.Scene {
     ]);
 
     if (d.critic && this.textures.exists("icon_critic")) card.add(this.add.image(80, -66, "icon_critic").setDisplaySize(48, 48));
-    const view: CatView = { id: d.id, slot: d.slot, root, sprite, card, cardArt, cardBg, bar, status, title, detail, baseScale, idleTweens: [] };
+    const view: CatView = { id: d.id, slot: d.slot, root, sprite, card, cardArt, cardBg, bar, status, title, detail, baseScale, idleTweens: [], arch: d.archetype, mood: "idle" };
+    if (d.accessory && this.textures.exists(d.accessory) && accessoryPlacement(d.archetype, "idle", d.accessory, 1)) {
+      view.acc = this.add.image(0, 0, d.accessory);
+      root.add(view.acc);
+      this.syncAccessory(view);
+    }
     this.fillCard(view, d);
     if (d.delivery && this.textures.exists("icon_delivery")) card.add(this.add.image(-80, -66, "icon_delivery").setDisplaySize(48, 48));
     this.cats.set(d.id, view);
@@ -850,15 +860,42 @@ export class ShopScene extends Phaser.Scene {
     if (!data) return;
     c.sprite.setTexture(this.catTexture(data, mood));
     c.baseScale = this.L.catHeight / c.sprite.height;
+    c.mood = mood;
     const state = this.session.customers.find((x) => x.data.id === id)?.data.state;
     this.setIdle(c, state === "ordering" || state === "waiting" || state === "receiving", mood);
   }
 
-  /** Sprite for a customer and mood; shippers use their app brand and fall back to the idle pose. */
+  /**
+   * Sprite for a customer and mood; shippers use their app brand. Falls back to the idle pose, and a look
+   * variant falls back to the base art until its images exist.
+   */
   private catTexture(d: Customer, mood: Mood): string {
     const base = d.delivery ? `shipper_${d.delivery.brand}` : `cat_${d.archetype}`;
-    const key = `${base}_${mood}`;
-    return this.textures.exists(key) ? key : `${base}_idle`;
+    const bases = d.variant ? [`${base}_v${d.variant}`, base] : [base];
+    for (const b of bases) {
+      if (this.textures.exists(`${b}_${mood}`)) return `${b}_${mood}`;
+      if (this.textures.exists(`${b}_idle`)) return `${b}_idle`;
+    }
+    return `${base}_idle`;
+  }
+
+  /** Keeps the accessory on the head through the sprite's bob, tilt, squash and mirror tweens. */
+  private syncAccessory(c: CatView) {
+    const acc = c.acc;
+    if (!acc) return;
+    const sp = c.sprite;
+    const p = accessoryPlacement(c.arch, c.mood, acc.texture.key, sp.height);
+    if (!p) return acc.setVisible(false);
+    const flip = sp.flipX ? -1 : 1;
+    const lx = p.x * flip * sp.scaleX;
+    const ly = p.y * sp.scaleY;
+    const a = sp.rotation;
+    acc.setVisible(true)
+      .setPosition(sp.x + Math.cos(a) * lx - Math.sin(a) * ly, sp.y + Math.sin(a) * lx + Math.cos(a) * ly)
+      .setOrigin(...p.origin)
+      .setFlipX(sp.flipX)
+      .setAngle(sp.angle + p.angle * flip)
+      .setScale((p.width * sp.scaleX) / acc.width);
   }
 
   /** Order ticket text; shippers also show which cup of the delivery this is. */
@@ -1027,7 +1064,10 @@ export class ShopScene extends Phaser.Scene {
       this.session.tick(deltaMs / 1000);
       if (this.session.pouring) this.dirty = true;
     }
-    for (const c of this.cats.values()) c.root.setDepth(actorDepth(c.root.y, c.id));
+    for (const c of this.cats.values()) {
+      c.root.setDepth(actorDepth(c.root.y, c.id));
+      this.syncAccessory(c);
+    }
     this.syncPourSound();
     this.syncPourArt();
     this.cupView.tick(deltaMs);

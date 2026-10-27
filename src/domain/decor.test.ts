@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { QUESTS, defaultSave } from "./catalog";
-import { createCustomer } from "./customers";
+import { ACCESSORIES, LOOK_VARIANTS, createCustomer, rollLook } from "./customers";
 import { DECOR, buyDecor, decorBonus, decorUnlocked } from "./decor";
 import { refreshQuests } from "./economy";
 import { migrate } from "./saveSchema";
@@ -48,5 +48,26 @@ describe("decor", () => {
     refreshQuests(save);
     expect(QUESTS.some((q) => q.metric === "decor")).toBe(true);
     expect(save.quests.q_decor3.done).toBe(true);
+  });
+});
+
+describe("customer looks", () => {
+  it("varies everyday cats and keeps story/special cats fixed", () => {
+    expect(rollLook(() => 0.99, "regular")).toEqual({ variant: 0, accessory: null });
+    expect(rollLook(() => 0.1, "shipper")).toEqual({ variant: 0, accessory: null });
+    expect(rollLook(() => 0.99, "student")).toEqual({ variant: 2, accessory: null });
+    const seen = new Set<string>();
+    let seed = 7;
+    const rng = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let n = 0; n < 200; n++) {
+      const look = rollLook(rng, "office");
+      expect(look.variant).toBeGreaterThanOrEqual(0);
+      expect(look.variant).toBeLessThanOrEqual(LOOK_VARIANTS);
+      if (look.accessory) {
+        expect(ACCESSORIES).toContain(look.accessory);
+        seen.add(look.accessory);
+      }
+    }
+    expect(seen.size).toBe(ACCESSORIES.length);
   });
 });

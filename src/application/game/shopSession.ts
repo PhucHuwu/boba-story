@@ -7,6 +7,7 @@ import {
   hourAt,
   isImpatient,
   maxCustomers,
+  rollLook,
   spawnInterval,
   tickPatience,
   transition,
@@ -382,6 +383,7 @@ export class ShopSession {
     if (archetype === "regular") this.regularServedToday = true;
     const duration = this.walk(TIMING.walkIn);
     const customer: ShopCustomer = { data: createCustomer(id, archetype, order, slot, this.save.upgrades, line, this.save.decor), mood: "idle", timer: duration };
+    if (!this.tutorial) Object.assign(customer.data, rollLook(rng, archetype));
     if (shipper) {
       const brands = Object.keys(SHIPPER_BRANDS) as ShipperBrand[];
       const brand = brands[Math.floor(rng() * brands.length) % brands.length];

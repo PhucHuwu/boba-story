@@ -28,6 +28,24 @@ export interface Customer {
   critic: boolean;
   /** Delivery-app shipper picking up several cups (`order` is the cup currently being made). */
   delivery?: Delivery;
+  /** Look of an everyday customer: 0 = base art, 1-2 = recoloured variant. */
+  variant?: number;
+  /** Head accessory sprite key, if any. */
+  accessory?: string | null;
+}
+
+/** Archetypes whose look varies; story and special visitors keep a fixed look. */
+export const VARIED_ARCHETYPES: readonly ArchetypeId[] = ["student", "office", "picky"];
+export const LOOK_VARIANTS = 2;
+export const ACCESSORIES = ["acc_beanie", "acc_bow", "acc_flower", "acc_cap", "acc_headphones", "acc_scarf"] as const;
+export const ACCESSORY_CHANCE = 0.4;
+
+/** Random look so the same archetype does not walk in as identical twins. */
+export function rollLook(rng: Rng, archetype: ArchetypeId): { variant: number; accessory: string | null } {
+  if (!VARIED_ARCHETYPES.includes(archetype)) return { variant: 0, accessory: null };
+  const variant = Math.floor(rng() * (LOOK_VARIANTS + 1)) % (LOOK_VARIANTS + 1);
+  const accessory = rng() < ACCESSORY_CHANCE ? pick(rng, [...ACCESSORIES]) : null;
+  return { variant, accessory };
 }
 
 /** Enforces the lifecycle Approaching → Ordering → Waiting → Receiving → Leaving. */

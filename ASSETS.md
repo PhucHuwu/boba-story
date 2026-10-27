@@ -16,6 +16,7 @@ Mỗi ảnh là một file `public/assets/<thư mục>/<key>.webp` (ảnh gốc 
 | `brand/` | `logo`, `app_icon` |
 | `landing/` | `landing_*` (ảnh trang chủ) |
 | `decor/` | `decor_*` (đồ trang trí quán, dùng luôn làm icon cửa hàng) |
+| `characters/accessories/` | `acc_*` (phụ kiện đội đầu / quàng cổ cho khách thường) |
 
 Code luôn gọi ảnh bằng key (không kèm thư mục); `assetManifest.json` ánh xạ key → đường dẫn.
 
@@ -242,3 +243,21 @@ Chỉ gen nhóm này sau khi chốt kế hoạch NPC.
 - [x] `decor_painting`: tranh quán do Mochi vẽ
 - [x] `decor_plushies`: kệ thú bông
 - [x] `decor_chalkboard`: bảng menu phấn chữ A (không chữ)
+
+## 8. Phụ kiện khách (có prompt)
+Khách thường (học sinh, dân văn phòng, khó tính) có 40% cơ hội đeo 1 phụ kiện. Vị trí đầu theo từng tư thế nằm trong `src/presentation/game/catLooks.ts`. Ảnh nào chưa có thì game tự bỏ qua.
+- [x] `acc_beanie`: mũ len xanh bạc hà
+- [x] `acc_bow`: nơ hồng
+- [x] `acc_flower`: kẹp hoa vàng
+- [ ] `acc_cap`: mũ lưỡi trai đỏ
+- [ ] `acc_headphones`: tai nghe chụp tai tím nhạt
+- [ ] `acc_scarf`: khăn len sọc đỏ kem
+
+## 9. Biến thể ngoại hình (có prompt, sửa từ ảnh gốc)
+Mỗi khách thường có 2 biến thể đổi màu lông + trang phục (cùng tư thế với ảnh gốc). Chưa có ảnh thì game dùng ảnh gốc. Mochi, bà cụ, TikToker, shipper giữ nguyên.
+- [ ] `cat_student_v1_{idle,happy,sad,impatient}`: mèo mun trắng, áo hoodie vàng
+- [ ] `cat_student_v2_{idle,happy,sad,impatient}`: lông kem, áo len tím nhạt
+- [ ] `cat_office_v1_{idle,happy,sad,impatient}`: mèo đen, sơ mi xanh, cà vạt đỏ
+- [ ] `cat_office_v2_{idle,happy,sad,impatient}`: mèo cam, áo blazer nâu
+- [ ] `cat_picky_v1_{idle,happy,sad,impatient}`: Ba Tư xám bạc, áo khoác bạc hà
+- [ ] `cat_picky_v2_{idle,happy,sad,impatient}`: lông kem colourpoint, áo khoác hồng
