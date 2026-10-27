@@ -1,4 +1,5 @@
 import { ARCHETYPES, DAY, RECIPE_BY_ID, REGULAR_FAVORITE } from "./catalog";
+import { decorBonus } from "./decor";
 import type { Delivery } from "./delivery";
 import type { ArchetypeId, Level, Order, SaveData, Size } from "./types";
 
@@ -110,8 +111,8 @@ export function chooseArchetype(rng: Rng, save: SaveData, regularServedToday: bo
   return pick(rng, options);
 }
 
-export function createCustomer(id: number, archetype: ArchetypeId, order: Order, slot: number, upgrades: string[], line: string): Customer {
-  const plants = upgrades.includes("cozy_plants") ? 0.85 : 1;
+export function createCustomer(id: number, archetype: ArchetypeId, order: Order, slot: number, upgrades: string[], line: string, decor: readonly string[] = []): Customer {
+  const plants = (upgrades.includes("cozy_plants") ? 0.85 : 1) / (1 + decorBonus(decor, "patience"));
   return {
     id,
     archetype,

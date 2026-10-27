@@ -1,4 +1,5 @@
 import { INGREDIENTS, QUESTS, RECIPE_BY_ID, SAVE_VERSION, UPGRADES, defaultSave } from "./catalog";
+import { isDecorId } from "./decor";
 import { DEAL_INGREDIENTS } from "./visitors";
 import type { DayPlan, GoalKind, IngredientId, Loan, Review, RivalEventId, SaveData, WeatherId } from "./types";
 import { REVIEW_KEEP } from "./reviews";
@@ -93,6 +94,7 @@ export function migrate(raw: unknown): SaveData | null {
     inventory,
     unlockedRecipes: Array.from(new Set([...base.unlockedRecipes, ...unlocked])),
     upgrades: Array.from(new Set(upgrades)),
+    decor: Array.isArray(raw.decor) ? Array.from(new Set(raw.decor.filter(isDecorId))) : [],
     quests,
     stats,
     settings,

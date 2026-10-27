@@ -15,6 +15,7 @@ Mỗi ảnh là một file `public/assets/<thư mục>/<key>.webp` (ảnh gốc 
 | `icons/` | `icon_*`, `coin`, `star` |
 | `brand/` | `logo`, `app_icon` |
 | `landing/` | `landing_*` (ảnh trang chủ) |
+| `decor/` | `decor_*` (đồ trang trí quán, dùng luôn làm icon cửa hàng) |
 
 Code luôn gọi ảnh bằng key (không kèm thư mục); `assetManifest.json` ánh xạ key → đường dẫn.
 
@@ -232,3 +233,12 @@ Chỉ gen nhóm này sau khi chốt kế hoạch NPC.
 - [x] `landing_hero_tall`: ảnh bìa dọc cho điện thoại / iPad dọc (9:16)
 - [x] `landing_og`: ảnh chia sẻ mạng xã hội 1200x630
 - [x] `landing_group`: nhóm khách mèo vẫy tay (giữ nền trắng, trang hoà nền bằng multiply), dùng ở chân trang
+
+## 7. Đồ trang trí (có prompt)
+Đặt cố định trong phòng theo tọa độ ảnh `bg_room` (`src/presentation/game/decorSpots.ts`). `decor_monstera` dùng `holes: true` để xóa nền trắng trong khe lá.
+- [x] `decor_lanterns`: dây đèn lồng giấy pastel
+- [x] `decor_rug`: thảm hình mặt mèo
+- [x] `decor_monstera`: chậu monstera lớn
+- [x] `decor_painting`: tranh quán do Mochi vẽ
+- [x] `decor_plushies`: kệ thú bông
+- [x] `decor_chalkboard`: bảng menu phấn chữ A (không chữ)

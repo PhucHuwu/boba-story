@@ -147,6 +147,8 @@ export interface SaveData {
   inventory: Record<IngredientId, number>;
   unlockedRecipes: string[];
   upgrades: string[];
+  /** Decor items bought for the shop (see decor.ts); each sits at a fixed spot. */
+  decor: string[];
   quests: Record<string, QuestProgress>;
   stats: Stats;
   settings: Settings;

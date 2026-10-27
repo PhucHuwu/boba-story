@@ -63,7 +63,7 @@ const MOODS = {
   impatient: "impatient annoyed expression, furrowed brows, one paw tapping or looking at wrist, small frown",
 };
 
-/** @type {{key:string,prompt:string,aspect:string,kind:'bg'|'sprite'|'glass',max:number,ref?:string,cover?:[number,number]}[]} */
+/** @type {{key:string,prompt:string,aspect:string,kind:'bg'|'sprite'|'glass',max:number,ref?:string,cover?:[number,number],holes?:boolean}[]} */
 const ASSETS = [
   {
     key: "bg_room",
@@ -394,6 +394,19 @@ ASSETS.push(
   ]),
 );
 
+// Tier 7 (ASSETS.md section 7): shop decor. Drawn into the room at fixed spots and reused as shop icons.
+const DECOR_STYLE = "Matches a cozy pastel boba tea shop interior. Front view with very slight top-down angle.";
+ASSETS.push(
+  ...tier(7, [
+    { key: "decor_lanterns", kind: "sprite", aspect: "16:9", max: 720, prompt: `${STYLE} ${DECOR_STYLE} A horizontal garland of five small round Vietnamese paper lanterns in pastel pink, peach, cream and mint hanging from a thin string, glowing softly warm. ${SPRITE}` },
+    { key: "decor_rug", kind: "sprite", aspect: "16:9", max: 720, prompt: `${STYLE} A flat oval floor rug shaped like a cute sleeping cat face with ears, soft cream and peach colors with a pink border, seen from above at a low angle like it lies on a wooden floor (wide and squashed vertically). ${SPRITE}` },
+    { key: "decor_monstera", kind: "sprite", holes: true, aspect: "3:4", max: 640, prompt: `${STYLE} ${DECOR_STYLE} A big leafy monstera plant with large split green leaves in a round terracotta pot, tall floor plant. ${SPRITE}` },
+    { key: "decor_painting", kind: "sprite", aspect: "3:4", max: 512, prompt: `${STYLE} ${DECOR_STYLE} A small framed painting hung on a wall: a naive childlike painting of a little boba tea shop with a cat and a milk tea cup, in a warm wooden frame. No readable text. ${SPRITE}` },
+    { key: "decor_plushies", kind: "sprite", aspect: "1:1", max: 640, prompt: `${STYLE} ${DECOR_STYLE} A small wooden two-tier shelf full of cute plush toys: a cat plush, a boba cup plush, a bunny plush and a bear plush. ${SPRITE}` },
+    { key: "decor_chalkboard", kind: "sprite", aspect: "3:4", max: 512, prompt: `${STYLE} ${DECOR_STYLE} A small A-frame chalkboard sidewalk sign with a wooden frame, hand drawn chalk doodles of a boba cup, a cat face and little stars, no letters, no words, no readable text. ${SPRITE}` },
+  ]),
+);
+
 // Tier 2 (ASSETS.md section 2): spots already wired in the UI.
 const TIER2 = /^(icon_discount|icon_wrench|icon_bankrupt|trash_.*|robber|rival_.*)$/;
 for (const a of ASSETS) a.tier ??= TIER2.test(a.key) ? 2 : 1;
@@ -478,7 +491,9 @@ async function callModel(asset) {
 }
 
 // Flood-fills light, unsaturated pixels connected to the image border, then unmixes white from the edge.
-async function removeBackground(buf) {
+// `holes`: also clears enclosed near-white pockets (gaps between leaves) of at least `minHole` pixels.
+// Only for art without white parts of its own, since a white patch would be punched out too.
+async function removeBackground(buf, holes = false) {
   const { data, info } = await sharp(buf).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const { width: w, height: h } = info;
   const N = w * h;
@@ -499,6 +514,29 @@ async function removeBackground(buf) {
     if (x < w - 1) stack.push(i + 1);
     if (y > 0) stack.push(i - w);
     if (y < h - 1) stack.push(i + w);
+  }
+  if (holes) {
+    const strict = (i) => lum(i) > 232 && chroma(i) < 14;
+    const minHole = Math.max(12, Math.round(N * 0.00002));
+    const seen = new Uint8Array(N);
+    for (let start = 0; start < N; start++) {
+      if (bg[start] || seen[start] || !strict(start)) continue;
+      const comp = [];
+      const st = [start];
+      seen[start] = 1;
+      while (st.length) {
+        const i = st.pop();
+        comp.push(i);
+        const x = i % w, y = (i / w) | 0;
+        for (const j of [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, y > 0 ? i - w : -1, y < h - 1 ? i + w : -1]) {
+          if (j >= 0 && !seen[j] && !bg[j] && strict(j)) {
+            seen[j] = 1;
+            st.push(j);
+          }
+        }
+      }
+      if (comp.length >= minHole) for (const i of comp) bg[i] = 1;
+    }
   }
   const touches = (i, m) => {
     const x = i % w, y = (i / w) | 0;
@@ -552,7 +590,7 @@ async function processAsset(asset, force, reprocess = false) {
   if (asset.kind === "glass") {
     pipeline = sharp(await sharp(await unmixWhite(fs.readFileSync(rawFile))).trim({ threshold: 1 }).toBuffer());
   } else if (asset.kind === "sprite") {
-    const cut = await removeBackground(fs.readFileSync(rawFile));
+    const cut = await removeBackground(fs.readFileSync(rawFile), asset.holes);
     pipeline = sharp(await sharp(cut).trim({ threshold: 1 }).toBuffer());
   } else {
     pipeline = sharp(rawFile);

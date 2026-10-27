@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { INGREDIENTS, INVENTORY_CAP, LEVEL_UNITS, QUESTS, RECIPES, UPGRADES } from "@/domain/catalog";
 import { FEEDBACK_CATEGORIES, FEEDBACK_LABEL, FEEDBACK_MAX_CHARS, FEEDBACK_MIN_CHARS, type FeedbackCategory } from "@/domain/community";
+import { DECOR, decorUnlocked } from "@/domain/decor";
 import { packCost } from "@/domain/economy";
 import type { IngredientId } from "@/domain/types";
 import { audio } from "../game/audio";
@@ -17,16 +18,17 @@ const UPGRADE_ICON: Record<string, string> = { camera: "icon_camera", safe: "ico
 
 function ShopModal() {
   const game = useGame();
-  const [tab, setTab] = useState<"stock" | "recipes" | "upgrades">("stock");
+  const [tab, setTab] = useState<"stock" | "recipes" | "upgrades" | "decor">("stock");
   const s = game.save;
   const tabs = [
     ["stock", "Nguyên liệu"],
     ["recipes", "Công thức"],
     ["upgrades", "Nâng cấp"],
+    ["decor", "Trang trí"],
   ] as const;
   return (
     <Modal title="Cửa hàng" onClose={() => game.closeModal()} footer={<span className="font-bold">Quỹ hiện có: <Coin value={s.money} /></span>}>
-      <div className="mb-3 grid grid-cols-3 gap-1" role="tablist">
+      <div className="mb-3 grid grid-cols-2 gap-1 sm:grid-cols-4" role="tablist">
         {tabs.map(([id, label]) => (
           <button key={id} role="tab" aria-selected={tab === id} className={`chip justify-center ${tab === id ? "!bg-caramel text-white" : ""}`} onClick={() => setTab(id)}>
             {label}
@@ -96,6 +98,31 @@ function ShopModal() {
                 ) : (
                   <button className="btn !min-h-[40px] !px-3" disabled={s.money < u.cost} onClick={() => game.buyUpgrade(u.id)}>
                     <Coin value={u.cost} />
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {tab === "decor" && (
+        <ul className="flex flex-col gap-2">
+          {DECOR.map((d) => {
+            const owned = s.decor.includes(d.id);
+            const open = decorUnlocked(s, d);
+            return (
+              <li key={d.id} className={`flex items-center gap-3 rounded-2xl border-2 border-[#e9d7c3] bg-white/60 p-2 ${open || owned ? "" : "opacity-70"}`}>
+                <Icon name={d.id} className={`h-12 w-12 ${open || owned ? "" : "grayscale"}`} />
+                <div className="min-w-0 flex-1">
+                  <p className="font-extrabold leading-tight">{d.name}</p>
+                  <p className="text-[0.85em] text-cocoa">{d.description}</p>
+                  {!open && !owned && d.lockText && <p className="text-[0.8em] font-bold text-berry">{d.lockText}</p>}
+                </div>
+                {owned ? (
+                  <span className="font-bold text-[#2f6b2f]">Đã đặt</span>
+                ) : (
+                  <button className="btn !min-h-[40px] !px-3" disabled={!open || s.money < d.cost} onClick={() => game.buyDecor(d.id)}>
+                    <Coin value={d.cost} />
                   </button>
                 )}
               </li>

@@ -95,6 +95,8 @@ function metricValue(save: SaveData, metric: (typeof QUESTS)[number]["metric"]):
       return save.unlockedRecipes.length;
     case "upgrades":
       return save.upgrades.length;
+    case "decor":
+      return save.decor.length;
     case "reputation":
       return Math.floor(save.reputation);
     default:

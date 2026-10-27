@@ -146,5 +146,11 @@
   "landing_hero_wide": "landing/landing_hero_wide.webp",
   "landing_hero_tall": "landing/landing_hero_tall.webp",
   "landing_og": "landing/landing_og.webp",
-  "landing_group": "landing/landing_group.webp"
+  "landing_group": "landing/landing_group.webp",
+  "decor_lanterns": "decor/decor_lanterns.webp",
+  "decor_rug": "decor/decor_rug.webp",
+  "decor_monstera": "decor/decor_monstera.webp",
+  "decor_painting": "decor/decor_painting.webp",
+  "decor_plushies": "decor/decor_plushies.webp",
+  "decor_chalkboard": "decor/decor_chalkboard.webp"
 }

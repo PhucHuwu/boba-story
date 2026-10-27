@@ -1,4 +1,5 @@
 import { INGREDIENTS, QUESTS, defaultSave } from "@/domain/catalog";
+import { DECOR_BY_ID, buyDecor, isDecorId } from "@/domain/decor";
 import { goalStatus, planDay, type GoalStatus } from "@/domain/dayPlan";
 import {
   buyIngredient,
@@ -397,6 +398,12 @@ export class GameController extends Observable implements ShopHost {
   buyUpgrade(id: string) {
     const before = this.save.money;
     return this.afterPurchase(buyUpgrade(this.save, id), before - this.save.money, "Nâng cấp thành công!");
+  }
+
+  buyDecor(id: string) {
+    const before = this.save.money;
+    const name = isDecorId(id) ? DECOR_BY_ID[id].name : "";
+    return this.afterPurchase(buyDecor(this.save, id), before - this.save.money, `Đã trang trí: ${name}`);
   }
 
   withdraw(amount: number) {

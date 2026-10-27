@@ -60,6 +60,7 @@ export interface SaveLookup {
     tutorialDone: boolean;
     unlockedRecipes: string[];
     upgrades: string[];
+    decor?: string[];
     inventory: Record<string, number>;
     stats: Record<string, number>;
     settings: Record<string, unknown>;

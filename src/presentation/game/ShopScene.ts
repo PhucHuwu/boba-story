@@ -5,12 +5,14 @@ import type { HintTarget } from "@/application/game/tutorial";
 import { INGREDIENTS, RECIPE_BY_ID, TEA_IDS } from "@/domain/catalog";
 import { liquidTotal } from "@/domain/cup";
 import { maxCustomers, type Customer } from "@/domain/customers";
+import { isDecorId } from "@/domain/decor";
 import { hasShopCat } from "@/domain/visitors";
 import type { IngredientId, Mood, Size, TeaId, ToppingId } from "@/domain/types";
 import manifest from "./assetManifest.json";
 import { audio } from "./audio";
 import { CupView } from "./cupRenderer";
 import { COLORS, type Layout, SHORT_RECIPE_NAME, type StationId, slotX } from "./layout";
+import { DECOR_SPOTS } from "./decorSpots";
 import { KEY_BY_STATION, STATION_KEYS } from "./keymap";
 import { presentTicket } from "./ticketPresenter";
 
@@ -129,6 +131,10 @@ export class ShopScene extends Phaser.Scene {
   /** Set on the first shortcut key: station labels then show their key. */
   private keyboardUsed = false;
   private keyPouring: string | null = null;
+  private decorViews = new Map<string, Phaser.GameObjects.Image>();
+  /** False until the first sync, so decor already owned at load appears without a pop-in. */
+  private decorShown = false;
+  private bgScale = 1;
   private unsubscribe: (() => void)[] = [];
 
   constructor(
@@ -207,6 +213,7 @@ export class ShopScene extends Phaser.Scene {
     const { room, counterY } = this.L;
     const bg = this.add.image(0, room.bgY, "bg_room").setOrigin(0, 0);
     bg.setDisplaySize(room.w, (room.w / bg.width) * bg.height);
+    this.bgScale = room.w / bg.width;
     const shade = this.add.graphics();
     shade.fillGradientStyle(0x3b2416, 0x3b2416, 0x3b2416, 0x3b2416, 0.35, 0.35, 0, 0);
     shade.fillRect(0, 0, room.w, 200);
@@ -1030,7 +1037,25 @@ export class ShopScene extends Phaser.Scene {
     this.renderState();
   }
 
+  /** Owned decor at its fixed spot in the room (positions are bg_room pixels, see decorSpots.ts). */
+  private syncDecor() {
+    for (const id of this.ctl.save.decor) {
+      if (this.decorViews.has(id) || !isDecorId(id) || !this.textures.exists(id)) continue;
+      const spot = DECOR_SPOTS[id];
+      const k = this.bgScale;
+      const img = this.add.image(spot.x * k, this.L.room.bgY + spot.y * k, id).setOrigin(...spot.origin).setDepth(spot.depth);
+      img.setScale((spot.w * k) / img.width);
+      this.decorViews.set(id, img);
+      if (this.decorShown && !this.reduced) {
+        const sc = img.scale;
+        this.tweens.add({ targets: img, scale: { from: sc * 0.6, to: sc }, alpha: { from: 0, to: 1 }, duration: 380, ease: "Back.easeOut" });
+      }
+    }
+    this.decorShown = true;
+  }
+
   private renderState() {
+    this.syncDecor();
     const s = this.session;
     const order = s.selectedOrder;
     this.cupView.render(s.cup, order, this.ctl.save.settings.hints);

@@ -12,6 +12,7 @@ import {
   transition,
   type Customer,
 } from "@/domain/customers";
+import { decorBonus } from "@/domain/decor";
 import { COMBO_QUALITY, CRITIC_CHANCE, CRITIC_FROM_DAY, WEATHER, comboTipBonus } from "@/domain/dayPlan";
 import { SHIPPER_BRANDS, SHIPPER_CHANCE, SHIPPER_FROM_DAY, createDelivery, splitCommission } from "@/domain/delivery";
 import { SHOP_CAT_SPAWN_MUL, hasShopCat } from "@/domain/visitors";
@@ -217,7 +218,7 @@ export class ShopSession {
   /** Seconds between arrivals right now: time of day, reputation, weather, rating, rival and rubbish. */
   get spawnEvery(): number {
     const base = spawnInterval(this.hour, this.save.reputation, this.save.day);
-    return base * this.weather.spawnMul * ratingSpawnFactor(shopRating(this.save.reviews)) * this.mod("spawnMul") * this.shopCatMul * (1 + this.trash.length * 0.05);
+    return base * this.weather.spawnMul * ratingSpawnFactor(shopRating(this.save.reviews)) * this.mod("spawnMul") * this.shopCatMul * (1 + this.trash.length * 0.05) / (1 + decorBonus(this.save.decor, "spawn"));
   }
 
   /** The adopted shop cat makes passers-by stop a little more often. */
@@ -380,7 +381,7 @@ export class ShopSession {
         : FALLBACK_LINES[archetype][Math.floor(rng() * FALLBACK_LINES[archetype].length)];
     if (archetype === "regular") this.regularServedToday = true;
     const duration = this.walk(TIMING.walkIn);
-    const customer: ShopCustomer = { data: createCustomer(id, archetype, order, slot, this.save.upgrades, line), mood: "idle", timer: duration };
+    const customer: ShopCustomer = { data: createCustomer(id, archetype, order, slot, this.save.upgrades, line, this.save.decor), mood: "idle", timer: duration };
     if (shipper) {
       const brands = Object.keys(SHIPPER_BRANDS) as ShipperBrand[];
       const brand = brands[Math.floor(rng() * brands.length) % brands.length];
@@ -579,7 +580,7 @@ export class ShopSession {
     const combo = good ? this.combo + 1 : 0;
     const pay = payment(d.order, result, d.archetype, this.save.upgrades, {
       priceMul: this.mod("priceMul"),
-      tipMul: this.weather.tipMul * (1 + comboTipBonus(combo)),
+      tipMul: this.weather.tipMul * (1 + comboTipBonus(combo)) * (1 + decorBonus(this.save.decor, "tip")),
     });
     let commission: number | undefined;
     if (delivery) {

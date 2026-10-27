@@ -65,6 +65,8 @@ function SaveView({ data: { code, save: s, raw } }: { data: SaveLookup }) {
         <p>{s.unlockedRecipes.join(", ") || "—"}</p>
         <h2 className="mb-1 mt-3 font-bold">Nâng cấp</h2>
         <p>{s.upgrades.join(", ") || "—"}</p>
+        <h2 className="mb-1 mt-3 font-bold">Trang trí</h2>
+        <p>{s.decor?.join(", ") || "—"}</p>
         <h2 className="mb-1 mt-3 font-bold">Kho</h2>
         <p className="tabular-nums">
           {Object.entries(s.inventory)
