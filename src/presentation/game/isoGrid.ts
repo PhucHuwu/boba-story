@@ -1,6 +1,7 @@
 import { type DecorId, isDecorId, isWallPos, ROOM_TILES, WALL_CELLS } from "@/domain/decor";
 import type { DecorPos, TilePos, WallPos } from "@/domain/types";
-import type { Layout, Point } from "./layout";
+import { benchFor } from "./isoBench";
+import { type Layout, LAYOUTS, type Point } from "./layout";
 
 /**
  * 2.5D room geometry. `iso_room` is a square image of an empty room: two back walls meeting at the top centre and a
@@ -75,9 +76,18 @@ export const ISO_COUNTER_H = 100;
 /** Customers' feet relative to counterY: behind the counter, so its top hides their feet. */
 export const ISO_FOOT_OFFSET = -40;
 
-/** The same layout with cats sized for the room and the door taken from the room art. */
+/**
+ * The same layout with cats sized for the room, the door taken from the room art and the stations, cup and ticket
+ * placed on the stepped counter (isoBench.ts) instead of the flat worktop rows.
+ */
 export function isoLayout(L: Layout): Layout {
-  return { ...L, catHeight: Math.round(L.catHeight * ISO_CAT_SCALE), door: toCanvas(fitRoom(L), DOOR_FOOT) };
+  return {
+    ...L,
+    ...benchFor(L, LAYOUTS[L.kind].worktop.y),
+    benchRows: undefined,
+    catHeight: Math.round(L.catHeight * ISO_CAT_SCALE),
+    door: toCanvas(fitRoom(L), DOOR_FOOT),
+  };
 }
 
 /**

@@ -5,7 +5,8 @@
  */
 const SKIP = [/^landing_/, /^app_icon$/];
 /** Art of the other room style (2D close-up vs 2.5D isometric), never shown in this session. */
-const SKIP_STYLE = { iso: [/^bg_room$/, /^decor_/], flat: [/^iso_/] };
+const STATION_KEYS = /^(tea_(black|green|oolong)(_pour)?|milk(_pour)?|sugar(_press)?|ice(_scoop)?|cup_stack|sealer(_press)?|trash|shaker(_shake)?|top_(boba|jelly|pudding))$/;
+const SKIP_STYLE = { iso: [/^bg_room$/, /^decor_/, /^worktop$/, /^cup_coaster$/, STATION_KEYS], flat: [/^iso_/] };
 
 /** Background order: guests that can walk in on day one first, then looks, then UI-only art. */
 const DEFERRED: RegExp[] = [

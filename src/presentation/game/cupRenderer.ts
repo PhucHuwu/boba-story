@@ -84,9 +84,10 @@ export class CupView {
     private readonly scene: Phaser.Scene,
     pos: Point,
     private readonly depth: number,
+    coaster = true,
   ) {
     this.base = { x: pos.x, y: pos.y + 100 };
-    scene.add.image(pos.x, this.base.y - 6, "cup_coaster").setDisplaySize(180, 60).setDepth(12);
+    if (coaster) scene.add.image(pos.x, this.base.y - 6, "cup_coaster").setDisplaySize(180, 60).setDepth(12);
     this.spill = scene.add.image(pos.x + 26, this.base.y + 4, "fx_spill").setDisplaySize(210, 74).setDepth(12).setVisible(false);
     this.root = scene.add.container(this.base.x, this.base.y).setDepth(depth);
     this.liquid = scene.add.graphics();

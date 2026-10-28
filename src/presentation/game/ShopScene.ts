@@ -36,6 +36,7 @@ import {
   type RoomFit,
   toCanvas,
 } from "./isoGrid";
+import { counterKey } from "./isoBench";
 import type { RoomStyle } from "./roomStyle";
 import { KEY_BY_STATION, STATION_KEYS } from "./keymap";
 import { presentTicket } from "./ticketPresenter";
@@ -237,7 +238,8 @@ export class ShopScene extends Phaser.Scene {
     this.buildRoom();
     this.buildWorktop();
     this.buildStations();
-    this.cupView = new CupView(this, this.L.cup, CUP);
+    // The 2.5D counter has a recess drawn where the cup stands, so no coaster.
+    this.cupView = new CupView(this, this.L.cup, CUP, !this.isoCounter);
     this.stream = this.add.rope(0, 0, "pour_stream", undefined, Array.from({ length: STREAM_POINTS }, (_, i) => ({ x: 0, y: i })), false).setDepth(19).setScale(STREAM_SCALE).setVisible(false);
     this.cupView.onMark = () => audio.play("ting");
     this.highlight = this.add.graphics().setDepth(DEPTH.highlight);
@@ -346,18 +348,33 @@ export class ShopScene extends Phaser.Scene {
     g.lineStyle(3, 0x5b3523, 1).strokeRoundedRect(-10, counterY - 26, room.w + 20, 34, 12);
   }
 
+  /** The stepped counter image is drawn for the 2.5D room; the flat worktop keeps its tiled wood. */
+  private get isoCounter(): boolean {
+    return this.style === "iso" && this.textures.exists(counterKey(this.L.kind));
+  }
+
   private buildWorktop() {
     const { worktop: w, counterFront: f, ticket: t } = this.L;
-    this.add.tileSprite(w.x, w.y, w.w, w.h, "worktop").setOrigin(0, 0).setDepth(11).setTileScale(0.6, 0.6);
     const edge = this.add.graphics().setDepth(12).fillStyle(0x5b3523, 0.25);
-    if (w.x > 0) edge.fillRect(w.x, w.y, 10, w.h);
-    else edge.fillRect(w.x, w.y, w.w, 8);
-    for (const r of this.L.benchRows ?? []) {
-      edge.fillStyle(0x5b3523, 0.1).fillRoundedRect(r.x, r.y, r.w, r.h, 22);
-      edge.lineStyle(3, 0x5b3523, 0.18).strokeRoundedRect(r.x, r.y, r.w, r.h, 22);
-      edge.fillStyle(0x5b3523, 0.25);
+    if (this.isoCounter) {
+      this.add.image(w.x, w.y, counterKey(this.L.kind)).setOrigin(0, 0).setDisplaySize(w.w, w.h).setDepth(11);
+    } else {
+      this.add.tileSprite(w.x, w.y, w.w, w.h, "worktop").setOrigin(0, 0).setDepth(11).setTileScale(0.6, 0.6);
+      if (w.x > 0) edge.fillRect(w.x, w.y, 10, w.h);
+      else edge.fillRect(w.x, w.y, w.w, 8);
+      for (const r of this.L.benchRows ?? []) {
+        edge.fillStyle(0x5b3523, 0.1).fillRoundedRect(r.x, r.y, r.w, r.h, 22);
+        edge.lineStyle(3, 0x5b3523, 0.18).strokeRoundedRect(r.x, r.y, r.w, r.h, 22);
+        edge.fillStyle(0x5b3523, 0.25);
+      }
     }
-    if (f) {
+    if (f && this.isoCounter) {
+      // Plank panel under the room's counter, in the counter art's wood tones.
+      const panel = this.add.graphics().setDepth(11).fillStyle(0x8a5430, 1).fillRect(f.x, f.y, f.w, f.h);
+      panel.lineStyle(3, 0x5e3418, 0.6);
+      for (let x = f.x + 60; x < f.x + f.w; x += 118) panel.lineBetween(x, f.y, x, f.y + f.h);
+      panel.fillStyle(0x5e3418, 0.35).fillRect(f.x, f.y, f.w, 8);
+    } else if (f) {
       this.add.tileSprite(f.x, f.y, f.w, f.h, "worktop").setOrigin(0, 0).setDepth(11).setTileScale(0.6, 0.6).setTint(0xd9b48f);
       edge.fillRect(f.x, f.y, f.w, 8);
     }
@@ -389,8 +406,14 @@ export class ShopScene extends Phaser.Scene {
     return img;
   }
 
-  private addStation(id: StationId, key: string, name: string, stock?: IngredientId) {
+  /** Station art: the 2.5D counter uses the `iso_` redraws (same view as the counter) when they are loaded. */
+  private stationArt(key: string): string {
+    return this.isoCounter && this.textures.exists(`iso_${key}`) ? `iso_${key}` : key;
+  }
+
+  private addStation(id: StationId, art: string, name: string, stock?: IngredientId) {
     const spot = this.L.stations[id];
+    const key = this.stationArt(art);
     const obj = this.fit(this.add.image(spot.x, spot.y, key), spot.w, spot.h).setDepth(15).setInteractive({ useHandCursor: true });
     const label = this.add
       .text(spot.x, spot.labelY ?? spot.y + spot.h / 2 + 4, name, {
@@ -422,7 +445,8 @@ export class ShopScene extends Phaser.Scene {
           .setDepth(16)
           .setVisible(false)
       : undefined;
-    const st: Station = { obj, label, name, stock, key, busyKey: BUSY_ART[id], busy: false, keyBadge };
+    const busyKey = BUSY_ART[id] && this.stationArt(BUSY_ART[id]);
+    const st: Station = { obj, label, name, stock, key, busyKey, busy: false, keyBadge };
     this.stations.set(id, st);
     return st;
   }

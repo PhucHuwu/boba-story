@@ -20,6 +20,12 @@ describe("planAssets", () => {
     expect(all).not.toContain("bg_room");
     expect(all).not.toContain("decor_rug");
     expect(iso.critical).toContain("iso_room");
+    expect(iso.critical).toContain("iso_counter_phone");
+    expect(iso.critical).toContain("iso_tea_black_pour");
+    expect(all).not.toContain("tea_black");
+    expect(all).not.toContain("worktop");
+    expect(plan.critical).toContain("tea_black");
+    expect(plan.critical).not.toContain("iso_tea_black");
     expect(iso.critical).toContain("iso_decor_rug");
     expect(iso.deferred).toContain("iso_decor_lanterns");
     expect(all.some((k) => k.startsWith("iso_ref"))).toBe(false);

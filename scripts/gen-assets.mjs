@@ -500,6 +500,73 @@ const WALL_SKEW = { l: [1, 0, -0.492, 1], r: [1, 0, 0.545, 1] };
 const wallArt = (from) => Object.entries(WALL_SKEW).map(([side, matrix]) => ({ key: `iso_${from}_${side}`, kind: "skew", from, matrix, max: 256, tier: 11 }));
 ASSETS.push(...wallArt("decor_painting"), ...wallArt("decor_clock"), ...wallArt("decor_poster"));
 
+// Stepped brewing counter, one image per layout (sized to that layout's worktop, see layout.ts). Drawn empty and
+// strictly front-on (a reference image makes the model copy the diagonal of the room, which the station rows can't follow).
+const COUNTER_STYLE =
+  "Cozy cartoon mobile game art, warm wood tones, clean dark-brown outlines, simple cel shading, soft light from the upper left, flat 2D game asset.";
+const COUNTER_EMPTY =
+  "The counter is completely EMPTY: no objects on it, no characters, no room, no walls, no floor. Only the wooden counter filling the entire image from the left edge to the right edge. All edges are PERFECTLY HORIZONTAL and parallel to the image borders: no perspective, no diagonal lines, no vanishing point, seen straight from the front and a little from above. No text, no letters, no labels.";
+const counterBg = (key, cover, aspect, desc) => ({
+  key,
+  kind: "bg",
+  aspect,
+  cover,
+  // Keep the back shelf: the stations' feet stand on it, the bottom riser is just planks.
+  coverPos: "top",
+  tier: 11,
+  prompt: `${COUNTER_STYLE} ${desc} ${COUNTER_EMPTY}`,
+});
+const TIERS =
+  "a stepped wooden brewing counter made of three horizontal tiers that step DOWN toward the viewer like wide stairs: a high back shelf across the top, a middle work surface, and a low front ledge across the bottom. Each tier is a flat light-wood top strip (seen a little from above so its surface is visible) with a darker vertical-plank face below it.";
+const BACKBOARD = (share) =>
+  `Above the back shelf, the top ${share} of the image is a flat backboard wall panel of darker vertical wooden planks (slightly darker than the shelf fronts), and the back shelf's top surface meets that panel; nothing hangs on it. The three tiers share the rest of the height evenly.`;
+ASSETS.push(
+  counterBg("iso_counter_phone", [720, 632], "1:1", `Tall ${TIERS} ${BACKBOARD("35%")} On the middle tier, a bit right of centre, a round shallow recess (a cup holder ring) cut into the wood.`),
+  counterBg("iso_counter_tablet", [960, 682], "4:3", `Wide ${TIERS} ${BACKBOARD("35%")} On the middle tier, exactly at the centre, a round shallow recess (a cup holder ring) cut into the wood.`),
+  counterBg("iso_counter_landscape", [780, 1150], "2:3", `Very tall ${TIERS} ${BACKBOARD("fifth")} On the middle tier, exactly at the centre, a round shallow recess (a cup holder ring) cut into the wood.`),
+);
+
+// Stations redrawn for the stepped counter: same view as the counter (front, a little from above), same line weight
+// and palette, so they sit on the tiers instead of looking pasted on. Keys mirror the 2D ones with an `iso_` prefix.
+const ST_STYLE =
+  "Cozy cartoon mobile game art, soft warm pastel colours, clean dark-brown outlines of even weight, simple cel shading with one flat shadow tone, soft light from the upper left, flat 2D game asset, cute and friendly.";
+const ST_VIEW =
+  "Single object only, centred, seen straight from the front and a little from above (the top surface slightly visible), standing upright on an invisible flat surface, filling most of the frame, on a fully transparent background. No shadow on the ground, no floor, no table, no text, no letters, no labels, no extra objects.";
+const isoStation = (key, desc, max = 400, aspect = "1:1") => ({ key: `iso_${key}`, kind: "sprite", aspect, max, tier: 11, transparent: true, prompt: `${ST_STYLE} ${desc} ${ST_VIEW}` });
+const isoStationEdit = (key, from, change, max = 400) => ({
+  key: `iso_${key}`,
+  kind: "sprite",
+  aspect: "1:1",
+  max,
+  tier: 11,
+  transparent: true,
+  ref: `iso_${from}`,
+  prompt: `Edit this image: keep the exact same object, same colours, same art style, same framing and size. ${change} Keep the fully transparent background, no shadow, no ground, no text.`,
+});
+const URN = (tea, label) =>
+  `A cute rounded stainless-steel tea dispenser urn with a domed lid, a small front tap with a black lever near the bottom, a tall vertical glass window showing ${tea} inside, and a round ${label} badge with a leaf icon on the front.`;
+ASSETS.push(
+  isoStation("tea_black", URN("dark reddish-brown black tea", "brown")),
+  isoStation("tea_green", URN("pale jade green jasmine tea", "green")),
+  isoStation("tea_oolong", URN("golden amber oolong tea", "orange")),
+  isoStation("milk", "A cute white ceramic milk jug pitcher with a wide spout and a round handle, blue cow-spot pattern, full of milk to the brim.", 360),
+  isoStation("sugar", "A tall clear glass bottle of golden brown sugar syrup with a black pump dispenser head on top and a small plain cream paper label.", 360),
+  isoStation("ice", "A small rectangular stainless-steel ice bin, open top, heaped with clear pale-blue ice cubes, with a metal scoop resting in the ice, handle up.", 360),
+  isoStation("cup_stack", "A tall neat stack of empty clear plastic boba tea cups nested into each other, rims visible as thin ellipses, faint pale-blue tint.", 360),
+  isoStation("top_boba", "A round pastel ceramic bowl, wide and shallow, heaped with glossy dark brown tapioca pearls, with a small wooden spoon resting on the rim.", 320),
+  isoStation("top_jelly", "A round pastel ceramic bowl, wide and shallow, heaped with translucent pale green coconut jelly cubes, with a small wooden spoon resting on the rim.", 320),
+  isoStation("top_pudding", "A round pastel ceramic bowl, wide and shallow, heaped with soft yellow egg pudding chunks glazed with caramel, with a small wooden spoon resting on the rim.", 320),
+  isoStation("sealer", "A cute compact pastel pink boba cup sealing machine: a boxy body with a lever handle on top, a cup slot in front holding an empty clear cup, a tiny screen and two round buttons.", 400),
+  isoStation("trash", "A small mint green pedal trash bin with a closed lid, seen from the front.", 300),
+  isoStation("shaker", "A cute stainless-steel drink shaker standing upright with a pastel pink cap shaped with two little cat ears.", 320),
+  ...["tea_black", "tea_green", "tea_oolong"].map((t) => isoStationEdit(`${t}_pour`, t, "Change only the tap: its lever is turned open and a short stream of tea flows straight down from the spout.")),
+  isoStationEdit("milk_pour", "milk", "Tilt the jug about 40 degrees to the left as if pouring, with a short stream of milk flowing out of the spout.", 360),
+  isoStationEdit("sugar_press", "sugar", "The pump head is pressed all the way down and a drop of syrup comes out of the nozzle.", 360),
+  isoStationEdit("ice_scoop", "ice", "The metal scoop is lifted up above the bin, heaped full of ice cubes.", 360),
+  isoStationEdit("sealer_press", "sealer", "Its lever handle is pulled all the way down, with a small warm glow at the sealing plate and a tiny puff of steam.", 400),
+  isoStationEdit("shaker_shake", "shaker", "The shaker is tilted about 25 degrees to the right, with two short curved motion lines on each side and a few tiny droplets flying off, as if being shaken.", 320),
+);
+
 ASSETS.push(
   {
     key: "iso_room",
@@ -767,7 +834,7 @@ async function processAsset(asset, force, reprocess = false) {
   await pipeline
     .resize(
       asset.cover
-        ? { width: asset.cover[0], height: asset.cover[1], fit: "cover" }
+        ? { width: asset.cover[0], height: asset.cover[1], fit: "cover", position: asset.coverPos ?? "centre" }
         : { width: asset.max, height: asset.max, fit: "inside", withoutEnlargement: true },
     )
     .webp({ quality: asset.kind === "bg" ? 82 : 88, alphaQuality: 90 })

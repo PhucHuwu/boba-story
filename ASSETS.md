@@ -281,6 +281,8 @@ Sổ chi tiêu:
 | 2026-10-28 02:39 | gpt-image-2.5: auth_not_found ×3 | dùng | `iso_counter_front` | ~$0.013 | ~$0.50 |
 | 2026-10-28 04:02 | gpt-image-2.5: auth_not_found ×3 | dùng | `icon_arrange` | ~$0.013 | ~$0.51 |
 | 2026-10-28 11:43 | chạy được (gemini) | không | `decor_clock`, `decor_poster` qua proxy | $0 | ~$0.51 |
+| 2026-10-28 13:05–13:20 | 500 INTERNAL ×3 rồi auth_unavailable ×3 (3 lượt) | dùng | `iso_counter_phone/tablet/landscape` (gpt-image-2.5 medium, text-to-image) | ~$0.04 | ~$0.55 |
+| 2026-10-28 13:16 | auth_unavailable ×3 | dùng | 13 trạm `iso_*` + 8 trạng thái (edit) + `iso_counter_landscape` vẽ lại có tường | ~$0.35 | ~$0.90 |
 
 Giai đoạn 0, ảnh mẫu (chưa vào game, chỉ để duyệt phong cách):
 - [x] `mock_phone`: điện thoại dọc, phòng ở trên và quầy ở dưới
@@ -295,3 +297,9 @@ Giai đoạn 1, phòng isometric (gpt-image-2.5 Flare medium trên fal, nền tr
 - [x] `icon_arrange`: icon nút "Sắp xếp đồ trang trí" (chậu cây + mũi tên 4 hướng), lưu ở `public/assets/icons/`
 - [x] `iso_decor_rug`, `iso_decor_lanterns`, `iso_decor_plushies`, `iso_decor_monstera`, `iso_decor_chalkboard`
 - [x] `iso_decor_painting_{l,r}`, `iso_decor_clock_{l,r}`, `iso_decor_poster_{l,r}`: đồ treo tường, không gọi model mà lấy ảnh 2D (`decor_*`) rồi nghiêng theo độ dốc tường trái/phải bằng sharp `affine` (kind `skew` trong `gen-assets.mjs`); game chọn bản `_l` hay `_r` theo tường đang treo
+
+Giai đoạn 2b, quầy pha chế liền khối (gpt-image-2.5 Flare medium trên fal, không dùng ref vì ref làm quầy bị vẽ chéo theo phòng):
+- [x] `iso_counter_phone` (720×632), `iso_counter_tablet` (960×682), `iso_counter_landscape` (780×1150): quầy 3 bậc nhìn thẳng, có ván lưng phía trên và lỗ đặt ly ở bậc giữa; cắt `cover` neo mép trên theo đúng kích thước `worktop` của từng bố cục. Mép bậc đo trên ảnh ghi trong `isoBench.ts`, trạm/ly/phiếu đặt theo đó (chỉ khi `?room=iso`; 2D giữ nguyên)
+- [x] 13 trạm vẽ lại cùng góc nhìn với quầy, nền trong suốt: `iso_tea_black/green/oolong`, `iso_milk`, `iso_sugar`, `iso_ice`, `iso_cup_stack`, `iso_top_boba/jelly/pudding`, `iso_sealer`, `iso_trash`, `iso_shaker`
+- [x] 8 trạng thái đang dùng (edit từ ảnh gốc): `iso_tea_*_pour`, `iso_milk_pour`, `iso_sugar_press`, `iso_ice_scoop`, `iso_sealer_press`, `iso_shaker_shake`
+- Ở chế độ iso không tải `worktop`, `cup_coaster` và 21 ảnh trạm 2D; ở chế độ 2D không tải ảnh `iso_*`
