@@ -2,6 +2,11 @@ export type TeaId = "tea_black" | "tea_green" | "tea_oolong";
 export type ToppingId = "top_boba" | "top_jelly" | "top_pudding";
 export type IngredientId = TeaId | ToppingId | "milk" | "sugar" | "ice" | "cup" | "lid";
 export type Size = "M" | "L";
+/** A floor tile of the shop room: gx runs along the back-right wall, gy along the back-left wall. */
+export interface TilePos {
+  gx: number;
+  gy: number;
+}
 /** Sugar / ice level requested by the customer, in percent. */
 export type Level = 0 | 50 | 100;
 export type ArchetypeId = "student" | "office" | "regular" | "picky" | "shipper" | "granny" | "tiktoker";
@@ -147,8 +152,10 @@ export interface SaveData {
   inventory: Record<IngredientId, number>;
   unlockedRecipes: string[];
   upgrades: string[];
-  /** Decor items bought for the shop (see decor.ts); each sits at a fixed spot. */
+  /** Decor items bought for the shop (see decor.ts). */
   decor: string[];
+  /** Floor tile chosen by the player for movable decor (2.5D room); missing = the item's default spot. */
+  decorAt: Record<string, TilePos>;
   quests: Record<string, QuestProgress>;
   stats: Stats;
   settings: Settings;

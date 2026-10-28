@@ -61,6 +61,7 @@ export interface SaveLookup {
     unlockedRecipes: string[];
     upgrades: string[];
     decor?: string[];
+    decorAt?: Record<string, { gx: number; gy: number }>;
     inventory: Record<string, number>;
     stats: Record<string, number>;
     settings: Record<string, unknown>;

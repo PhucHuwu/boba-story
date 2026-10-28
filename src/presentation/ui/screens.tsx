@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { QUESTS } from "@/domain/catalog";
+import { isDecorId } from "@/domain/decor";
 import { audio } from "../game/audio";
+import { isMovable } from "../game/isoGrid";
+import { roomStyle } from "../game/roomStyle";
 import { DayCard, ReviewItem, ShopCatNote, Stars, VisitorCard } from "./features";
 import { Coin, Glyph, Icon, asset } from "./kit";
 import { useGame } from "./useGame";
@@ -106,11 +109,30 @@ export function MainMenu() {
   );
 }
 
+/** Shown instead of the prep panel while the player drags decor around the room. */
+function ArrangeBar() {
+  const game = useGame();
+  return (
+    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col items-center px-[5%] pb-[4%]">
+      <div className="pointer-events-auto flex w-full max-w-[30em] gap-2">
+        <button className="btn btn-secondary flex-1" onClick={() => game.resetDecorPlaces()}>
+          Về chỗ cũ
+        </button>
+        <button className="btn btn-green flex-1 text-[1.2em]" onClick={() => game.setArranging(false)}>
+          Xong
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function PrepScreen() {
   const game = useGame();
   const s = game.save;
   const low = (["cup", "lid", "milk", "tea_black"] as const).filter((id) => s.inventory[id] < 5);
   const claimable = QUESTS.filter((q) => s.quests[q.id]?.done && !s.quests[q.id]?.claimed).length;
+  const canArrange = roomStyle() === "iso" && s.decor.some((id) => isDecorId(id) && isMovable(id));
+  if (game.arranging) return <ArrangeBar />;
   return (
     <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-20 flex flex-col items-center gap-[0.6em] bg-gradient-to-t from-[rgba(42,24,16,0.92)] to-transparent px-[5%] pb-[6%] pt-[18%]">
       <div className="panel pop-in w-full max-w-[30em] p-[0.9em] text-center">
@@ -163,6 +185,11 @@ export function PrepScreen() {
         <button className="btn btn-secondary" onClick={() => game.toMenu()} aria-label="Về menu chính">
           <Glyph name="home" />
         </button>
+        {canArrange && (
+          <button className="btn btn-secondary" onClick={() => game.setArranging(true)} aria-label="Sắp xếp đồ trang trí">
+            <Icon name="icon_arrange" className="h-[1.6em] w-[1.6em]" />
+          </button>
+        )}
         <button
           className="btn btn-green flex-1 text-[1.35em]"
           onClick={() => {

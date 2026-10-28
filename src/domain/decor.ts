@@ -1,5 +1,5 @@
 import type { ShopResult } from "./economy";
-import type { SaveData } from "./types";
+import type { SaveData, TilePos } from "./types";
 
 export type DecorId = "decor_lanterns" | "decor_rug" | "decor_monstera" | "decor_painting" | "decor_plushies" | "decor_chalkboard";
 export type DecorEffect = "tip" | "patience" | "spawn";
@@ -52,6 +52,20 @@ export function buyDecor(save: SaveData, id: string): ShopResult {
   if (save.money < d.cost) return { ok: false, reason: "Không đủ xu" };
   save.money -= d.cost;
   save.decor.push(id);
+  return { ok: true };
+}
+
+/** Size of the shop floor grid (tiles per side) a decor item can be saved at. */
+export const ROOM_TILES = 10;
+
+export const isTilePos = (v: unknown): v is TilePos =>
+  typeof v === "object" && v !== null && [(v as TilePos).gx, (v as TilePos).gy].every((n) => Number.isInteger(n) && n >= 0 && n < ROOM_TILES);
+
+/** Moves an owned item to a floor tile (which tiles are free is up to the room view). */
+export function placeDecor(save: SaveData, id: string, pos: TilePos): ShopResult {
+  if (!isDecorId(id) || !save.decor.includes(id)) return { ok: false, reason: "Chưa sở hữu" };
+  if (!isTilePos(pos)) return { ok: false, reason: "Chỗ này không đặt được" };
+  save.decorAt[id] = { gx: pos.gx, gy: pos.gy };
   return { ok: true };
 }
 

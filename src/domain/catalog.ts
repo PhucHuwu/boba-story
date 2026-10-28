@@ -1,6 +1,6 @@
 import type { ArchetypeId, IngredientId, Level, Recipe, SaveData, TeaId, ToppingId } from "./types";
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 export const TEA_IDS: TeaId[] = ["tea_black", "tea_green", "tea_oolong"];
 export const TOPPING_IDS: ToppingId[] = ["top_boba", "top_jelly", "top_pudding"];
@@ -256,6 +256,7 @@ export function defaultSave(): SaveData {
     unlockedRecipes: RECIPES.filter((r) => r.unlockCost === 0).map((r) => r.id),
     upgrades: [],
     decor: [],
+    decorAt: {},
     quests: Object.fromEntries(QUESTS.map((q) => [q.id, { progress: 0, done: false, claimed: false }])),
     stats: { served: 0, perfect: 0, totalEarned: 0, regularVisits: 0, pickyHappy: 0, daysCompleted: 0, fiveStars: 0, goalsMet: 0, rivalsBeaten: 0, robberies: 0, bestCombo: 0 },
     settings: { music: 0.5, sfx: 0.8, reducedMotion: false, relaxed: false, hints: true, telemetry: true },

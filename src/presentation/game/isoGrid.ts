@@ -1,5 +1,6 @@
-import type { DecorId } from "@/domain/decor";
-import type { Layout, Point } from "./layout";
+import { type DecorId, isDecorId, ROOM_TILES } from "@/domain/decor";
+import type { TilePos } from "@/domain/types";
+import { LAYOUTS, type Layout, type Point, stretchPhone } from "./layout";
 
 /**
  * 2.5D room geometry. `iso_room` is a square image of an empty room: two back walls meeting at the top centre and a
@@ -83,7 +84,7 @@ export const ROOM_PROPS: Prop[] = [
   { key: "iso_table", at: { x: 300, y: 760 }, w: 250, kind: "floor" },
 ];
 
-/** Bought decor, at fixed spots for now (drag-to-place comes with the next stage). */
+/** Bought decor at its default spot. Floor and flat items can be dragged to another tile (see decorProp). */
 export const ISO_DECOR: Record<DecorId, Prop> = {
   decor_rug: { key: "iso_decor_rug", at: { x: 620, y: 690 }, w: 300, kind: "flat" },
   decor_lanterns: { key: "iso_decor_lanterns", at: { x: 560, y: 330 }, w: 330, kind: "hanging" },
@@ -100,3 +101,69 @@ export const PROP_ORIGIN: Record<Prop["kind"], [number, number]> = {
   flat: [0.5, 0.5],
   hanging: [0.5, 0],
 };
+
+// ---------------------------------------------------------------- arranging decor on floor tiles
+
+/** Items that stand or lie on the floor can be moved; wall and ceiling ones stay put. */
+export const isMovable = (id: DecorId) => ISO_DECOR[id].kind === "floor" || ISO_DECOR[id].kind === "flat";
+
+/** A floor prop stands a little in front of its tile centre so it reads as being on that tile. */
+const FOOT_DY = TILE.h * 0.3;
+
+function tileAnchor(kind: Prop["kind"], t: TilePos): Point {
+  const c = tileToImage(t.gx, t.gy);
+  return kind === "flat" ? c : { x: c.x, y: c.y + FOOT_DY };
+}
+
+/** The prop for an owned item, at the player's tile when one is saved. */
+export function decorProp(id: DecorId, at?: TilePos): Prop {
+  const p = ISO_DECOR[id];
+  return at && isMovable(id) ? { ...p, at: tileAnchor(p.kind, at) } : p;
+}
+
+/** Tile an item occupies now (its saved tile, else the one under its default spot). */
+export function decorTile(id: DecorId, decorAt: Readonly<Record<string, TilePos>>): TilePos {
+  const p = ISO_DECOR[id];
+  return decorAt[id] ?? imageToTile({ x: p.at.x, y: p.at.y - (p.kind === "flat" ? 0 : FOOT_DY) });
+}
+
+export function canvasToTile(fit: RoomFit, p: Point): TilePos {
+  return imageToTile({ x: (p.x - fit.x) / fit.k, y: (p.y - fit.y) / fit.k });
+}
+
+/** Clear of the HUD, the screen sides and the queue in front of the counter, on every layout. */
+const SAFE = { side: 45, aboveCounter: 100 };
+const LAYOUTS_TO_FIT = [...Object.values(LAYOUTS), stretchPhone(LAYOUTS.phone, 720, 1560)];
+
+function onScreenEverywhere(t: TilePos): boolean {
+  const c = tileToImage(t.gx, t.gy);
+  return LAYOUTS_TO_FIT.every((L) => {
+    const p = toCanvas(fitRoom(L), { x: c.x, y: c.y + 20 });
+    return p.x > SAFE.side && p.x < L.room.w - SAFE.side && p.y < L.counterY - SAFE.aboveCounter;
+  });
+}
+
+/** Tiles an item may be dropped on (the big rug keeps one tile off the walls so it doesn't climb them). */
+export function placeableTiles(id: DecorId): TilePos[] {
+  const margin = ISO_DECOR[id].kind === "flat" ? 1 : 0;
+  const out: TilePos[] = [];
+  for (let gy = margin; gy < ROOM_TILES; gy++) for (let gx = margin; gx < ROOM_TILES; gx++) if (onScreenEverywhere({ gx, gy })) out.push({ gx, gy });
+  return out;
+}
+
+const FIXED_FLOOR: TilePos[] = ROOM_PROPS.filter((p) => p.kind === "floor").map((p) => imageToTile({ x: p.at.x, y: p.at.y - FOOT_DY }));
+const same = (a: TilePos, b: TilePos) => a.gx === b.gx && a.gy === b.gy;
+
+/**
+ * Can `id` go on tile `t`? Standing items need a tile no other standing item (or furniture) uses; the rug lies under
+ * them, so it only has to be on a placeable tile.
+ */
+export function canPlace(id: DecorId, t: TilePos, owned: readonly string[], decorAt: Readonly<Record<string, TilePos>>): boolean {
+  if (!isMovable(id)) return false;
+  // Dropping back where it already is is always fine, even if a default spot lies outside the shared safe area.
+  if (same(decorTile(id, decorAt), t)) return true;
+  if (!placeableTiles(id).some((p) => same(p, t))) return false;
+  if (ISO_DECOR[id].kind === "flat") return true;
+  if (FIXED_FLOOR.some((p) => same(p, t))) return false;
+  return !owned.some((o) => o !== id && isDecorId(o) && ISO_DECOR[o].kind === "floor" && same(decorTile(o, decorAt), t));
+}

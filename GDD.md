@@ -145,6 +145,8 @@ Tạm dừng phải dừng đồng hồ game, bộ đếm thời gian và hành 
 
 Dùng một khung cảnh 2D cố định nhìn từ vị trí chủ quán phía sau quầy. Phía bên kia quầy là các mèo khách nhân hóa đứng bằng hai chân. Phần trước màn hình là bàn pha chế, dụng cụ và nguyên liệu.
 
+Bản 2.5D (thử nghiệm, bật bằng `?room=iso`): phía trên là một căn phòng isometric (sàn ô gỗ, 2 tường sau, cửa ra vào), mèo khách đi từ cửa tới đứng sau quầy; phía dưới là quầy pha chế liền khối. Ở màn chuẩn bị, người chơi bấm nút "Sắp xếp" để kéo thả đồ trang trí đứng/trải sàn (thảm, kệ thú bông, monstera, bảng menu) sang ô khác; đèn lồng và tranh treo cố định. Đồ đứng không chồng lên nhau hay lên bàn, thảm được nằm dưới. Vị trí lưu trong save v5 (`decorAt`), thiếu thì dùng chỗ mặc định.
+
 Không triển khai di chuyển nhân vật tự do bằng WASD trong MVP. Dùng các điểm tương tác cố định (hotspots) để kiểm soát phạm vi và giảm độ phức tạp.
 
 ### 5.2. Các vùng giao diện

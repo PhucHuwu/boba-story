@@ -504,6 +504,7 @@ ASSETS.push(
   },
   isoSprite("iso_counter", "A long straight wooden serving counter with vertical plank front panels and a smooth light wood top, running diagonally from the upper left down to the lower right (parallel to the back-right wall), with a small cash register at one end. Nothing else on the counter.", "3:2", 900),
   isoSprite("iso_counter_front", "The front of a long straight wooden serving counter, running perfectly horizontally from the left edge to the right edge of the image, seen from the front and slightly above: a light smooth wood top surface visible as a narrow strip along the top, a thick rounded top edge, vertical warm-brown plank front panels and a darker skirting board at the bottom. Nothing on the counter. The counter fills the whole width of the image.", "21:9", 1536),
+  { ...icon("icon_arrange", "A small potted green plant with a four-way move arrow (up, down, left, right arrowheads) behind it."), tier: 11, transparent: true },
   isoSprite("iso_table", "A small round wooden cafe table with a tiny potted succulent on it and two round wooden stools beside it."),
   isoSprite("iso_shelf", "Two wooden wall shelves stacked one above the other, holding glass jars of tea leaves and tapioca pearls, mounted flat against a back-left wall so the shelves follow that wall's isometric slant."),
   isoSprite("iso_decor_rug", "A round soft pink rug with a cute cat face pattern lying flat on the floor, seen in isometric view so it looks like a flattened ellipse."),

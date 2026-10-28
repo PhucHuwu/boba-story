@@ -1,5 +1,5 @@
 import { INGREDIENTS, QUESTS, RECIPE_BY_ID, SAVE_VERSION, UPGRADES, defaultSave } from "./catalog";
-import { isDecorId } from "./decor";
+import { isDecorId, isTilePos } from "./decor";
 import { DEAL_INGREDIENTS } from "./visitors";
 import type { DayPlan, GoalKind, IngredientId, Loan, Review, RivalEventId, SaveData, WeatherId } from "./types";
 import { REVIEW_KEEP } from "./reviews";
@@ -86,6 +86,9 @@ export function migrate(raw: unknown): SaveData | null {
     settings.telemetry = raw.settings.telemetry !== false;
   }
   const reviews = parseReviews(raw.reviews);
+  const decor = Array.isArray(raw.decor) ? Array.from(new Set(raw.decor.filter(isDecorId))) : [];
+  const decorAt: SaveData["decorAt"] = {};
+  if (isObj(raw.decorAt)) for (const id of decor) if (isTilePos(raw.decorAt[id])) decorAt[id] = { gx: raw.decorAt[id].gx, gy: raw.decorAt[id].gy };
   return {
     version: SAVE_VERSION,
     day: Math.floor(num(raw.day, 1, 1, 9999)),
@@ -94,7 +97,8 @@ export function migrate(raw: unknown): SaveData | null {
     inventory,
     unlockedRecipes: Array.from(new Set([...base.unlockedRecipes, ...unlocked])),
     upgrades: Array.from(new Set(upgrades)),
-    decor: Array.isArray(raw.decor) ? Array.from(new Set(raw.decor.filter(isDecorId))) : [],
+    decor,
+    decorAt,
     quests,
     stats,
     settings,

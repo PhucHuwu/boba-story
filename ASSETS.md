@@ -277,6 +277,7 @@ Sổ chi tiêu:
 | 2026-10-28 01:19–01:22 | 500 INTERNAL ×3 | dùng | 3 ảnh mẫu phong cách | $0.24 | $0.24 |
 | 2026-10-28 01:36–01:37 | gpt-image-2.5: auth_not_found ×3 | dùng | 10 ảnh phòng iso (gpt-image-2.5 medium) | ~$0.25 | ~$0.49 |
 | 2026-10-28 02:39 | gpt-image-2.5: auth_not_found ×3 | dùng | `iso_counter_front` | ~$0.013 | ~$0.50 |
+| 2026-10-28 04:02 | gpt-image-2.5: auth_not_found ×3 | dùng | `icon_arrange` | ~$0.013 | ~$0.51 |
 
 Giai đoạn 0, ảnh mẫu (chưa vào game, chỉ để duyệt phong cách):
 - [x] `mock_phone`: điện thoại dọc, phòng ở trên và quầy ở dưới
@@ -288,4 +289,5 @@ Giai đoạn 1, phòng isometric (gpt-image-2.5 Flare medium trên fal, nền tr
 - [x] `iso_counter`: quầy gỗ chéo (đã tạo, chưa dùng)
 - [x] `iso_counter_front`: mặt trước quầy chạy ngang, khách đứng phía sau
 - [x] `iso_table`, `iso_shelf`
+- [x] `icon_arrange`: icon nút "Sắp xếp đồ trang trí" (chậu cây + mũi tên 4 hướng), lưu ở `public/assets/icons/`
 - [x] `iso_decor_rug`, `iso_decor_lanterns`, `iso_decor_painting`, `iso_decor_plushies`, `iso_decor_monstera`, `iso_decor_chalkboard`

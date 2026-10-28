@@ -1,5 +1,5 @@
 import { INGREDIENTS, QUESTS, defaultSave } from "@/domain/catalog";
-import { DECOR_BY_ID, buyDecor, isDecorId } from "@/domain/decor";
+import { DECOR_BY_ID, buyDecor, isDecorId, placeDecor } from "@/domain/decor";
 import { goalStatus, planDay, type GoalStatus } from "@/domain/dayPlan";
 import {
   buyIngredient,
@@ -18,7 +18,7 @@ import { addReview, shopRating } from "@/domain/reviews";
 import { FAKE_REVIEW_TEXTS, RIVAL_EVENTS } from "@/domain/rivalEvents";
 import type { Announcement, FeedbackCategory } from "@/domain/community";
 import { migrate } from "@/domain/saveSchema";
-import type { DayStats, IngredientId, Review, RivalEventId, SaveData, Settings } from "@/domain/types";
+import type { DayStats, IngredientId, Review, RivalEventId, SaveData, Settings, TilePos } from "@/domain/types";
 import { Observable } from "../common/emitter";
 import { Notifier, type NoticeKind } from "../common/notifier";
 import type { CloudSaveGateway, CommunityGateway, DialogueGateway, RecoveryCodeStore, Rng, SaveRepository } from "../ports";
@@ -58,6 +58,8 @@ export class GameController extends Observable implements ShopHost {
   phase: Phase = "loading";
   modal: Modal = null;
   paused = false;
+  /** Decor arranging mode (prep only): the room takes drags instead of the prep panel. */
+  arranging = false;
   loadProgress = 0;
   dayStats: DayStats = emptyDayStats();
   lastSummary: DaySummary | null = null;
@@ -200,6 +202,7 @@ export class GameController extends Observable implements ShopHost {
 
   private setPhase(p: Phase) {
     this.phase = p;
+    this.arranging = false;
     this.changed();
   }
 
@@ -404,6 +407,30 @@ export class GameController extends Observable implements ShopHost {
     const before = this.save.money;
     const name = isDecorId(id) ? DECOR_BY_ID[id].name : "";
     return this.afterPurchase(buyDecor(this.save, id), before - this.save.money, `Đã trang trí: ${name}`);
+  }
+
+  /** Before opening, the player can drag decor around the room (2.5D view only). */
+  setArranging(on: boolean) {
+    if (on && (this.phase !== "prep" || this.save.decor.length === 0)) return;
+    if (this.arranging === on) return;
+    this.arranging = on;
+    this.modal = null;
+    this.changed();
+  }
+
+  placeDecor(id: string, pos: TilePos) {
+    const r = placeDecor(this.save, id, pos);
+    if (r.ok) this.persist();
+    else this.notify(r.reason, "bad");
+    this.changed();
+    return r.ok;
+  }
+
+  /** Puts every item back at its default spot. */
+  resetDecorPlaces() {
+    this.save.decorAt = {};
+    this.persist();
+    this.changed();
   }
 
   withdraw(amount: number) {
