@@ -29,7 +29,7 @@ export function planAssets(keys: string[], owned: readonly string[] = [], style:
   const skip = [...SKIP, ...SKIP_STYLE[style]];
   for (const key of keys) {
     if (skip.some((r) => r.test(key))) continue;
-    const tier = owned.includes(key.replace(/^iso_/, "")) ? -1 : DEFERRED.findIndex((r) => r.test(key));
+    const tier = owned.includes(key.replace(/^iso_/, "").replace(/_[lr]$/, "")) ? -1 : DEFERRED.findIndex((r) => r.test(key));
     (tier < 0 ? critical : tiers[tier]).push(key);
   }
   return { critical, deferred: tiers.flat() };

@@ -243,6 +243,8 @@ Chỉ gen nhóm này sau khi chốt kế hoạch NPC.
 - [x] `decor_painting`: tranh quán do Mochi vẽ
 - [x] `decor_plushies`: kệ thú bông
 - [x] `decor_chalkboard`: bảng menu phấn chữ A (không chữ)
+- [x] `decor_clock`: đồng hồ treo tường hình mèo, đuôi quả lắc
+- [x] `decor_poster`: poster quảng cáo ly trà sữa, khung pastel (không chữ)
 
 ## 8. Phụ kiện khách (có prompt)
 Khách thường (học sinh, dân văn phòng, khó tính) có 40% cơ hội đeo 1 phụ kiện. Chỉ đặt trên đỉnh đầu hoặc cạnh tai, không che mặt (bỏ tai nghe và khăn quàng vì đè lên mặt). Vị trí đầu theo từng tư thế nằm trong `src/presentation/game/catLooks.ts`. Ảnh nào chưa có thì game tự bỏ qua.
@@ -278,6 +280,7 @@ Sổ chi tiêu:
 | 2026-10-28 01:36–01:37 | gpt-image-2.5: auth_not_found ×3 | dùng | 10 ảnh phòng iso (gpt-image-2.5 medium) | ~$0.25 | ~$0.49 |
 | 2026-10-28 02:39 | gpt-image-2.5: auth_not_found ×3 | dùng | `iso_counter_front` | ~$0.013 | ~$0.50 |
 | 2026-10-28 04:02 | gpt-image-2.5: auth_not_found ×3 | dùng | `icon_arrange` | ~$0.013 | ~$0.51 |
+| 2026-10-28 11:43 | chạy được (gemini) | không | `decor_clock`, `decor_poster` qua proxy | $0 | ~$0.51 |
 
 Giai đoạn 0, ảnh mẫu (chưa vào game, chỉ để duyệt phong cách):
 - [x] `mock_phone`: điện thoại dọc, phòng ở trên và quầy ở dưới
@@ -290,4 +293,5 @@ Giai đoạn 1, phòng isometric (gpt-image-2.5 Flare medium trên fal, nền tr
 - [x] `iso_counter_front`: mặt trước quầy chạy ngang, khách đứng phía sau
 - [x] `iso_table`, `iso_shelf`
 - [x] `icon_arrange`: icon nút "Sắp xếp đồ trang trí" (chậu cây + mũi tên 4 hướng), lưu ở `public/assets/icons/`
-- [x] `iso_decor_rug`, `iso_decor_lanterns`, `iso_decor_painting`, `iso_decor_plushies`, `iso_decor_monstera`, `iso_decor_chalkboard`
+- [x] `iso_decor_rug`, `iso_decor_lanterns`, `iso_decor_plushies`, `iso_decor_monstera`, `iso_decor_chalkboard`
+- [x] `iso_decor_painting_{l,r}`, `iso_decor_clock_{l,r}`, `iso_decor_poster_{l,r}`: đồ treo tường, không gọi model mà lấy ảnh 2D (`decor_*`) rồi nghiêng theo độ dốc tường trái/phải bằng sharp `affine` (kind `skew` trong `gen-assets.mjs`); game chọn bản `_l` hay `_r` theo tường đang treo

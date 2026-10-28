@@ -7,6 +7,14 @@ export interface TilePos {
   gx: number;
   gy: number;
 }
+/** A hanging spot on a back wall: `s` cells along the wall from the corner, `h` rows up from the baseboard. */
+export interface WallPos {
+  wall: "left" | "right";
+  s: number;
+  h: number;
+}
+/** Where a decor item was put: a floor tile or a wall cell. */
+export type DecorPos = TilePos | WallPos;
 /** Sugar / ice level requested by the customer, in percent. */
 export type Level = 0 | 50 | 100;
 export type ArchetypeId = "student" | "office" | "regular" | "picky" | "shipper" | "granny" | "tiktoker";
@@ -154,8 +162,8 @@ export interface SaveData {
   upgrades: string[];
   /** Decor items bought for the shop (see decor.ts). */
   decor: string[];
-  /** Floor tile chosen by the player for movable decor (2.5D room); missing = the item's default spot. */
-  decorAt: Record<string, TilePos>;
+  /** Floor tile or wall cell chosen by the player for movable decor (2.5D room); missing = the item's default spot. */
+  decorAt: Record<string, DecorPos>;
   quests: Record<string, QuestProgress>;
   stats: Stats;
   settings: Settings;

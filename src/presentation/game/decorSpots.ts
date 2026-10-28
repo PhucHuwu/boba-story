@@ -20,6 +20,8 @@ export const DECOR_SPOTS: Record<DecorId, DecorSpot> = {
   decor_plushies: { x: 70, y: 650, w: 112, origin: [0.5, 1], depth: 3 },
   decor_monstera: { x: 548, y: 735, w: 120, origin: [0.5, 1], depth: 3 },
   decor_chalkboard: { x: 405, y: 690, w: 64, origin: [0.5, 1], depth: 3 },
+  decor_clock: { x: 165, y: 410, w: 48, origin: [0.5, 0.5], depth: 2 },
+  decor_poster: { x: 488, y: 465, w: 50, origin: [0.5, 0.5], depth: 2 },
 };
 
 /** Source image size of bg_room, the coordinate space of DECOR_SPOTS. */

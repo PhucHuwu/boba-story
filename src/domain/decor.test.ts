@@ -84,15 +84,32 @@ describe("decor placement", () => {
     expect(placeDecor(save, "decor_rug", { gx: ROOM_TILES, gy: 0 }).ok).toBe(false);
   });
 
+  it("saves wall cells and strips extra fields", () => {
+    const save = defaultSave();
+    save.decor = ["decor_painting"];
+    expect(placeDecor(save, "decor_painting", { wall: "right", s: 1, h: 1, extra: 2 } as never)).toEqual({ ok: true });
+    expect(save.decorAt).toEqual({ decor_painting: { wall: "right", s: 1, h: 1 } });
+    expect(placeDecor(save, "decor_painting", { wall: "up", s: 1, h: 1 } as never).ok).toBe(false);
+    expect(placeDecor(save, "decor_painting", { wall: "left", s: 1, h: 2 }).ok).toBe(false);
+    expect(placeDecor(save, "decor_painting", { wall: "left", s: -1, h: 0 }).ok).toBe(false);
+  });
+
   it("migrates v4 saves to v5 with default spots and drops bad positions", () => {
     const v4 = migrate({ version: 4, decor: ["decor_rug"] })!;
     expect(v4.version).toBe(5);
     expect(v4.decorAt).toEqual({});
     const dirty = migrate({
       version: 5,
-      decor: ["decor_rug", "decor_monstera"],
-      decorAt: { decor_rug: { gx: 3, gy: 2, extra: 1 }, decor_monstera: { gx: 99, gy: 0 }, decor_lanterns: { gx: 1, gy: 1 }, hack: 1 },
+      decor: ["decor_rug", "decor_monstera", "decor_painting", "decor_clock"],
+      decorAt: {
+        decor_rug: { gx: 3, gy: 2, extra: 1 },
+        decor_monstera: { gx: 99, gy: 0 },
+        decor_lanterns: { gx: 1, gy: 1 },
+        decor_painting: { wall: "right", s: 1, h: 0, extra: 1 },
+        decor_clock: { wall: "right", s: 1, h: 5 },
+        hack: 1,
+      },
     })!;
-    expect(dirty.decorAt).toEqual({ decor_rug: { gx: 3, gy: 2 } });
+    expect(dirty.decorAt).toEqual({ decor_rug: { gx: 3, gy: 2 }, decor_painting: { wall: "right", s: 1, h: 0 } });
   });
 });

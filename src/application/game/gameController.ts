@@ -18,7 +18,7 @@ import { addReview, shopRating } from "@/domain/reviews";
 import { FAKE_REVIEW_TEXTS, RIVAL_EVENTS } from "@/domain/rivalEvents";
 import type { Announcement, FeedbackCategory } from "@/domain/community";
 import { migrate } from "@/domain/saveSchema";
-import type { DayStats, IngredientId, Review, RivalEventId, SaveData, Settings, TilePos } from "@/domain/types";
+import type { DayStats, DecorPos, IngredientId, Review, RivalEventId, SaveData, Settings } from "@/domain/types";
 import { Observable } from "../common/emitter";
 import { Notifier, type NoticeKind } from "../common/notifier";
 import type { CloudSaveGateway, CommunityGateway, DialogueGateway, RecoveryCodeStore, Rng, SaveRepository } from "../ports";
@@ -418,7 +418,7 @@ export class GameController extends Observable implements ShopHost {
     this.changed();
   }
 
-  placeDecor(id: string, pos: TilePos) {
+  placeDecor(id: string, pos: DecorPos) {
     const r = placeDecor(this.save, id, pos);
     if (r.ok) this.persist();
     else this.notify(r.reason, "bad");

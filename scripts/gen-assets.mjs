@@ -403,6 +403,8 @@ ASSETS.push(
     { key: "decor_monstera", kind: "sprite", holes: true, aspect: "3:4", max: 640, prompt: `${STYLE} ${DECOR_STYLE} A big leafy monstera plant with large split green leaves in a round terracotta pot, tall floor plant. ${SPRITE}` },
     { key: "decor_painting", kind: "sprite", aspect: "3:4", max: 512, prompt: `${STYLE} ${DECOR_STYLE} A small framed painting hung on a wall: a naive childlike painting of a little boba tea shop with a cat and a milk tea cup, in a warm wooden frame. No readable text. ${SPRITE}` },
     { key: "decor_plushies", kind: "sprite", aspect: "1:1", max: 640, prompt: `${STYLE} ${DECOR_STYLE} A small wooden two-tier shelf full of cute plush toys: a cat plush, a boba cup plush, a bunny plush and a bear plush. ${SPRITE}` },
+    { key: "decor_clock", kind: "sprite", aspect: "3:4", max: 512, prompt: `${STYLE} ${DECOR_STYLE} A cute wall clock shaped like a round cream cat face with small ears, a simple clock dial on its belly area with two hands and no numbers, and a pendulum tail hanging below. Front view, flat against a wall. No readable text. ${SPRITE}` },
+    { key: "decor_poster", kind: "sprite", aspect: "3:4", max: 512, prompt: `${STYLE} ${DECOR_STYLE} A retro-style advertising poster in a thin pastel frame: a big smiling boba milk tea cup with a straw and tapioca pearls, sunburst rays behind it, warm pastel pink and cream. Front view, flat against a wall. No readable text, no letters. ${SPRITE}` },
     { key: "decor_chalkboard", kind: "sprite", aspect: "3:4", max: 512, prompt: `${STYLE} ${DECOR_STYLE} A small A-frame chalkboard sidewalk sign with a wooden frame, hand drawn chalk doodles of a boba cup, a cat face and little stars, no letters, no words, no readable text. ${SPRITE}` },
   ]),
 );
@@ -492,6 +494,12 @@ const isoSprite = (key, desc, aspect = "1:1", max = 512) => ({
   ref: "iso_ref_room",
   prompt: `${ISO_STYLE} ${desc} ${ISO_SPRITE}`,
 });
+// Wall decor hangs on either back wall: the front-view art is sheared to that wall's slope (measured on iso_room,
+// see isoGrid.ts) instead of being generated again. No model call.
+const WALL_SKEW = { l: [1, 0, -0.492, 1], r: [1, 0, 0.545, 1] };
+const wallArt = (from) => Object.entries(WALL_SKEW).map(([side, matrix]) => ({ key: `iso_${from}_${side}`, kind: "skew", from, matrix, max: 256, tier: 11 }));
+ASSETS.push(...wallArt("decor_painting"), ...wallArt("decor_clock"), ...wallArt("decor_poster"));
+
 ASSETS.push(
   {
     key: "iso_room",
@@ -509,7 +517,6 @@ ASSETS.push(
   isoSprite("iso_shelf", "Two wooden wall shelves stacked one above the other, holding glass jars of tea leaves and tapioca pearls, mounted flat against a back-left wall so the shelves follow that wall's isometric slant."),
   isoSprite("iso_decor_rug", "A round soft pink rug with a cute cat face pattern lying flat on the floor, seen in isometric view so it looks like a flattened ellipse."),
   isoSprite("iso_decor_lanterns", "A string of four Vietnamese paper lanterns in pastel pink, yellow, mint and lilac hanging from a gently sagging cord, with tassels.", "3:2"),
-  isoSprite("iso_decor_painting", "A small framed painting of a happy cat holding a boba tea, hanging flat on a back-left wall, so the frame is skewed to follow that wall's isometric slant.", "3:4", 320),
   isoSprite("iso_decor_plushies", "A small wooden open shelf unit standing on the floor holding cute plush toys: a grey cat, a white bunny and a brown teddy bear.", "3:4"),
   isoSprite("iso_decor_monstera", "A big leafy monstera plant in a round terracotta pot standing on the floor.", "3:4"),
   isoSprite("iso_decor_chalkboard", "A small wooden A-frame sidewalk chalkboard sign standing on the floor, its black board decorated only with chalk doodles of a cat face and a boba cup, no writing.", "3:4", 320),
@@ -728,6 +735,16 @@ async function processAsset(asset, force, reprocess = false) {
   const outFile = outPath(asset.key);
   fs.mkdirSync(path.dirname(rawFile), { recursive: true });
   fs.mkdirSync(path.dirname(outFile), { recursive: true });
+  if (asset.kind === "skew") {
+    const src = outPath(asset.from);
+    if (!fs.existsSync(src) || (!force && !reprocess && fs.existsSync(outFile))) return "skip";
+    await sharp(src)
+      .resize({ width: asset.max, withoutEnlargement: true })
+      .affine(asset.matrix, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .webp({ quality: 88, alphaQuality: 90 })
+      .toFile(outFile);
+    return "ok";
+  }
   if (reprocess) {
     if (!fs.existsSync(rawFile)) return "skip";
   } else if (!force && fs.existsSync(outFile)) return "skip";

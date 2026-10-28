@@ -7,7 +7,7 @@ import { liquidTotal } from "@/domain/cup";
 import { maxCustomers, type Customer } from "@/domain/customers";
 import { type DecorId, isDecorId } from "@/domain/decor";
 import { hasShopCat } from "@/domain/visitors";
-import type { IngredientId, Mood, Size, TeaId, TilePos, ToppingId } from "@/domain/types";
+import type { DecorPos, IngredientId, Mood, Size, TeaId, ToppingId } from "@/domain/types";
 import manifest from "./assetManifest.json";
 import { planAssets } from "./assetPlan";
 import { audio } from "./audio";
@@ -18,20 +18,19 @@ import { DECOR_SPOTS } from "./decorSpots";
 import {
   canPlace,
   canvasToImage,
+  decorPos,
   decorProp,
-  decorSpan,
-  decorTile,
   fitRoom,
   footprint,
-  gridToImage,
-  imageToGrid,
   ISO_COUNTER_H,
   ISO_DECOR,
   ISO_FOOT_OFFSET,
   isMovable,
   isoLayout,
-  placeableTiles,
+  outline,
+  placeable,
   PROP_ORIGIN,
+  snapPos,
   type Prop,
   ROOM_PROPS,
   type RoomFit,
@@ -168,7 +167,7 @@ export class ShopScene extends Phaser.Scene {
   private bgScale = 1;
   private roomFit: RoomFit | null = null;
   /** Decor being dragged while arranging, and the free tile it would land on. */
-  private dragging: { id: DecorId; img: Phaser.GameObjects.Image; tile: TilePos | null } | null = null;
+  private dragging: { id: DecorId; img: Phaser.GameObjects.Image; pos: DecorPos | null } | null = null;
   private tileGrid: Phaser.GameObjects.Graphics | null = null;
   private wasArranging = false;
   private unsubscribe: (() => void)[] = [];
@@ -1193,8 +1192,8 @@ export class ShopScene extends Phaser.Scene {
   }
 
   /**
-   * Owned decor in the room: fixed spots in the 2D view (bg_room pixels, see decorSpots.ts), the player's tiles in the
-   * 2.5D room. While arranging, movable items can be dragged and snap to a free floor tile.
+   * Owned decor in the room: fixed spots in the 2D view (bg_room pixels, see decorSpots.ts), the player's tiles and
+   * wall cells in the 2.5D room. While arranging, movable items can be dragged and snap to a free tile or cell.
    */
   private syncDecor() {
     const { decor, decorAt } = this.ctl.save;
@@ -1202,8 +1201,9 @@ export class ShopScene extends Phaser.Scene {
       // An item moved (by a drop, a reset or another tab): rebuild it at its new tile.
       for (const [id, img] of this.decorViews) {
         if (!isDecorId(id) || img === this.dragging?.img) continue;
-        const want = toCanvas(this.roomFit, decorProp(id, decorAt[id]).at);
-        if (Math.abs(img.x - want.x) > 0.5 || Math.abs(img.y - want.y) > 0.5) {
+        const prop = decorProp(id, decorAt[id]);
+        const want = toCanvas(this.roomFit, prop.at);
+        if (Math.abs(img.x - want.x) > 0.5 || Math.abs(img.y - want.y) > 0.5 || img.texture.key !== prop.key) {
           img.destroy();
           this.decorViews.delete(id);
         }
@@ -1237,7 +1237,7 @@ export class ShopScene extends Phaser.Scene {
     img.input!.enabled = this.ctl.arranging;
     img.on("dragstart", () => {
       if (!this.ctl.arranging) return;
-      this.dragging = { id, img, tile: null };
+      this.dragging = { id, img, pos: null };
       img.setDepth(DEPTH.draggedCup).setAlpha(0.9);
       this.drawTiles();
       audio.play("ting");
@@ -1245,15 +1245,20 @@ export class ShopScene extends Phaser.Scene {
     img.on("drag", (p: Phaser.Input.Pointer) => {
       const d = this.dragging;
       if (!d || !this.roomFit) return;
-      // The pointer holds the item by its foot/centre; snap that to the tile (block, for the rug) under it when free.
-      const ip = canvasToImage(this.roomFit, { x: p.x, y: p.y - (ISO_DECOR[id].kind === "flat" ? 0 : 20) });
-      const g = imageToGrid(ip);
-      const half = (decorSpan(id) - 1) / 2;
-      const t = { gx: Math.floor(g.x - half), gy: Math.floor(g.y - half) };
+      // The pointer holds the item by its foot/centre; snap that to the tile (block, for the rug) or wall cell under
+      // it when free. A wall item swaps to the art skewed for the wall it is over.
+      const kind = ISO_DECOR[id].kind;
+      const ip = canvasToImage(this.roomFit, { x: p.x, y: p.y - (kind === "floor" ? 20 : 0) });
+      const pos = snapPos(id, ip);
       const { decor, decorAt } = this.ctl.save;
-      d.tile = canPlace(id, t, decor, decorAt, this.L) ? t : null;
-      const at = d.tile ? toCanvas(this.roomFit, decorProp(id, d.tile).at) : { x: p.x, y: p.y };
-      img.setPosition(at.x, at.y).setTint(d.tile ? 0xffffff : 0xff9a9a);
+      d.pos = canPlace(id, pos, decor, decorAt, this.L) ? pos : null;
+      const prop = decorProp(id, d.pos ?? pos);
+      if (prop.key !== img.texture.key && this.textures.exists(prop.key)) {
+        img.setTexture(prop.key);
+        img.setScale((prop.w * this.roomFit.k) / img.width);
+      }
+      const at = d.pos ? toCanvas(this.roomFit, prop.at) : { x: p.x, y: p.y };
+      img.setPosition(at.x, at.y).setTint(d.pos ? 0xffffff : 0xff9a9a);
       this.drawTiles();
     });
     img.on("dragend", () => {
@@ -1261,11 +1266,11 @@ export class ShopScene extends Phaser.Scene {
       if (!d) return;
       this.dragging = null;
       img.clearTint().setAlpha(1);
-      if (d.tile) {
-        this.ctl.placeDecor(id, d.tile);
+      if (d.pos) {
+        this.ctl.placeDecor(id, d.pos);
         audio.play("ting");
       }
-      // Rebuilt by syncDecor at the saved tile (or back at the old one when the drop was refused).
+      // Rebuilt by syncDecor at the saved spot (or back at the old one when the drop was refused).
       img.destroy();
       this.decorViews.delete(id);
       this.dirty = true;
@@ -1273,22 +1278,19 @@ export class ShopScene extends Phaser.Scene {
     });
   }
 
-  /** While arranging: free tiles for the item in hand (green), its target (gold), or every movable item's tile. */
+  /**
+   * While arranging: free tiles or wall cells for the item in hand (green) and its target (gold), or every movable
+   * item's spot.
+   */
   private drawTiles() {
     const g = (this.tileGrid ??= this.add.graphics().setDepth(DEPTH.actors - 0.6));
     g.clear();
     const fit = this.roomFit;
     if (!fit || !this.ctl.arranging) return;
     const { decor, decorAt } = this.ctl.save;
-    const diamond = (t: TilePos, fill: number, alpha: number, line: number) => {
-      const inset = 0.03;
-      const pts = [
-        [t.gx + inset, t.gy + inset],
-        [t.gx + 1 - inset, t.gy + inset],
-        [t.gx + 1 - inset, t.gy + 1 - inset],
-        [t.gx + inset, t.gy + 1 - inset],
-      ].map(([gx, gy]) => {
-        const c = toCanvas(fit, gridToImage(gx, gy));
+    const cell = (pos: DecorPos, fill: number, alpha: number, line: number) => {
+      const pts = outline(pos, 0.03).map((ip) => {
+        const c = toCanvas(fit, ip);
         return new Phaser.Math.Vector2(c.x, c.y);
       });
       g.fillStyle(fill, alpha).fillPoints(pts, true);
@@ -1296,11 +1298,11 @@ export class ShopScene extends Phaser.Scene {
     };
     const d = this.dragging;
     if (d) {
-      for (const t of placeableTiles(d.id, this.L)) if (canPlace(d.id, t, decor, decorAt, this.L)) diamond(t, 0x9be39b, 0.22, 0x5aa55a);
-      if (d.tile) for (const t of footprint(d.id, d.tile)) diamond(t, 0xffd54a, 0.5, 0xc99a1a);
+      for (const p of placeable(d.id, this.L)) if (canPlace(d.id, p, decor, decorAt, this.L)) cell(p, 0x9be39b, 0.22, 0x5aa55a);
+      if (d.pos) for (const p of footprint(d.id, d.pos)) cell(p, 0xffd54a, 0.5, 0xc99a1a);
       return;
     }
-    for (const id of decor) if (isDecorId(id) && isMovable(id)) for (const t of footprint(id, decorTile(id, decorAt))) diamond(t, 0xffd54a, 0.35, 0xc99a1a);
+    for (const id of decor) if (isDecorId(id) && isMovable(id)) for (const p of footprint(id, decorPos(id, decorAt))) cell(p, 0xffd54a, 0.35, 0xc99a1a);
   }
 
   /** Arranging mode toggles: decor takes drags only then, and the tiles show. */
@@ -1320,7 +1322,7 @@ export class ShopScene extends Phaser.Scene {
     const order = s.selectedOrder;
     this.cupView.render(s.cup, order, this.ctl.save.settings.hints);
     const ticket = this.ctl.arranging
-      ? { title: "Sắp xếp quán", lines: "Kéo đồ trang trí trên sàn để đổi chỗ. Ô xanh là chỗ trống." }
+      ? { title: "Sắp xếp quán", lines: "Kéo đồ trên sàn hoặc tranh treo tường để đổi chỗ. Ô xanh là chỗ trống." }
       : presentTicket(this.ctl.phase, order, s.cup);
     this.ticketTitle.setText(ticket.title);
     this.ticketLines.setText(ticket.lines);

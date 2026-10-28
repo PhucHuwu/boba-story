@@ -1,7 +1,7 @@
 import type { ShopResult } from "./economy";
-import type { SaveData, TilePos } from "./types";
+import type { DecorPos, SaveData, TilePos, WallPos } from "./types";
 
-export type DecorId = "decor_lanterns" | "decor_rug" | "decor_monstera" | "decor_painting" | "decor_plushies" | "decor_chalkboard";
+export type DecorId = "decor_lanterns" | "decor_rug" | "decor_monstera" | "decor_painting" | "decor_plushies" | "decor_chalkboard" | "decor_clock" | "decor_poster";
 export type DecorEffect = "tip" | "patience" | "spawn";
 
 export interface DecorDef {
@@ -35,6 +35,8 @@ export const DECOR: DecorDef[] = [
   },
   { id: "decor_plushies", name: "Kệ thú bông", cost: 220, effect: "spawn", amount: 0.04, description: "Dễ thương hút khách: khách đến nhanh hơn 4%.", minReputation: 30, lockText: "Cần 30 danh tiếng" },
   { id: "decor_chalkboard", name: "Bảng menu phấn", cost: 250, effect: "tip", amount: 0.05, description: "Menu vẽ tay xinh xắn: tiền tip tăng 5%.", minReputation: 40, lockText: "Cần 40 danh tiếng" },
+  { id: "decor_clock", name: "Đồng hồ mèo", cost: 160, effect: "patience", amount: 0.04, description: "Đuôi lắc tích tắc: mèo khách kiên nhẫn hơn 4%.", minReputation: 20, lockText: "Cần 20 danh tiếng" },
+  { id: "decor_poster", name: "Poster trà sữa", cost: 200, effect: "spawn", amount: 0.03, description: "Quảng cáo bắt mắt: khách đến nhanh hơn 3%.", minReputation: 35, lockText: "Cần 35 danh tiếng" },
 ];
 
 export const DECOR_BY_ID = Object.fromEntries(DECOR.map((d) => [d.id, d])) as Record<DecorId, DecorDef>;
@@ -58,14 +60,26 @@ export function buyDecor(save: SaveData, id: string): ShopResult {
 /** Size of the shop floor grid (tiles per side) a decor item can be saved at. */
 export const ROOM_TILES = 10;
 
-export const isTilePos = (v: unknown): v is TilePos =>
-  typeof v === "object" && v !== null && [(v as TilePos).gx, (v as TilePos).gy].every((n) => Number.isInteger(n) && n >= 0 && n < ROOM_TILES);
+/** Wall cells along each back wall from the corner, and rows of cells up the wall. */
+export const WALL_CELLS = { along: ROOM_TILES, rows: 2 };
 
-/** Moves an owned item to a floor tile (which tiles are free is up to the room view). */
-export function placeDecor(save: SaveData, id: string, pos: TilePos): ShopResult {
+const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
+const index = (n: unknown, max: number) => Number.isInteger(n) && (n as number) >= 0 && (n as number) < max;
+
+export const isTilePos = (v: unknown): v is TilePos => isObj(v) && index(v.gx, ROOM_TILES) && index(v.gy, ROOM_TILES);
+export const isWallPos = (v: unknown): v is WallPos =>
+  isObj(v) && (v.wall === "left" || v.wall === "right") && index(v.s, WALL_CELLS.along) && index(v.h, WALL_CELLS.rows);
+
+/** A copy holding only the position's own fields. */
+export function cleanPos(pos: DecorPos): DecorPos {
+  return isWallPos(pos) ? { wall: pos.wall, s: pos.s, h: pos.h } : { gx: pos.gx, gy: pos.gy };
+}
+
+/** Moves an owned item to a floor tile or wall cell (which spots are free, and which kind fits, is up to the room view). */
+export function placeDecor(save: SaveData, id: string, pos: DecorPos): ShopResult {
   if (!isDecorId(id) || !save.decor.includes(id)) return { ok: false, reason: "Chưa sở hữu" };
-  if (!isTilePos(pos)) return { ok: false, reason: "Chỗ này không đặt được" };
-  save.decorAt[id] = { gx: pos.gx, gy: pos.gy };
+  if (!isTilePos(pos) && !isWallPos(pos)) return { ok: false, reason: "Chỗ này không đặt được" };
+  save.decorAt[id] = cleanPos(pos);
   return { ok: true };
 }
 
