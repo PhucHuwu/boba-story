@@ -23,7 +23,8 @@ import {
   decorTile,
   fitRoom,
   footprint,
-  imageToTile,
+  gridToImage,
+  imageToGrid,
   ISO_COUNTER_H,
   ISO_DECOR,
   ISO_FOOT_OFFSET,
@@ -34,8 +35,6 @@ import {
   type Prop,
   ROOM_PROPS,
   type RoomFit,
-  TILE,
-  tileToImage,
   toCanvas,
 } from "./isoGrid";
 import type { RoomStyle } from "./roomStyle";
@@ -1248,9 +1247,11 @@ export class ShopScene extends Phaser.Scene {
       if (!d || !this.roomFit) return;
       // The pointer holds the item by its foot/centre; snap that to the tile (block, for the rug) under it when free.
       const ip = canvasToImage(this.roomFit, { x: p.x, y: p.y - (ISO_DECOR[id].kind === "flat" ? 0 : 20) });
-      const t = imageToTile({ x: ip.x, y: ip.y - ((decorSpan(id) - 1) * TILE.h) / 2 });
+      const g = imageToGrid(ip);
+      const half = (decorSpan(id) - 1) / 2;
+      const t = { gx: Math.floor(g.x - half), gy: Math.floor(g.y - half) };
       const { decor, decorAt } = this.ctl.save;
-      d.tile = canPlace(id, t, decor, decorAt) ? t : null;
+      d.tile = canPlace(id, t, decor, decorAt, this.L) ? t : null;
       const at = d.tile ? toCanvas(this.roomFit, decorProp(id, d.tile).at) : { x: p.x, y: p.y };
       img.setPosition(at.x, at.y).setTint(d.tile ? 0xffffff : 0xff9a9a);
       this.drawTiles();
@@ -1280,16 +1281,22 @@ export class ShopScene extends Phaser.Scene {
     if (!fit || !this.ctl.arranging) return;
     const { decor, decorAt } = this.ctl.save;
     const diamond = (t: TilePos, fill: number, alpha: number, line: number) => {
-      const c = toCanvas(fit, tileToImage(t.gx, t.gy));
-      const hw = (TILE.w / 2) * fit.k - 3;
-      const hh = (TILE.h / 2) * fit.k - 1.5;
-      const pts = [new Phaser.Math.Vector2(c.x, c.y - hh), new Phaser.Math.Vector2(c.x + hw, c.y), new Phaser.Math.Vector2(c.x, c.y + hh), new Phaser.Math.Vector2(c.x - hw, c.y)];
+      const inset = 0.03;
+      const pts = [
+        [t.gx + inset, t.gy + inset],
+        [t.gx + 1 - inset, t.gy + inset],
+        [t.gx + 1 - inset, t.gy + 1 - inset],
+        [t.gx + inset, t.gy + 1 - inset],
+      ].map(([gx, gy]) => {
+        const c = toCanvas(fit, gridToImage(gx, gy));
+        return new Phaser.Math.Vector2(c.x, c.y);
+      });
       g.fillStyle(fill, alpha).fillPoints(pts, true);
       g.lineStyle(2, line, 0.7).strokePoints(pts, true, true);
     };
     const d = this.dragging;
     if (d) {
-      for (const t of placeableTiles(d.id)) if (canPlace(d.id, t, decor, decorAt)) diamond(t, 0x9be39b, 0.22, 0x5aa55a);
+      for (const t of placeableTiles(d.id, this.L)) if (canPlace(d.id, t, decor, decorAt, this.L)) diamond(t, 0x9be39b, 0.22, 0x5aa55a);
       if (d.tile) for (const t of footprint(d.id, d.tile)) diamond(t, 0xffd54a, 0.5, 0xc99a1a);
       return;
     }
