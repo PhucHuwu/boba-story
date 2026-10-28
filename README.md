@@ -1,6 +1,6 @@
 # Boba Story 🧋🐾
 
-Game 2D ấm áp về một quán trà sữa nhỏ — mọi vị khách đều là **mèo hai chân**. Người chơi tự tay pha từng ly
+Game 2.5D ấm áp về một quán trà sữa nhỏ — mọi vị khách đều là **mèo hai chân**. Người chơi tự tay pha từng ly
 (rót trà, sữa, bơm đường, xúc đá, thêm topping, lắc, dán nắp) rồi đưa cho đúng mèo khách. Thiết kế chi tiết: [`GDD.md`](GDD.md).
 
 - Chơi trên trình duyệt: điện thoại (dọc), iPad dọc và iPad ngang — mỗi loại có bố cục riêng, tự đổi khi xoay máy.

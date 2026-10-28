@@ -299,7 +299,7 @@ Giai đoạn 1, phòng isometric (gpt-image-2.5 Flare medium trên fal, nền tr
 - [x] `iso_decor_painting_{l,r}`, `iso_decor_clock_{l,r}`, `iso_decor_poster_{l,r}`: đồ treo tường, không gọi model mà lấy ảnh 2D (`decor_*`) rồi nghiêng theo độ dốc tường trái/phải bằng sharp `affine` (kind `skew` trong `gen-assets.mjs`); game chọn bản `_l` hay `_r` theo tường đang treo
 
 Giai đoạn 2b, quầy pha chế liền khối (gpt-image-2.5 Flare medium trên fal, không dùng ref vì ref làm quầy bị vẽ chéo theo phòng):
-- [x] `iso_counter_phone` (720×632), `iso_counter_tablet` (960×682), `iso_counter_landscape` (780×1150): quầy 3 bậc nhìn thẳng, có ván lưng phía trên và lỗ đặt ly ở bậc giữa; cắt `cover` neo mép trên theo đúng kích thước `worktop` của từng bố cục. Mép bậc đo trên ảnh ghi trong `isoBench.ts`, trạm/ly/phiếu đặt theo đó (chỉ khi `?room=iso`; 2D giữ nguyên)
+- [x] `iso_counter_phone` (720×632), `iso_counter_tablet` (960×682), `iso_counter_landscape` (780×1150): quầy 3 bậc nhìn thẳng, có ván lưng phía trên và lỗ đặt ly ở bậc giữa; cắt `cover` neo mép trên theo đúng kích thước `worktop` của từng bố cục. Mép bậc đo trên ảnh ghi trong `isoBench.ts`, trạm/ly/phiếu đặt theo đó (mặc định; `?room=flat` về bản 2D, bố cục cũ giữ nguyên)
 - [x] 13 trạm vẽ lại cùng góc nhìn với quầy, nền trong suốt: `iso_tea_black/green/oolong`, `iso_milk`, `iso_sugar`, `iso_ice`, `iso_cup_stack`, `iso_top_boba/jelly/pudding`, `iso_sealer`, `iso_trash`, `iso_shaker`
 - [x] 8 trạng thái đang dùng (edit từ ảnh gốc): `iso_tea_*_pour`, `iso_milk_pour`, `iso_sugar_press`, `iso_ice_scoop`, `iso_sealer_press`, `iso_shaker_shake`
 - Ở chế độ iso không tải `worktop`, `cup_coaster` và 21 ảnh trạm 2D; ở chế độ 2D không tải ảnh `iso_*`

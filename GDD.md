@@ -38,7 +38,7 @@ Trải nghiệm cần tạo cảm giác ấm áp, dễ thương, thư giãn như
 
 - **Nền tảng:** Web, chạy trong trình duyệt.
 - **Chế độ:** Single-player.
-- **Góc nhìn:** First-person 2D — góc nhìn từ vị trí chủ quán phía sau quầy, không phải camera nhìn từ trên xuống.
+- **Góc nhìn:** 2.5D — phòng isometric có mèo khách đi lại ở trên, quầy pha chế nhìn thẳng từ vị trí chủ quán ở dưới.
 - **Đồ họa:** 2D cartoon, màu sắc ấm áp, hình khối rõ ràng, animation dễ thương.
 - **Nhịp độ:** Kết hợp giờ cao điểm có áp lực với thời gian chuẩn bị và quản lý thư giãn.
 - **Đối tượng:** Người chơi yêu thích game cozy, mô phỏng, quản lý cửa hàng và động vật dễ thương.
@@ -143,9 +143,9 @@ Tạm dừng phải dừng đồng hồ game, bộ đếm thời gian và hành 
 
 ### 5.1. Góc nhìn
 
-Dùng một khung cảnh 2D cố định nhìn từ vị trí chủ quán phía sau quầy. Phía bên kia quầy là các mèo khách nhân hóa đứng bằng hai chân. Phần trước màn hình là bàn pha chế, dụng cụ và nguyên liệu.
+Khung cảnh cố định nhìn từ vị trí chủ quán phía sau quầy. Phía bên kia quầy là các mèo khách nhân hóa đứng bằng hai chân. Phần trước màn hình là bàn pha chế, dụng cụ và nguyên liệu.
 
-Bản 2.5D (thử nghiệm, bật bằng `?room=iso`): phía trên là một căn phòng isometric (sàn ô gỗ, 2 tường sau, cửa ra vào), mèo khách đi từ cửa tới đứng sau quầy; phía dưới là quầy pha chế liền khối: một quầy gỗ 3 bậc (bậc sau: bình trà, sữa, đá; bậc giữa: ly, đường, lỗ đặt ly, máy dán nắp; bậc trước: topping, bình lắc, thùng rác), dụng cụ vẽ cùng góc nhìn với quầy, phiếu đơn là mẩu giấy nhỏ ghim ở mép bậc giữa. Ở màn chuẩn bị, người chơi bấm nút "Sắp xếp" để kéo thả đồ trang trí: đồ đứng/trải sàn (thảm, kệ thú bông, monstera, bảng menu) sang ô sàn khác, đồ treo (tranh Mochi, đồng hồ mèo, poster trà sữa) sang ô tường khác trên hai tường sau (mỗi tường 2 tầng ô, trừ chỗ cửa sổ, kệ lọ, cửa ra vào và tranh lá có sẵn); đèn lồng cố định. Đồ sàn không lên tường và ngược lại; đồ đứng không chồng lên nhau hay lên bàn, thảm được nằm dưới; mỗi ô tường một món. Vị trí lưu trong save v5 (`decorAt`: ô sàn `{gx, gy}` hoặc ô tường `{wall, s, h}`), thiếu thì dùng chỗ mặc định.
+Bản 2.5D (mặc định; `?room=flat` quay về bản 2D cận cảnh cũ): phía trên là một căn phòng isometric (sàn ô gỗ, 2 tường sau, cửa ra vào), mèo khách đi từ cửa tới đứng sau quầy; phía dưới là quầy pha chế liền khối: một quầy gỗ 3 bậc (bậc sau: bình trà, sữa, đá; bậc giữa: ly, đường, lỗ đặt ly, máy dán nắp; bậc trước: topping, bình lắc, thùng rác), dụng cụ vẽ cùng góc nhìn với quầy, phiếu đơn là mẩu giấy nhỏ ghim ở mép bậc giữa. Ở màn chuẩn bị, người chơi bấm nút "Sắp xếp" để kéo thả đồ trang trí: đồ đứng/trải sàn (thảm, kệ thú bông, monstera, bảng menu) sang ô sàn khác, đồ treo (tranh Mochi, đồng hồ mèo, poster trà sữa) sang ô tường khác trên hai tường sau (mỗi tường 2 tầng ô, trừ chỗ cửa sổ, kệ lọ, cửa ra vào và tranh lá có sẵn); đèn lồng cố định. Đồ sàn không lên tường và ngược lại; đồ đứng không chồng lên nhau hay lên bàn, thảm được nằm dưới; mỗi ô tường một món. Vị trí lưu trong save v5 (`decorAt`: ô sàn `{gx, gy}` hoặc ô tường `{wall, s, h}`), thiếu thì dùng chỗ mặc định.
 
 Không triển khai di chuyển nhân vật tự do bằng WASD trong MVP. Dùng các điểm tương tác cố định (hotspots) để kiểm soát phạm vi và giảm độ phức tạp.
 
