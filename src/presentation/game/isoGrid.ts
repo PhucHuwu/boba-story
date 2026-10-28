@@ -78,21 +78,62 @@ export interface Prop {
   kind: "floor" | "wall" | "flat" | "hanging";
 }
 
+/** Tile of the little table (a fixed piece of furniture decor can't stand on). */
+const TABLE_TILE: TilePos = { gx: 3, gy: 6 };
+
 /** Furniture every shop has. */
 export const ROOM_PROPS: Prop[] = [
   { key: "iso_shelf", at: { x: 110, y: 400 }, w: 190, kind: "wall" },
-  { key: "iso_table", at: { x: 300, y: 760 }, w: 250, kind: "floor" },
+  { key: "iso_table", at: { x: tileToImage(TABLE_TILE.gx, TABLE_TILE.gy).x, y: tileToImage(TABLE_TILE.gx, TABLE_TILE.gy).y + TILE.h * 0.3 }, w: 250, kind: "floor" },
 ];
 
-/** Bought decor at its default spot. Floor and flat items can be dragged to another tile (see decorProp). */
-export const ISO_DECOR: Record<DecorId, Prop> = {
-  decor_rug: { key: "iso_decor_rug", at: { x: 620, y: 690 }, w: 300, kind: "flat" },
+/** A floor prop stands a little in front of its tile centre so it reads as being on that tile. */
+const FOOT_DY = TILE.h * 0.3;
+
+/** Tiles per side an item covers (the rug lies over a 2×2 block, anchored at its back tile). */
+const SPAN: Partial<Record<DecorId, number>> = { decor_rug: 2 };
+export const decorSpan = (id: DecorId) => SPAN[id] ?? 1;
+
+/** Image point of an item standing (floor) or lying (flat) on the block whose back tile is `t`. */
+function tileAnchor(id: DecorId, kind: Prop["kind"], t: TilePos): Point {
+  const half = (decorSpan(id) - 1) / 2;
+  const c = tileToImage(t.gx + half, t.gy + half);
+  return kind === "flat" ? c : { x: c.x, y: c.y + FOOT_DY };
+}
+
+/** Back tile of the block an item at image point `p` (as from tileAnchor) sits on. */
+export function anchorToTile(id: DecorId, p: Point): TilePos {
+  const half = (decorSpan(id) - 1) / 2;
+  const kind = ISO_DECOR_ART[id].kind;
+  const c = { x: p.x, y: p.y - (kind === "flat" ? 0 : FOOT_DY) - half * TILE.h };
+  return imageToTile(c);
+}
+
+/** Default tiles of the items that stand or lie on the floor (all inside placeableTiles). */
+export const DEFAULT_TILES: Partial<Record<DecorId, TilePos>> = {
+  decor_rug: { gx: 2, gy: 2 },
+  decor_plushies: { gx: 0, gy: 2 },
+  decor_monstera: { gx: 5, gy: 1 },
+  decor_chalkboard: { gx: 1, gy: 0 },
+};
+
+const ISO_DECOR_ART: Record<DecorId, Omit<Prop, "at"> & { at?: Point }> = {
+  decor_rug: { key: "iso_decor_rug", w: 300, kind: "flat" },
   decor_lanterns: { key: "iso_decor_lanterns", at: { x: 560, y: 330 }, w: 330, kind: "hanging" },
   decor_painting: { key: "iso_decor_painting", at: { x: 255, y: 395 }, w: 80, kind: "wall" },
-  decor_plushies: { key: "iso_decor_plushies", at: { x: 400, y: 545 }, w: 110, kind: "floor" },
-  decor_monstera: { key: "iso_decor_monstera", at: { x: 905, y: 670 }, w: 160, kind: "floor" },
-  decor_chalkboard: { key: "iso_decor_chalkboard", at: { x: 600, y: 490 }, w: 80, kind: "floor" },
+  decor_plushies: { key: "iso_decor_plushies", w: 110, kind: "floor" },
+  decor_monstera: { key: "iso_decor_monstera", w: 160, kind: "floor" },
+  decor_chalkboard: { key: "iso_decor_chalkboard", w: 80, kind: "floor" },
 };
+
+/** Bought decor at its default spot: floor and flat items sit on a tile (and can be dragged, see decorProp). */
+export const ISO_DECOR = Object.fromEntries(
+  (Object.keys(ISO_DECOR_ART) as DecorId[]).map((id) => {
+    const a = ISO_DECOR_ART[id];
+    const t = DEFAULT_TILES[id];
+    return [id, { ...a, at: t ? tileAnchor(id, a.kind, t) : a.at! }];
+  }),
+) as Record<DecorId, Prop>;
 
 /** Sprite origin for each kind of prop (see Prop.at). */
 export const PROP_ORIGIN: Record<Prop["kind"], [number, number]> = {
@@ -107,29 +148,26 @@ export const PROP_ORIGIN: Record<Prop["kind"], [number, number]> = {
 /** Items that stand or lie on the floor can be moved; wall and ceiling ones stay put. */
 export const isMovable = (id: DecorId) => ISO_DECOR[id].kind === "floor" || ISO_DECOR[id].kind === "flat";
 
-/** A floor prop stands a little in front of its tile centre so it reads as being on that tile. */
-const FOOT_DY = TILE.h * 0.3;
-
-function tileAnchor(kind: Prop["kind"], t: TilePos): Point {
-  const c = tileToImage(t.gx, t.gy);
-  return kind === "flat" ? c : { x: c.x, y: c.y + FOOT_DY };
-}
-
 /** The prop for an owned item, at the player's tile when one is saved. */
 export function decorProp(id: DecorId, at?: TilePos): Prop {
   const p = ISO_DECOR[id];
-  return at && isMovable(id) ? { ...p, at: tileAnchor(p.kind, at) } : p;
+  return at && isMovable(id) ? { ...p, at: tileAnchor(id, p.kind, at) } : p;
 }
 
 /** Tile an item occupies now (its saved tile, else the one under its default spot). */
 export function decorTile(id: DecorId, decorAt: Readonly<Record<string, TilePos>>): TilePos {
-  const p = ISO_DECOR[id];
-  return decorAt[id] ?? imageToTile({ x: p.at.x, y: p.at.y - (p.kind === "flat" ? 0 : FOOT_DY) });
+  return decorAt[id] ?? DEFAULT_TILES[id] ?? anchorToTile(id, ISO_DECOR[id].at);
 }
 
-export function canvasToTile(fit: RoomFit, p: Point): TilePos {
-  return imageToTile({ x: (p.x - fit.x) / fit.k, y: (p.y - fit.y) / fit.k });
+/** Every tile an item covers when its back tile is `t`. */
+export function footprint(id: DecorId, t: TilePos): TilePos[] {
+  const n = decorSpan(id);
+  const out: TilePos[] = [];
+  for (let dy = 0; dy < n; dy++) for (let dx = 0; dx < n; dx++) out.push({ gx: t.gx + dx, gy: t.gy + dy });
+  return out;
 }
+
+export const canvasToImage = (fit: RoomFit, p: Point): Point => ({ x: (p.x - fit.x) / fit.k, y: (p.y - fit.y) / fit.k });
 
 /** Clear of the HUD, the screen sides and the queue in front of the counter, on every layout. */
 const SAFE = { side: 45, aboveCounter: 100 };
@@ -143,15 +181,16 @@ function onScreenEverywhere(t: TilePos): boolean {
   });
 }
 
-/** Tiles an item may be dropped on (the big rug keeps one tile off the walls so it doesn't climb them). */
+/** Back tiles an item may be dropped on: its whole block on screen (the rug also keeps one tile off the walls). */
 export function placeableTiles(id: DecorId): TilePos[] {
   const margin = ISO_DECOR[id].kind === "flat" ? 1 : 0;
   const out: TilePos[] = [];
-  for (let gy = margin; gy < ROOM_TILES; gy++) for (let gx = margin; gx < ROOM_TILES; gx++) if (onScreenEverywhere({ gx, gy })) out.push({ gx, gy });
+  for (let gy = margin; gy < ROOM_TILES; gy++)
+    for (let gx = margin; gx < ROOM_TILES; gx++) if (footprint(id, { gx, gy }).every(onScreenEverywhere)) out.push({ gx, gy });
   return out;
 }
 
-const FIXED_FLOOR: TilePos[] = ROOM_PROPS.filter((p) => p.kind === "floor").map((p) => imageToTile({ x: p.at.x, y: p.at.y - FOOT_DY }));
+const FIXED_FLOOR: TilePos[] = [TABLE_TILE];
 const same = (a: TilePos, b: TilePos) => a.gx === b.gx && a.gy === b.gy;
 
 /**
@@ -160,7 +199,6 @@ const same = (a: TilePos, b: TilePos) => a.gx === b.gx && a.gy === b.gy;
  */
 export function canPlace(id: DecorId, t: TilePos, owned: readonly string[], decorAt: Readonly<Record<string, TilePos>>): boolean {
   if (!isMovable(id)) return false;
-  // Dropping back where it already is is always fine, even if a default spot lies outside the shared safe area.
   if (same(decorTile(id, decorAt), t)) return true;
   if (!placeableTiles(id).some((p) => same(p, t))) return false;
   if (ISO_DECOR[id].kind === "flat") return true;

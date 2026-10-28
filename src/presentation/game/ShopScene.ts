@@ -17,10 +17,13 @@ import { accessoryPlacement } from "./catLooks";
 import { DECOR_SPOTS } from "./decorSpots";
 import {
   canPlace,
-  canvasToTile,
+  canvasToImage,
   decorProp,
+  decorSpan,
   decorTile,
   fitRoom,
+  footprint,
+  imageToTile,
   ISO_COUNTER_H,
   ISO_DECOR,
   ISO_FOOT_OFFSET,
@@ -1243,8 +1246,9 @@ export class ShopScene extends Phaser.Scene {
     img.on("drag", (p: Phaser.Input.Pointer) => {
       const d = this.dragging;
       if (!d || !this.roomFit) return;
-      // The pointer holds the item by its foot/centre; snap that to the tile under it when free.
-      const t = canvasToTile(this.roomFit, { x: p.x, y: p.y - (ISO_DECOR[id].kind === "flat" ? 0 : 20) });
+      // The pointer holds the item by its foot/centre; snap that to the tile (block, for the rug) under it when free.
+      const ip = canvasToImage(this.roomFit, { x: p.x, y: p.y - (ISO_DECOR[id].kind === "flat" ? 0 : 20) });
+      const t = imageToTile({ x: ip.x, y: ip.y - ((decorSpan(id) - 1) * TILE.h) / 2 });
       const { decor, decorAt } = this.ctl.save;
       d.tile = canPlace(id, t, decor, decorAt) ? t : null;
       const at = d.tile ? toCanvas(this.roomFit, decorProp(id, d.tile).at) : { x: p.x, y: p.y };
@@ -1286,10 +1290,10 @@ export class ShopScene extends Phaser.Scene {
     const d = this.dragging;
     if (d) {
       for (const t of placeableTiles(d.id)) if (canPlace(d.id, t, decor, decorAt)) diamond(t, 0x9be39b, 0.22, 0x5aa55a);
-      if (d.tile) diamond(d.tile, 0xffd54a, 0.5, 0xc99a1a);
+      if (d.tile) for (const t of footprint(d.id, d.tile)) diamond(t, 0xffd54a, 0.5, 0xc99a1a);
       return;
     }
-    for (const id of decor) if (isDecorId(id) && isMovable(id)) diamond(decorTile(id, decorAt), 0xffd54a, 0.35, 0xc99a1a);
+    for (const id of decor) if (isDecorId(id) && isMovable(id)) for (const t of footprint(id, decorTile(id, decorAt))) diamond(t, 0xffd54a, 0.35, 0xc99a1a);
   }
 
   /** Arranging mode toggles: decor takes drags only then, and the tiles show. */

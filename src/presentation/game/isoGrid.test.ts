@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  anchorToTile,
   canPlace,
+  DEFAULT_TILES,
+  footprint,
   decorProp,
   decorTile,
   FLOOR_ORIGIN,
@@ -83,12 +86,26 @@ describe("arranging decor", () => {
       expect(canPlace(id, decorTile(id, {}), owned, {})).toBe(true);
   });
 
+  it("default spots sit exactly on the grid, inside the placeable tiles", () => {
+    for (const id of ["decor_monstera", "decor_plushies", "decor_chalkboard", "decor_rug"] as const) {
+      const t = DEFAULT_TILES[id]!;
+      expect(placeableTiles(id)).toContainEqual(t);
+      expect(ISO_DECOR[id].at).toEqual(decorProp(id, t).at);
+      expect(anchorToTile(id, ISO_DECOR[id].at)).toEqual(t);
+    }
+  });
+
+  it("the rug covers a 2x2 block centred on its footprint", () => {
+    expect(footprint("decor_rug", { gx: 2, gy: 2 })).toHaveLength(4);
+    expect(decorProp("decor_rug", { gx: 2, gy: 2 }).at).toEqual(tileToImage(2.5, 2.5));
+  });
+
   it("a saved tile maps back to the same tile", () => {
     for (const id of ["decor_monstera", "decor_rug"] as const) {
       const t = { gx: 2, gy: 1 };
       const p = decorProp(id, t);
       expect(decorTile(id, { [id]: t })).toEqual(t);
-      expect(imageToTile({ x: p.at.x, y: p.kind === "flat" ? p.at.y : p.at.y - 24 })).toEqual(t);
+      expect(anchorToTile(id, p.at)).toEqual(t);
     }
   });
 
